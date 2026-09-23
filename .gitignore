@@ -33,3 +33,35 @@ dist/
 # Temporary files
 *.tmp
 *.temp
+
+# ---------------------------------------------------------------------------
+# StoreMind: media, models and runtime state must never be committed.
+# CLAUDE.md privacy rules and videos/README.md both require this.  Videos stay
+# on the laptop; only the small ground-truth CSVs and the SOURCE.txt credit
+# files travel with the repo.
+# ---------------------------------------------------------------------------
+videos/**
+!videos/**/
+!videos/**/*.md
+!videos/**/*.csv
+!videos/**/SOURCE.txt
+!videos/**/*_truth.json
+!videos/**/*_detections.json
+
+# Model weights are large and separately licensed - fetch them, do not vendor.
+models/
+*.pt
+*.tflite
+*.onnx
+*.engine
+*.param
+*.bin
+*.hef
+
+# Runtime state
+*.db
+*.db-wal
+*.db-shm
+storemind/data/
+storemind/runs/
+snapshots/

@@ -1,8 +1,10 @@
 """Forecast lead time - does the door really warn us before the queue does?
 
-This is the measurement behind novelty N1.  Everything else in the queue module
-is competent engineering; this is the claim that is actually new, so it needs the
-harshest test we can write.
+This is the measurement behind research/03 pillar N1.  The idea itself is not
+new - Irisys patent US7778855B2 and products from Irisys and Xovis already do
+predictive checkout staffing from entrance counts, with dedicated sensors (see
+research/22).  What we have to show is that it works on ordinary CCTV, offline,
+with the lag learned rather than configured - so the test has to be harsh.
 
 Method
 

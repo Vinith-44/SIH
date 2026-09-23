@@ -131,3 +131,107 @@ script on the Pi.
 ### Commits
 - `19ded61` M0–M2: core pipeline, queue intelligence and Erlang-C forecast
 - `5ce7e4e` M3 (partial): evaluation harness, ground-truth tooling, detector fast path
+
+---
+
+## 2026-09-24 — Session 3 (Claude Code): M3 finished, CAVIAR (bucket A), M4, M5
+
+### Repository note
+The git repo had moved to `C:\SIH` and was tracking the 16 CAVIAR clips, `vtest.avi`,
+the synthetic clips and four model binaries (~200 MB). CLAUDE.md and
+`videos/README.md` both forbid committing video, so these were untracked with
+`git rm --cached` (nothing deleted from disk) and `.gitignore` extended. The blobs
+remain in the history of the initial commit; removing them needs a history rewrite,
+which is the team's call before this is pushed anywhere.
+
+### M3 — finished
+- `eval/legacy_baseline.py` re-implements the legacy algorithm parameter for
+  parameter from `shopper_analytics_config.json`. Two deviations, both favouring
+  the legacy: it gets the same calibrated counting line as the new pipeline, and
+  its cooldown uses video time.
+- `eval/run_all.py` → `eval/results/RESULTS.md`, every row labelled with its data
+  bucket, machine specs, and the exact command per section.
+
+### CAVIAR — the first real accuracy numbers (bucket A)
+16 clips (8 scenarios × 2 views), 15.9 min, 111 annotated people, real YOLO11n at
+8 FPS / 640 input. Ground truth derived from the published CVML trajectories.
+
+| metric | StoreMind | legacy | target |
+|---|---|---|---|
+| entries counted (truth 30) | **33** | 95 | — |
+| exits counted (truth 21) | **24** | 75 | — |
+| entry count accuracy | **90.0%** | 0.0% | ≥ 90% |
+| exit count accuracy | **85.7%** | — | ≥ 90% (**missed**) |
+| entry event P / R / F1 | **0.85 / 0.93 / 0.89** | F1 0.16 | — |
+| exit event P / R / F1 | 0.71 / 0.81 / 0.76 | — | — |
+| mean crossing timing error | **0.33 s** | — | — |
+| people-in-frame MAE | **0.65 people** | — | ≤ 1–2 |
+| detection match rate (IoU ≥ 0.4) | 74.4% | — | — |
+| ID switches | **63** over 13,721 boxes | 1,398 track IDs for 111 people | — |
+
+Command: `python -m storemind.eval.eval_caviar --json data/caviar_full.json`
+
+**We over-count in both directions and miss the exit target.** Event precision
+(0.85 entry, 0.71 exit) shows the cause is extra crossings, not missed ones —
+consistent with people loitering near a mall-corridor line. This is stated in
+RESULTS.md rather than left for a reader to notice.
+
+Counting lines were placed on evidence, not guesswork: ground-truth trajectories
+were overlaid on a busy frame (`tools/caviar_preview.py`) and the crossing count
+checked for stability against the annotation-jitter margin. Corridor y = 0.75
+gives 33 GT crossings, unchanged at 4 px and 8 px margins; front y = 0.45 across
+the shop doorway gives 18, and those can be cross-checked against CAVIAR's own
+activity labels (10 "shop enter", 7 "shop exit" episodes). Both recorded in
+`configs/caviar.yaml`.
+
+Detector input size was chosen on measured recall against the annotation, not by
+guessing: imgsz 320 → 0.728, 448 → 0.756, **640 → 0.814**, with negligible false
+positives at every setting.
+
+### Two measurement bugs found and fixed
+1. **Detection match rate counted frames the pipeline never processed.** The
+   entrance camera runs at 8 FPS on 25 FPS footage, so two frames in three were
+   scored as misses: 18.6% reported versus **74.4%** actual. Accuracy figures
+   were unaffected. The field is now `gt_boxes_in_processed_frames`.
+2. **Speed numbers are not comparable across runs.** The same benchmark command
+   on the same clip measured 27.5 ms and 159 ms per frame on different days —
+   laptop thermal/power state, a ~5× swing. RESULTS.md now says so and all speed
+   rows are generated in one run.
+
+### Detector speed (bucket S — no ground truth, speed only)
+`vtest.avi`, 768×576, 100 frames, quiet machine:
+
+| backend | input | ms/frame | FPS | det/frame |
+|---|---|---|---|---|
+| ultralytics yolo11n.pt | 320 | 27.9 | 35.4 | 4.34 |
+| ultralytics yolo11n.pt | 416 | 44.0 | 22.6 | 4.44 |
+| ultralytics yolo11n.pt | 640 | 101.1 | 9.9 | 4.73 |
+| ultralytics yolo26n.pt | 640 | 92.1 | 10.8 | 4.73 |
+| litert efficientdet_lite0 (legacy) | 320 | 19.3 | 50.9 | 4.20 |
+
+### M5 — API and dashboard
+FastAPI REST + WebSocket, one offline HTML/CSS/JS page, no CDN, inline SVG charts,
+polling fallback. Verified live: acknowledge persists; "Mark restocked" captured
+4 slot references and flipped slot A1 from EMPTY to FULL. Endpoints all return
+200 (`/`, `/api/state`, `/api/events`, `/api/series`, `/api/health`,
+`/api/heatmap.png`, static assets).
+
+### M4 — calibration tool
+`tools/calibrate.py`: click the counting line, zones, lanes, billing spots, shelf
+slots (with SKU and price) and the floor-plan quad; writes YAML that validates
+against the config schema and merges into an existing file. Covered by tests.
+
+### PPT assets (`C:\SIH\ppt_assets`)
+`caviar_before_after.png`, `caviar_tracking.png`, `forecast_timeline.png` (all
+generated from evaluation JSON only, palette validated with the dataviz
+validator), plus `vtest_overlay.mp4` and `entrance_overlay.mp4` with stills.
+
+### Prior-art correction (research/22)
+`research/22_GEMINI_RESEARCH_REVIEW.md` establishes that door-to-counter
+predictive staffing is **not** novel — Irisys patent US7778855B2 (2010) and
+products from Irisys and Xovis. All "novelty N1" wording in the code, RESULTS.md
+and the forecast chart was rewritten: the contribution is existing CCTV, offline
+operation, ~₹15–25k, and a lag learned automatically rather than configured.
+
+### Tests
+`python -m pytest tests/ -q` → **124 passed**.

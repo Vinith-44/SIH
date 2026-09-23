@@ -191,8 +191,10 @@ def forecast_chart(forecast: dict, truth_json: Path, out: Path) -> Path | None:
     ax.set_ylim(0, top)
     ax.set_xlim(0, max(times) if times else 25)
     figure.text(0.01, 0.005,
-                "Data bucket C - simulation. Proves the logic; it is not a real-store "
-                "accuracy measurement.", color=INK_3, fontsize=7.5)
+                "Data bucket C - simulation: proves the logic, not real-store accuracy. "
+                "Predictive checkout staffing is prior art (Irisys US7778855B2, Xovis); "
+                "ours runs on existing CCTV, offline, and learns the lag itself.",
+                color=INK_3, fontsize=7.5)
     figure.tight_layout()
     out.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(out, facecolor=SURFACE, bbox_inches="tight")

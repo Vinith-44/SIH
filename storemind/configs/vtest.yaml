@@ -1,0 +1,34 @@
+# OpenCV's vtest.avi - real pedestrians in a plaza, Apache-2.0 with the OpenCV
+# repository. There is NO ground truth for this clip, so it is used for speed
+# measurement and for a demo overlay only. Any accuracy number from it would be
+# unfounded (research/09b: "Demo only").
+store: vtest-demo
+node: laptop
+
+detector:
+  backend: ultralytics
+  model: ../models/yolo11n.pt
+  conf: 0.35
+  imgsz: 640
+
+tracker:
+  frame_rate: 10
+
+alerts:
+  console: false
+
+storage:
+  db_path: data/vtest.db
+
+cameras:
+  - name: plaza
+    source: ../videos/other/vtest.avi
+    role: entrance
+    fps: 10
+    line:
+      name: walkway
+      a: [0.05, 0.62]
+      b: [0.95, 0.62]
+      margin_px: 12
+      entry_direction: pos
+      cooldown_s: 3.0

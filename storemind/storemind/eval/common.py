@@ -312,6 +312,7 @@ BUCKETS = {
     "A": "public benchmark with published ground truth",
     "B": "our own field recording, hand-labelled",
     "C": "simulation - logic validation only, NOT an accuracy measurement",
+    "S": "no ground truth - speed measurement only, never an accuracy claim",
 }
 
 

@@ -1,4 +1,4 @@
-"""Door-to-counter queue forecasting - novelty pillar N1.
+"""Door-to-counter queue forecasting (research/03 pillar N1).
 
 The idea (research/03 N1): the entrance camera is a *leading indicator* of the
 billing counter.  People entering now reach a counter roughly one shopping trip
@@ -17,6 +17,15 @@ Three pieces:
     not yet observed a whole lag).
 3.  `erlang_c` / `recommend_counters` - M/M/c queueing.  Smallest number of
     counters that keeps P(wait > target) under a threshold.
+
+Prior art matters here and research/22 checked it: predictive checkout
+staffing from entrance counts is NOT new.  Irisys patent US7778855B2 (2010)
+does exactly this with dedicated overhead sensors plus POS data, and both
+Irisys and Xovis sell it to big-box retailers.  So this is never described as
+"first" or "novel".  What is ours: the same proven idea on a shop's EXISTING
+CCTV and a ~Rs 15-25k box, fully offline, with the door-to-counter lag learned
+automatically by cross-correlation rather than configured, and no
+re-identification anywhere.
 
 Honesty note for the viva: Erlang-C assumes Poisson arrivals, exponential service
 times, no balking and a shared queue.  Indian kirana checkout is not exactly any

@@ -8,6 +8,13 @@ Two rules from CLAUDE.md are enforced here:
     shoppers.  (The old PPT claimed blurring that the code did not do.  It does
     now, and only here - the analytics see the unblurred frame in RAM.)
 
+Limitation, stated because it is visible in the output: the blur follows the
+**detector**. A person the detector misses is not blurred. That is fine for an
+engineer's debug window and for a demo clip of a public plaza, but it is not a
+privacy guarantee and must never be presented as one. The actual privacy
+guarantee is different and much stronger: frames are never written to disk at
+all, so there is nothing to blur in the first place.
+
 Nothing in this module writes to disk.
 """
 

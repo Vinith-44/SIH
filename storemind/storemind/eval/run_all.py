@@ -8,6 +8,7 @@ bucket its data came from.**
 * **C** - simulation. Proves the *logic* is correct because we know the true
   answer. It is **not** an accuracy measurement and must never be presented as
   one.
+* **S** - real footage with no ground truth: speed only, never accuracy.
 
 A row with no ground truth prints the system's output and says "not measured
 yet" for accuracy, rather than quietly disappearing.
@@ -121,12 +122,18 @@ def synthetic_shelf() -> Section:
 def forecast() -> Section:
     from .eval_forecast import evaluate
 
-    section = Section("Door-to-counter queue forecast (novelty N1) - simulated rush", "C",
+    section = Section("Door-to-counter queue forecast - simulated rush", "C",
                       "Two synchronised 25-minute clips on one timeline with a 6-minute "
                       "shopping-trip lag built in. The forecaster only ever sees ENTRY events "
                       "and the counter's own queue events - it is never told the lag. "
                       "Simulation is the *right* tool here: it is the only way to know the "
-                      "true lag and the true congestion onset exactly.")
+                      "true lag and the true congestion onset exactly.\n\n"
+                      "**Prior art, checked (research/22): this idea is not new.** Irisys "
+                      "patent US7778855B2 (2010) predicts checkout staffing from entrance "
+                      "counts, and Irisys and Xovis both sell it to big-box retailers with "
+                      "dedicated overhead sensors. Never claim \"first\". The contribution is "
+                      "doing it on a shop's existing CCTV and a ~Rs 15-25k offline box, with "
+                      "the door-to-counter lag learned automatically instead of configured.")
     report = evaluate("configs/rush.yaml", "entrance", "checkout", backend="scripted")
     section.row("entries detected at the door", str(report["entries_detected"]), "-")
     section.row("congestion onset (ground truth)",
@@ -200,12 +207,17 @@ def benchmark() -> Section:
     from .benchmark import DEFAULT_MATRIX, bench_one, load_frames
 
     clip = VIDEOS / "other" / "vtest.avi"
-    section = Section("Detector speed - real pedestrian footage", "A",
+    section = Section("Detector speed - real pedestrian footage", "S",
                       "OpenCV's `vtest.avi` sample (Apache-2.0), 768x576, real people in a "
                       "plaza. It has **no ground truth**, so this measures speed only, never "
-                      "accuracy. Laptop numbers; the Pi 5 must be measured on the Pi.")
+                      "accuracy - `det/frame` is shown so a backend that is fast because it "
+                      "finds nothing is obvious, not as a correctness score.\n\n"
+                      "These are laptop numbers and the Pi 5 must be measured on the Pi. "
+                      "They also move with the laptop's thermal and power state: the same "
+                      "command on the same clip measured 27 ms and 159 ms per frame on "
+                      "different days of this work. Compare rows within one run, never "
+                      "across runs.")
     frames = load_frames(str(clip), 100)
-    section.rows.append(("backend / model / input", "infer ms | FPS | det/frame", ""))
     for backend, model, imgsz in DEFAULT_MATRIX:
         if model and not (REPO / model.replace("../", "../")).is_file() \
                 and not Path(model).is_file():
@@ -215,8 +227,8 @@ def benchmark() -> Section:
         except SystemExit:
             continue
         section.row(f"{row['backend']} {row['model']} @{row['imgsz']}",
-                    f"{row['infer_ms_mean']} ms | {row['fps']} FPS | "
-                    f"{row['detections_per_frame']} det/frame", "-")
+                    f"{row['infer_ms_mean']} ms/frame &middot; {row['fps']} FPS &middot; "
+                    f"{row['detections_per_frame']} detections/frame", "-")
     section.commands.append(
         "python -m storemind.eval.benchmark --source ../videos/other/vtest.avi --frames 100")
     return section
@@ -228,7 +240,9 @@ def caviar() -> Section | None:
         from .eval_caviar import run_all_clips
     except ImportError:
         return None
-    return run_all_clips()
+    # A full pass is about an hour of real inference. Reuse the stored run if
+    # there is one; delete data/caviar_full.json to force a fresh measurement.
+    return run_all_clips(cache=REPO / "data" / "caviar_full.json")
 
 
 # --------------------------------------------------------------------------- #
@@ -291,6 +305,7 @@ def main(argv: list[str] | None = None) -> int:
         "| **B** | our own field recording, hand-labelled by the team | real accuracy claims |",
         "| **C** | simulation with known ground truth | proving the logic is correct - "
         "**never** an accuracy claim |",
+        "| **S** | real footage, no ground truth | speed only - **never** an accuracy claim |",
         "",
         "This follows `research/09b_TEST_DATA_VALIDITY.md`. A simulation can only ever show "
         "that the arithmetic is right; it cannot show that the system works in a shop.",

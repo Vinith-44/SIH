@@ -269,7 +269,15 @@ def pool(reports: list[dict], key: str) -> dict:
 # --------------------------------------------------------------------------- #
 
 def run_all_clips(views: tuple[str, ...] = VIEWS, with_legacy: bool = True,
-                  caviar_dir: Path = CAVIAR_DIR) -> Section | None:
+                  caviar_dir: Path = CAVIAR_DIR, cache: Path | None = None) -> Section | None:
+    """Score every clip.  A full pass is ~16 clips of real inference, so a cached
+    result is reused when one exists - otherwise regenerating RESULTS.md would
+    mean re-running an hour of detection for numbers that have not changed."""
+    if cache is not None and cache.is_file():
+        payload = json.loads(cache.read_text(encoding="utf-8"))
+        print(f"    reusing {cache}", flush=True)
+        return build_section(payload.get("per_clip", []), payload.get("legacy", []))
+
     if not caviar_dir.is_dir() or not any(caviar_dir.glob("*.mpg")):
         return None
 
@@ -281,7 +289,13 @@ def run_all_clips(views: tuple[str, ...] = VIEWS, with_legacy: bool = True,
             reports.append(run_clip(scenario, view, caviar_dir=caviar_dir))
             if with_legacy:
                 legacy_reports.append(run_legacy_clip(scenario, view, caviar_dir=caviar_dir))
+    return build_section(reports, legacy_reports)
 
+
+def build_section(reports: list[dict], legacy_reports: list[dict]) -> Section | None:
+    if not reports:
+        return None
+    views = sorted({r["view"] for r in reports})
     section = Section(
         "Entry / exit counting on real footage - CAVIAR shopping centre", "A",
         f"{len(reports)} clips ({len(SCENARIOS)} scenarios x {len(views)} camera views), "
@@ -345,6 +359,26 @@ def run_all_clips(views: tuple[str, ...] = VIEWS, with_legacy: bool = True,
         section.row("legacy entry event F1", fmt(legacy_entry["f1"]), "-")
         section.row("legacy track IDs created",
                     str(sum(r["track_ids_created"] for r in legacy_reports)), "-")
+
+    # Say plainly what missed target. A table where the reader has to spot the
+    # failure themselves is a table that is hoping they will not.
+    entry_accuracy = accuracy_from_counts(total_in, total_gt_in)
+    exit_accuracy = accuracy_from_counts(total_out, total_gt_out)
+    misses = []
+    if entry_accuracy is not None and entry_accuracy < 0.90:
+        misses.append(f"entry count accuracy {entry_accuracy * 100:.1f}%")
+    if exit_accuracy is not None and exit_accuracy < 0.90:
+        misses.append(f"exit count accuracy {exit_accuracy * 100:.1f}%")
+    if misses:
+        section.note += (
+            "\n\n**Did not meet target: " + "; ".join(misses) + " (target >= 90%).** "
+            "We over-count in both directions - "
+            f"{total_in} entries against {total_gt_in} and {total_out} exits against "
+            f"{total_gt_out} - and the event-level precision figures below show where it "
+            "comes from: extra crossings, not missed ones. The likely cause is people "
+            "loitering near the line in a mall corridor, which a shop doorway sees far "
+            "less of. Do not present the entry figure as 'meets target' without the exit "
+            "figure beside it.")
 
     section.commands.append("python -m storemind.eval.eval_caviar")
     section.per_clip = reports          # type: ignore[attr-defined]

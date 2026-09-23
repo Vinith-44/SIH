@@ -1,4 +1,4 @@
-"""Erlang-C and the door-to-counter lag estimator (novelty N1).
+"""Erlang-C and the door-to-counter lag estimator (research/03 pillar N1).
 
 Erlang-C values are checked against numbers that can be verified by hand from the
 M/M/c formula, so a refactor that silently breaks the staffing recommendation

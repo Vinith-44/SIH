@@ -1,0 +1,4 @@
+video_time_s,direction,note
+63.52,in,"shop enter, gt_track=1"
+72.60,out,"shop exit, gt_track=1"
+82.92,in,"shop enter, gt_track=4"

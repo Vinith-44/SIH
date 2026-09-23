@@ -83,7 +83,11 @@ def count_id_switches(gt_by_frame: dict[int, list], pred_by_frame: dict[int, lis
     switches = 0
     matched = 0
     gt_total = 0
-    for frame in sorted(gt_by_frame):
+    # Only frames the pipeline actually looked at. The entrance camera runs at
+    # 8 FPS on 25 FPS footage, so two frames in three are never seen; counting
+    # those as misses would report a match rate three times worse than reality
+    # and would say nothing about the detector.
+    for frame in sorted(set(gt_by_frame) & set(pred_by_frame)):
         gt_boxes = gt_by_frame[frame]
         predictions = pred_by_frame.get(frame, [])
         gt_total += len(gt_boxes)
@@ -108,7 +112,8 @@ def count_id_switches(gt_by_frame: dict[int, list], pred_by_frame: dict[int, lis
             if previous is not None and previous != pred_id:
                 switches += 1
             last_id[gt_track] = pred_id
-    return {"id_switches": switches, "matched_boxes": matched, "gt_boxes": gt_total,
+    return {"id_switches": switches, "matched_boxes": matched,
+            "gt_boxes_in_processed_frames": gt_total,
             "match_rate": matched / gt_total if gt_total else None}
 
 
@@ -298,7 +303,7 @@ def run_all_clips(views: tuple[str, ...] = VIEWS, with_legacy: bool = True,
     exit_pooled = pool(reports, "exit_event")
     switches = sum(r["tracking"]["id_switches"] for r in reports)
     matched = sum(r["tracking"]["matched_boxes"] for r in reports)
-    gt_boxes = sum(r["tracking"]["gt_boxes"] for r in reports)
+    gt_boxes = sum(r["tracking"]["gt_boxes_in_processed_frames"] for r in reports)
     people_mae = [r["people_in_frame_mae"] for r in reports if r["people_in_frame_mae"] is not None]
     timing = [r["mean_timing_error_s"] for r in reports if r["mean_timing_error_s"] is not None]
 
@@ -324,9 +329,9 @@ def run_all_clips(views: tuple[str, ...] = VIEWS, with_legacy: bool = True,
                 fmt(statistics.mean(people_mae) if people_mae else None, 2, " people"),
                 "<= 1-2")
     section.row("detection match rate (IoU >= 0.4)",
-                pct(matched / gt_boxes if gt_boxes else None), "-")
-    section.row("**ID switches** (ByteTrack)", f"**{switches}** over {gt_boxes} annotated boxes",
-                "-")
+                pct(matched / gt_boxes if gt_boxes else None) + " of annotated people", "-")
+    section.row("**ID switches** (ByteTrack)",
+                f"**{switches}** over {gt_boxes:,} annotated boxes in processed frames", "-")
 
     if legacy_reports:
         legacy_in = sum(r["predicted"]["entries"] for r in legacy_reports)

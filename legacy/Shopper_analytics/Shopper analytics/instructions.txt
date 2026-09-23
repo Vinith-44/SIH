@@ -1,0 +1,10 @@
+Download this for real-time laptop analytics:
+/kaggle/working/shopper_analytics/poc_session_01/1.tflite
+
+put these in the same file 
+1.tflite
+live_shopper_analytics.py
+shopper_analytics_config.json
+
+run : 
+py live_shopper_analytics.py --config shopper_analytics_config.json

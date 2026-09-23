@@ -1,0 +1,44 @@
+# StoreMind - pinned so the laptop, the Pi and the judges' machine agree.
+# Tested on Python 3.11 (Windows 11) with the venv at storemind/.venv.
+#
+# Raspberry Pi 5 notes (see deploy/pi/README_PI.md):
+#   * create the venv with --system-site-packages so Picamera2 is visible;
+#   * opencv-python builds slowly on ARM - prefer `sudo apt install python3-opencv`;
+#   * install torch/ultralytics only if you run the .pt model directly.  For
+#     production the model is exported to NCNN and ultralytics loads it without
+#     torch on the inference path.
+
+# --- core ---------------------------------------------------------------- #
+numpy==2.4.6
+opencv-python==5.0.0.93
+PyYAML==6.0.3
+pydantic==2.13.5
+
+# --- vision -------------------------------------------------------------- #
+torch==2.14.0
+torchvision==0.29.0
+ultralytics==8.4.160        # AGPL-3.0 - see research/06 section 2 on licensing
+supervision==0.30.5
+trackers==2.6.0             # ByteTrackTracker (supervision.ByteTrack is deprecated)
+onnxruntime==1.30.0
+
+# --- api + dashboard ----------------------------------------------------- #
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+Jinja2==3.1.6
+
+# --- storage, hardware, alerts ------------------------------------------- #
+pyserial==3.5               # STM32 sensor node over UART/RS-485
+psutil==7.2.2               # health service
+pyttsx3==2.99               # offline English TTS (Hindi/Telugu use recorded clips)
+
+# --- analysis + tests ---------------------------------------------------- #
+scipy==1.17.1
+matplotlib==3.11.2          # evaluation charts and PPT assets only
+pytest==9.1.1
+
+# --- optional, install only when used ------------------------------------ #
+# ai-edge-litert            # TFLite backend (replaces the deprecated tf.lite)
+# paho-mqtt                 # real MQTT broker instead of the in-process bus
+# qai-hub                   # Qualcomm AI Hub compile/profile (tools/qai_hub_profile.py)
+# picamera2                 # Raspberry Pi CSI camera (apt, not pip)

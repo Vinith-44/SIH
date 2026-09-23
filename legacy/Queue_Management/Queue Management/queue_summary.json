@@ -1,0 +1,10 @@
+{
+  "timestamp": "2026-09-05T18:57:35.575431+00:00",
+  "queue_count_excluding_billing": 1,
+  "average_wait_seconds": 23.9,
+  "max_wait_seconds": 23.9,
+  "predicted_queue_count": 2.5,
+  "service_starts": 6,
+  "average_completed_wait_seconds": 0.8,
+  "fps": 10.0
+}

@@ -1,0 +1,8 @@
+video_time_s,shelf,slot,state
+0.0,shelf-a,A1,FULL
+45.0,shelf-a,A1,EMPTY
+0.0,shelf-a,A2,FULL
+90.0,shelf-a,A2,EMPTY
+0.0,shelf-a,A3,FULL
+120.0,shelf-a,A3,EMPTY
+0.0,shelf-a,B1,FULL

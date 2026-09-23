@@ -1,0 +1,37 @@
+# StoreMind — never commit media, models, databases or environments
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# privacy: no video, frames or snapshots in git (CLAUDE.md privacy rules)
+videos/
+*.mp4
+*.avi
+*.mkv
+*.mov
+snapshots/
+*.jpg
+*.jpeg
+*.png
+!storemind/api/static/**/*.png
+!ppt_assets/**/*.png
+
+# models are large / licensed separately
+models/
+*.pt
+*.tflite
+*.onnx
+*.engine
+*.param
+*.bin
+
+# runtime state
+*.db
+*.db-wal
+*.db-shm
+data/
+runs/
+*.log

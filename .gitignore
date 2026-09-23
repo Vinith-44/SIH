@@ -1,0 +1,35 @@
+# Python environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets / environment files
+.env
+.env.*
+!.env.example
+
+# IDE / OS files
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Build / distribution
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp

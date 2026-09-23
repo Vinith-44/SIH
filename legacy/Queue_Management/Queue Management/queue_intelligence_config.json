@@ -1,0 +1,19 @@
+{
+  "camera_source": 0,
+  "model_path": "1.tflite",
+  "person_class_id": 0,
+  "detection_threshold": 0.45,
+  "num_threads": 4,
+  "queue_zone": [[0.08, 0.10], [0.92, 0.10], [0.92, 0.95], [0.08, 0.95]],
+  "service_zone": [[0.10, 0.75], [0.90, 0.75], [0.90, 0.99], [0.10, 0.99]],
+  "queue_threshold_excluding_billing": 3,
+  "threshold_persistence_seconds": 15.0,
+  "long_wait_seconds": 60.0,
+  "prediction_window_seconds": 20.0,
+  "prediction_horizon_seconds": 30.0,
+  "buzzer_cooldown_seconds": 15.0,
+  "tracker_max_distance_px": 100,
+  "tracker_max_misses": 12,
+  "event_log_path": "queue_events.jsonl",
+  "summary_path": "queue_summary.json"
+}

@@ -1,0 +1,142 @@
+# StoreMind demo configuration - the three synthetic scenes.
+#
+# All geometry is NORMALISED (0..1 of frame width/height), so the same numbers
+# work on a 960x540 test clip and on a 640x360 CCTV sub-stream.
+# `tools/calibrate.py` writes files in exactly this shape by clicking on a
+# snapshot; nothing here should ever be hand-tuned in production.
+
+store: bvrit-demo
+node: pi5-01
+
+detector:
+  backend: ultralytics
+  model: ../models/yolo11n.pt
+  conf: 0.35
+  iou: 0.5
+  imgsz: 640
+  person_class: 0
+  num_threads: 4
+
+tracker:
+  track_activation_threshold: 0.25
+  lost_track_buffer: 30
+  minimum_matching_threshold: 0.8
+  frame_rate: 8
+
+forecast:
+  target_wait_min: 3.0        # staff target: nobody waits more than 3 minutes
+  max_prob_over_target: 0.2   # ... for more than 20% of shoppers
+  max_counters: 8
+  min_lag_min: 1
+  max_lag_min: 40
+  conversion: 0.6             # share of entrants who reach a billing counter
+  default_service_s: 90.0     # used until a real service time has been measured
+  period_s: 60.0
+
+shelf:
+  method: reference           # label-free (N2). "detector" once the SKU model exists.
+  embed_threshold: 0.75
+
+alerts:
+  cooldown_s: 120.0
+  escalate_after_s: 300.0
+  console: true
+  sound: false
+  voice_enabled: false
+  voice_lang: en
+
+storage:
+  db_path: data/storemind.db
+  retention_days: 30
+
+api:
+  host: 0.0.0.0
+  port: 8000
+
+sensors:
+  enabled: false
+  port: COM5
+  baud: 115200
+  tcp: null
+  cell_map:
+    shelf-a/A1: "1"          # load-cell channel 1 sits under slot A1
+
+mqtt:
+  enabled: false
+
+cameras:
+  - name: entrance
+    source: ../videos/entrance/synthetic_entrance.mp4
+    role: entrance
+    fps: 12
+    line:
+      name: door
+      a: [0.02, 0.50]
+      b: [0.98, 0.50]
+      margin_px: 14          # hysteresis band: audit item S3
+      entry_direction: pos   # walking down the frame = entering the store
+      cooldown_s: 3.0
+    zones:
+      - name: promo-endcap
+        kind: promo
+        points: [[0.60, 0.58], [0.92, 0.58], [0.92, 0.92], [0.60, 0.92]]
+        min_dwell_s: 3.0
+    floor_plan:
+      # 4 image points -> 4 floor-plan points in metres.  Placeholder mapping for
+      # the synthetic clip; tools/calibrate.py writes the real one per camera.
+      image_points: [[0.10, 0.40], [0.90, 0.40], [0.98, 0.98], [0.02, 0.98]]
+      plan_points: [[1.0, 1.0], [7.0, 1.0], [7.0, 6.0], [1.0, 6.0]]
+      plan_width: 8.0
+      plan_height: 8.0
+      cell_size: 0.5
+
+  - name: counter-1
+    source: ../videos/queue/synthetic_queue.mp4
+    role: counter
+    fps: 5
+    counters:
+      - name: counter-1
+        # The lane is a LANE, not the whole frame (audit item Q1).
+        lane: [[0.45, 0.50], [0.66, 0.50], [0.66, 0.99], [0.45, 0.99]]
+        billing: [[0.47, 0.27], [0.64, 0.27], [0.64, 0.44], [0.47, 0.44]]
+        min_service_s: 3.0
+        gap_tolerance_s: 2.0
+        open: true
+
+  - name: shelf-a
+    source: ../videos/shelf/synthetic_shelf.mp4
+    role: shelf
+    fps: 1
+    shelf_period_s: 5.0        # one frame every 5 s for the demo; 30-60 s in a store
+    zones:
+      - name: front-of-A1
+        kind: shelf_front
+        points: [[0.08, 0.90], [0.34, 0.90], [0.34, 1.0], [0.08, 1.0]]
+        min_dwell_s: 5.0
+        shelf: shelf-a
+        slot: A1
+    shelves:
+      - name: shelf-a
+        low_threshold: 0.45
+        empty_threshold: 0.18
+        vote_k: 2
+        vote_n: 3
+        occlusion_iou: 0.05
+        auto_reference_s: 1.0   # the synthetic shelf starts fully stocked
+        slots:
+          - name: A1
+            points: [[0.10, 0.22], [0.30, 0.22], [0.30, 0.55], [0.10, 0.55]]
+            sku: Atta 5kg
+            price: 260.0
+          - name: A2
+            points: [[0.34, 0.22], [0.54, 0.22], [0.54, 0.55], [0.34, 0.55]]
+            sku: Toor Dal 1kg
+            price: 165.0
+          - name: A3
+            points: [[0.58, 0.22], [0.78, 0.22], [0.78, 0.55], [0.58, 0.55]]
+            sku: Biscuits pack
+            price: 30.0
+          - name: B1
+            points: [[0.10, 0.60], [0.30, 0.60], [0.30, 0.90], [0.10, 0.90]]
+            sku: Soap bar
+            price: 45.0

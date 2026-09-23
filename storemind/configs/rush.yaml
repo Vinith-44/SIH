@@ -1,0 +1,80 @@
+# The door-to-counter forecast scenario (novelty N1).
+#
+# Two synchronised 25-minute clips: an entrance camera and a two-counter
+# checkout.  A rush starts at the door around t = 7 min; the checkout only feels
+# it about 6 minutes later.  `storemind.eval.eval_forecast` measures how far in
+# advance StoreMind recommended opening another counter.
+#
+# Generate the clips first:
+#   python tools/make_synthetic_video.py --out ../videos --scene rush
+
+store: bvrit-demo
+node: pi5-01
+
+detector:
+  backend: ultralytics
+  model: ../models/yolo11n.pt
+  conf: 0.35
+  imgsz: 640
+
+tracker:
+  track_activation_threshold: 0.25
+  lost_track_buffer: 30
+  minimum_matching_threshold: 0.8
+  frame_rate: 8
+
+forecast:
+  target_wait_min: 3.0
+  max_prob_over_target: 0.2
+  max_counters: 8
+  min_lag_min: 1
+  max_lag_min: 20
+  conversion: 0.7        # measured for this scene; a real store learns it from POS
+  default_service_s: 48.0
+  period_s: 60.0
+
+alerts:
+  cooldown_s: 300.0
+  escalate_after_s: 600.0
+  console: true
+  sound: false
+  voice_enabled: false
+
+storage:
+  db_path: data/rush.db
+
+api:
+  port: 8000
+
+cameras:
+  - name: entrance
+    source: ../videos/rush/synthetic_rush_entrance.mp4
+    role: entrance
+    fps: 8
+    line:
+      name: door
+      a: [0.02, 0.50]
+      b: [0.98, 0.50]
+      margin_px: 10
+      entry_direction: pos
+      cooldown_s: 3.0
+
+  - name: checkout
+    source: ../videos/rush/synthetic_rush_counter.mp4
+    role: counter
+    fps: 4
+    counters:
+      - name: counter-1
+        lane:    [[0.22, 0.38], [0.42, 0.38], [0.42, 1.00], [0.22, 1.00]]
+        billing: [[0.24, 0.22], [0.40, 0.22], [0.40, 0.40], [0.24, 0.40]]
+        min_service_s: 3.0
+        gap_tolerance_s: 2.0
+        open: true
+        congestion_len: 4
+      - name: counter-2
+        lane:    [[0.58, 0.38], [0.78, 0.38], [0.78, 1.00], [0.58, 1.00]]
+        billing: [[0.60, 0.22], [0.76, 0.22], [0.76, 0.40], [0.60, 0.40]]
+        min_service_s: 3.0
+        gap_tolerance_s: 2.0
+        open: true
+        congestion_len: 4

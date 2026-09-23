@@ -1,0 +1,129 @@
+{
+  "shoppers": [
+    {
+      "shopper": 1,
+      "joined_s": 3.0,
+      "service_start_s": 6.0,
+      "service_s": 28.8,
+      "wait_s": 3.0
+    },
+    {
+      "shopper": 2,
+      "joined_s": 12.29,
+      "service_start_s": 34.8,
+      "service_s": 18.91,
+      "wait_s": 22.51
+    },
+    {
+      "shopper": 3,
+      "joined_s": 24.55,
+      "service_start_s": 53.71,
+      "service_s": 21.11,
+      "wait_s": 29.15
+    },
+    {
+      "shopper": 4,
+      "joined_s": 35.35,
+      "service_start_s": 74.82,
+      "service_s": 29.7,
+      "wait_s": 39.46
+    },
+    {
+      "shopper": 5,
+      "joined_s": 56.84,
+      "service_start_s": 104.52,
+      "service_s": 19.74,
+      "wait_s": 47.68
+    },
+    {
+      "shopper": 6,
+      "joined_s": 72.11,
+      "service_start_s": 124.26,
+      "service_s": 16.75,
+      "wait_s": 52.15
+    },
+    {
+      "shopper": 7,
+      "joined_s": 94.03,
+      "service_start_s": 141.01,
+      "service_s": 19.9,
+      "wait_s": 46.99
+    }
+  ],
+  "queue_every_10s": [
+    [
+      0,
+      0
+    ],
+    [
+      10,
+      0
+    ],
+    [
+      20,
+      1
+    ],
+    [
+      30,
+      2
+    ],
+    [
+      40,
+      2
+    ],
+    [
+      50,
+      2
+    ],
+    [
+      60,
+      2
+    ],
+    [
+      70,
+      2
+    ],
+    [
+      80,
+      2
+    ],
+    [
+      90,
+      2
+    ],
+    [
+      100,
+      3
+    ],
+    [
+      110,
+      2
+    ],
+    [
+      120,
+      2
+    ],
+    [
+      130,
+      1
+    ],
+    [
+      140,
+      1
+    ],
+    [
+      150,
+      0
+    ],
+    [
+      160,
+      0
+    ],
+    [
+      170,
+      0
+    ]
+  ],
+  "lane_x_norm": 0.55,
+  "billing_y_norm": 0.34
+}

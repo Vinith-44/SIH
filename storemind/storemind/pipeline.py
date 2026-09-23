@@ -1,0 +1,553 @@
+"""The StoreMind pipeline.
+
+One process, clear module boundaries (04 section 3 says "start as one Python
+process with threads ... keep the same module boundaries so it can be split
+later").  Each camera gets a `CameraPipeline`; the `Pipeline` merges them onto one
+timeline and drives storage, alerts, fusion and health.
+
+Replay determinism
+------------------
+With file sources the runner does **not** read cameras round-robin at whatever
+speed each decodes.  It keeps one pending frame per camera and always processes
+the one with the smallest video timestamp, advancing a single `VideoClock` to it.
+That reproduces what the cameras would have seen simultaneously, and makes a
+replay run byte-for-byte repeatable - which is the only way `eval/RESULTS.md` can
+mean anything.
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+
+import cv2
+
+from .alerts.manager import AlertManager, build_alert_manager
+from .analytics.footfall import FootfallCounter
+from .analytics.heatmap import FloorHeatmap
+from .analytics.queue import CounterSpec, QueueEngine
+from .analytics.shelf import ShelfEngine, SlotSpec
+from .analytics.zones import ZoneEngine, ZoneSpec
+from .core.bus import EventBus, MqttBus
+from .core.clock import Clock, VideoClock, WallClock
+from .core.config import CameraConfig, StoreMindConfig
+from .core.events import Event, EventType, Severity
+from .core.geometry import Line, Polygon
+from .fusion.forecast import Forecaster
+from .fusion.fusion import FusionEngine
+from .health.monitor import HealthMonitor, TamperDetector
+from .ingest.sources import Frame, FpsScheduler, FrameSource, open_source
+from .inference.detector import Detector, build_detector
+from .store.db import EventStore
+from .tracking.tracker import Tracker, build_tracker
+
+log = logging.getLogger(__name__)
+
+
+@dataclass
+class CameraPipeline:
+    """Everything that is per-camera: source, tracker, engines, geometry."""
+
+    config: CameraConfig
+    source: FrameSource
+    tracker: Tracker
+    scheduler: FpsScheduler
+    store: str
+    node: str
+
+    line: Line | None = None
+    footfall: FootfallCounter | None = None
+    zones: ZoneEngine | None = None
+    heatmap: FloorHeatmap | None = None
+    queue: QueueEngine | None = None
+    shelf: ShelfEngine | None = None
+    tamper: TamperDetector | None = None
+
+    shelf_method: str = "reference"
+    frame_size: tuple[int, int] | None = None
+    shelf_reference_taken: bool = False
+    pending: Frame | None = None
+    processed: int = 0
+    decoded: int = 0
+    finished: bool = False
+    infer_ms: list[float] = field(default_factory=list)
+    last_tracks: list = field(default_factory=list)
+
+    # -- lazy geometry ---------------------------------------------------- #
+    def resolve_geometry(self, width: int, height: int) -> None:
+        """Config coordinates are normalised; convert once the frame size is known."""
+        if self.frame_size is not None:
+            return
+        self.frame_size = (width, height)
+        cfg = self.config
+
+        if cfg.line is not None:
+            self.line = Line(cfg.line.name, tuple(cfg.line.a), tuple(cfg.line.b),
+                             cfg.line.margin_px).resolve(width, height)
+            self.footfall = FootfallCounter(
+                self.line, entry_direction=cfg.line.entry_direction,
+                cooldown_s=cfg.line.cooldown_s, store=self.store, node=self.node, cam=cfg.name)
+
+        if cfg.zones:
+            specs = [
+                ZoneSpec(
+                    polygon=Polygon(z.name, [tuple(p) for p in z.points], z.kind).resolve(width, height),
+                    min_dwell_s=z.min_dwell_s, shelf=z.shelf, slot=z.slot,
+                )
+                for z in cfg.zones
+            ]
+            self.zones = ZoneEngine(specs, store=self.store, node=self.node, cam=cfg.name)
+
+        if cfg.counters:
+            specs = [
+                CounterSpec(
+                    name=c.name,
+                    lane=Polygon(f"{c.name}-lane", [tuple(p) for p in c.lane], "lane").resolve(width, height),
+                    billing=Polygon(f"{c.name}-billing", [tuple(p) for p in c.billing], "billing").resolve(width, height),
+                    min_service_s=c.min_service_s, gap_tolerance_s=c.gap_tolerance_s,
+                    open=c.open, congestion_len=c.congestion_len,
+                )
+                for c in cfg.counters
+            ]
+            self.queue = QueueEngine(specs, store=self.store, node=self.node, cam=cfg.name)
+
+        if cfg.shelves:
+            self.shelf = ShelfEngine(
+                [
+                    (
+                        s.name,
+                        [SlotSpec(polygon=Polygon(slot.name, [tuple(p) for p in slot.points], "slot").resolve(width, height),
+                                  sku=slot.sku, price=slot.price,
+                                  reference_facings=slot.reference_facings)
+                         for slot in s.slots],
+                        s,
+                    )
+                    for s in cfg.shelves
+                ],
+                store=self.store, node=self.node, cam=cfg.name,
+                method=self.shelf_method,
+                reference_dir=next((s.reference_dir for s in cfg.shelves if s.reference_dir), None),
+            )
+
+        if cfg.role == "entrance" or cfg.floor_plan is not None:
+            self.heatmap = FloorHeatmap.from_config(cfg.floor_plan, (width, height))
+
+        if cfg.reference_frame:
+            path = Path(cfg.reference_frame)
+            if path.is_file():
+                self.tamper = TamperDetector.from_file(path)
+            else:
+                log.warning("camera %s: reference frame %s missing, tamper detection off",
+                            cfg.name, path)
+
+    # -- geometry accessors for the overlay ------------------------------- #
+    def lane_polygons(self) -> list[Polygon]:
+        return [c.spec.lane for c in self.queue.counters.values()] if self.queue else []
+
+    def billing_polygons(self) -> list[Polygon]:
+        return [c.spec.billing for c in self.queue.counters.values()] if self.queue else []
+
+    def zone_polygons(self) -> list[Polygon]:
+        return [z.polygon for z in self.zones.zones.values()] if self.zones else []
+
+    def slot_polygons(self) -> list[Polygon]:
+        return self.shelf.slot_polygons() if self.shelf else []
+
+
+class Pipeline:
+    def __init__(self, config: StoreMindConfig, *, replay: bool = True, show: bool = False,
+                 detector: Detector | None = None, bus: EventBus | None = None,
+                 store: EventStore | None = None, sensor_bridge=None,
+                 realtime: bool = False, start_time=None) -> None:
+        self.config = config
+        self.show = show
+        self.replay = replay
+        self.clock: Clock = VideoClock(start=start_time) if replay else WallClock()
+        self.bus = bus or (MqttBus(config.mqtt.host, config.mqtt.port,
+                                   config.mqtt.username, config.mqtt.password)
+                           if config.mqtt.enabled else EventBus())
+        self.store = store if store is not None else EventStore(
+            config.storage.db_path, store=config.store, retention_days=config.storage.retention_days)
+        self.bus.subscribe_all(self.store.handle)
+
+        self.detector = detector or build_detector(config.detector)
+        self.sensor_bridge = sensor_bridge
+        self.alerts: AlertManager = build_alert_manager(
+            config.alerts, config.store, config.node, bridge=sensor_bridge)
+        self.health = HealthMonitor(store=config.store, node=config.node)
+        self.forecaster = Forecaster(
+            target_wait_min=config.forecast.target_wait_min,
+            max_prob_over_target=config.forecast.max_prob_over_target,
+            max_counters=config.forecast.max_counters,
+            min_lag_min=config.forecast.min_lag_min,
+            max_lag_min=config.forecast.max_lag_min,
+            conversion=config.forecast.conversion,
+            default_service_s=config.forecast.default_service_s,
+            period_s=config.forecast.period_s,
+            warmup_min=config.forecast.warmup_min,
+            store=config.store, node=config.node,
+        )
+        self.fusion = FusionEngine(store=config.store, node=config.node,
+                                   cell_map=config.sensors.cell_map)
+        self.cameras: list[CameraPipeline] = []
+        self.events_emitted = 0
+        self._fusion_cursor = 0
+        self._wire_internal_subscriptions()
+        self._build_cameras(realtime=realtime)
+
+    # ------------------------------------------------------------------ #
+    def _wire_internal_subscriptions(self) -> None:
+        """Modules talk only through events (CLAUDE.md engineering rules)."""
+
+        def on_entry(event: Event) -> None:
+            self.forecaster.note_entry(self.clock.monotonic_s())
+
+        self.bus.subscribe_types(EventType.ENTRY, on_entry)
+        self.bus.subscribe_types([EventType.SLOT_STATE, EventType.SENSOR, EventType.ZONE_VISIT],
+                                 self._fusion_input)
+        self.bus.subscribe_types(EventType.SLOT_STATE, self._on_slot_state)
+        self.bus.subscribe_types(EventType.SHRINK_FLAG, self._on_shrink)
+
+    def _on_slot_state(self, event: Event) -> None:
+        state = event.data["state"]
+        if state == "FULL":
+            return  # a refilled slot is good news, not an alert
+        shelf, slot = event.data["shelf"], event.data["slot"]
+        sku = event.data.get("sku") or slot
+        if state == "EMPTY":
+            key, severity = f"SLOT_EMPTY:{shelf}:{slot}", Severity.CRITICAL
+            message = f"{sku} is OUT OF STOCK in {shelf} slot {slot} - refill now"
+        elif state == "LOW":
+            key, severity = f"SLOT_LOW:{shelf}:{slot}", Severity.WARN
+            message = f"{sku} is running low in {shelf} slot {slot}"
+        else:
+            key, severity = f"WRONG_ITEM:{shelf}:{slot}", Severity.WARN
+            message = f"Wrong product in {shelf} slot {slot} (planogram says {sku})"
+        self._emit_all(self.alerts.raise_alert(key, message, severity, self.clock, dict(event.data)))
+
+    def _on_shrink(self, event: Event) -> None:
+        shelf, slot = event.data["shelf"], event.data["slot"]
+        self._emit_all(self.alerts.raise_alert(
+            f"SHRINK:{shelf}:{slot}",
+            f"Unexplained weight drop of {event.data.get('grams')} g at {shelf}/{slot}",
+            Severity.WARN, self.clock, dict(event.data)))
+
+    def _fusion_input(self, event: Event) -> None:
+        for produced in self.fusion.on_event(event, self.clock):
+            self._emit(produced)
+
+    def _build_cameras(self, realtime: bool) -> None:
+        for cam in self.config.cameras:
+            source = open_source(cam.source, name=cam.name, realtime=realtime, rotate=cam.rotate)
+            fps = (1.0 / cam.shelf_period_s) if cam.role == "shelf" else cam.fps
+            tracker_config = self.config.tracker.model_copy(update={"frame_rate": max(1, int(cam.fps))})
+            self.cameras.append(CameraPipeline(
+                config=cam, source=source, tracker=build_tracker(tracker_config),
+                scheduler=FpsScheduler(fps), store=self.config.store, node=self.config.node,
+                shelf_method=self.config.shelf.method))
+            self.health.camera_ok[cam.name] = True
+
+    # ------------------------------------------------------------------ #
+    def _emit(self, event: Event) -> None:
+        self.events_emitted += 1
+        self.bus.publish(event)
+
+    def _emit_all(self, events: list[Event]) -> None:
+        for event in events:
+            self._emit(event)
+
+    # ------------------------------------------------------------------ #
+    def process_frame(self, camera: CameraPipeline, frame: Frame) -> None:
+        width, height = frame.size
+        camera.resolve_geometry(width, height)
+
+        if camera.tamper is not None:
+            was = camera.tamper.tampered
+            now_tampered = camera.tamper.update(frame.image)
+            self.health.tamper[camera.config.name] = now_tampered
+            if now_tampered and not was:
+                self._emit_all(self.alerts.raise_alert(
+                    f"CAMERA_TAMPER:{camera.config.name}",
+                    f"Camera {camera.config.name} moved or blocked - counting paused",
+                    Severity.CRITICAL, self.clock,
+                    {"cam": camera.config.name, "score": round(camera.tamper.last_score, 3)}))
+            if now_tampered:
+                # Zones no longer point at what they were calibrated on, so
+                # publishing counts would be publishing fiction.
+                return
+
+        # A scripted detector replays boxes by frame index, so it must be told
+        # which frame this is - the FPS scheduler skips frames.
+        seek = getattr(self.detector, "seek", None)
+        if seek is not None:
+            seek(frame.index)
+        started = time.perf_counter()
+        detections = self.detector.detect(frame.image)
+        camera.infer_ms.append((time.perf_counter() - started) * 1000.0)
+        tracks = camera.tracker.update(detections)
+        camera.last_tracks = tracks
+        camera.processed += 1
+        self.health.tick_frame(camera.config.name, time.monotonic())
+
+        if camera.footfall is not None:
+            self._emit_all(camera.footfall.update(tracks, self.clock))
+        if camera.zones is not None:
+            self._emit_all(camera.zones.update(tracks, self.clock))
+        if camera.heatmap is not None:
+            camera.heatmap.update(tracks, self.clock, (width, height))
+        if camera.queue is not None:
+            before = len(camera.queue.checkout_arrivals)
+            self._emit_all(camera.queue.update(tracks, self.clock))
+            for stamp in camera.queue.checkout_arrivals[before:]:
+                self.forecaster.note_checkout_arrival(stamp)
+        if camera.shelf is not None:
+            self._maybe_take_shelf_reference(camera, frame)
+            self._emit_all(camera.shelf.update(frame.image, tracks, self.clock))
+
+        if self.show:
+            self._render(camera, frame, tracks)
+
+    def _maybe_take_shelf_reference(self, camera: CameraPipeline, frame: Frame) -> None:
+        """A shelf engine is blind until it has a "restocked" reference crop.
+
+        Live, that comes from the dashboard button or the STM32 `$R` line.  In
+        replay there is nobody to press it, so a camera may declare the video
+        time at which the shelf is known to be stocked.
+        """
+        if camera.shelf_reference_taken or camera.shelf is None:
+            return
+        due = min((s.auto_reference_s for s in camera.config.shelves
+                   if s.auto_reference_s is not None), default=None)
+        if due is None:
+            return
+        if self.clock.monotonic_s() + 1e-9 < due:
+            return
+        taken = camera.shelf.capture_references(frame.image)
+        camera.shelf_reference_taken = True
+        self._emit_all(camera.shelf.announce(self.clock))
+        log.info("camera %s: captured %d shelf reference crops at t=%.1fs",
+                 camera.config.name, taken, self.clock.monotonic_s())
+
+    def restock(self, camera_name: str, shelf: str | None = None) -> int:
+        """Dashboard / STM32 "Restocked" action."""
+        for camera in self.cameras:
+            if camera.config.name != camera_name or camera.shelf is None:
+                continue
+            frame = camera.pending
+            image = frame.image if frame is not None else None
+            if image is None:
+                return 0
+            taken = camera.shelf.capture_references(image, shelf)
+            self._emit_all(camera.shelf.announce(self.clock, shelf))
+            return taken
+        return 0
+
+    def _render(self, camera: CameraPipeline, frame: Frame, tracks: list) -> None:
+        from .overlay import draw
+
+        hud = [f"{camera.config.name} ({camera.config.role})  t={self.clock.monotonic_s():6.1f}s",
+               f"tracks {len(tracks)}   frames {camera.processed}"]
+        if camera.footfall is not None:
+            hud.append(f"IN {camera.footfall.entries}  OUT {camera.footfall.exits}"
+                       f"  occupancy {camera.footfall.occupancy}")
+        if camera.queue is not None:
+            for name, state in camera.queue.counters.items():
+                wait = state.median_wait_s
+                hud.append(f"{name}: len {state.queue_len} (smooth {state.queue_len_smooth:.1f})"
+                           + (f"  med wait {wait:.0f}s" if wait else ""))
+        if self.forecaster.last is not None:
+            last = self.forecaster.last
+            hud.append(f"forecast: lam {last.lambda_hat_per_min:.2f}/min -> "
+                       f"{last.recommended_counters} counters")
+        canvas = draw(frame.image, tracks=tracks, line=camera.line,
+                      zones=camera.zone_polygons(), lanes=camera.lane_polygons(),
+                      billings=camera.billing_polygons(), slots=camera.slot_polygons(), hud=hud)
+        cv2.imshow(f"StoreMind - {camera.config.name}", canvas)
+
+    # ------------------------------------------------------------------ #
+    def _periodic(self) -> None:
+        now = self.clock.monotonic_s()
+        mu = None
+        open_counters = 0
+        for camera in self.cameras:
+            if camera.queue is not None:
+                mu = camera.queue.mu_per_min() or mu
+                open_counters += camera.queue.open_counters()
+        open_counters = max(1, open_counters)
+
+        forecast_events = self.forecaster.step(now, self.clock, mu_per_min=mu,
+                                               open_counters=open_counters)
+        self._emit_all(forecast_events)
+        for event in forecast_events:
+            recommended = event.data["recommended_counters"]
+            if recommended > event.data["open_counters"]:
+                eta = event.data.get("eta_min") or 0
+                predicted = event.data.get("pred_wait_s")
+                message = (f"Open {recommended} counters"
+                           + (f" in about {eta:.0f} min" if eta else " now")
+                           + (f" (predicted wait {predicted / 60:.1f} min)" if predicted else ""))
+                self._emit_all(self.alerts.raise_alert(
+                    "QUEUE_FORECAST", message, Severity.WARN, self.clock, dict(event.data)))
+
+        # Congestion that is already happening (the forecast above warns before).
+        for camera in self.cameras:
+            if camera.queue is None:
+                continue
+            for name, state in camera.queue.counters.items():
+                if state.queue_len_smooth >= state.spec.congestion_len:
+                    self._emit_all(self.alerts.raise_alert(
+                        f"QUEUE_CONGESTED:{name}",
+                        f"{name}: {state.queue_len_smooth:.0f} people waiting now",
+                        Severity.WARN, self.clock,
+                        {"counter": name, "queue_len": state.queue_len}))
+
+        self._drain_fusion_findings()
+        self._emit_all(self.alerts.tick(self.clock))
+        self._emit_all(self.health.step(self.clock))
+        self._emit_all(self.fusion.tick(self.clock))
+
+    def _drain_fusion_findings(self) -> None:
+        """Fusion rules that need both camera and sensor evidence surface here."""
+        while self._fusion_cursor < len(self.fusion.findings):
+            finding = self.fusion.findings[self._fusion_cursor]
+            self._fusion_cursor += 1
+            if finding["type"] == "HIDDEN_DEPLETION":
+                slot = finding["slot"]
+                self._emit_all(self.alerts.raise_alert(
+                    f"HIDDEN_DEPLETION:{slot}",
+                    f"{slot} looks full to the camera but has lost "
+                    f"{finding['grams_lost']:.0f} g - the back row is empty",
+                    Severity.WARN, self.clock, finding))
+            elif finding["type"] == "CONFIRMED_OOS":
+                slot = finding["slot"]
+                self._emit_all(self.alerts.raise_alert(
+                    f"SLOT_EMPTY:{slot}",
+                    f"{slot} confirmed out of stock by camera AND load cell",
+                    Severity.CRITICAL, self.clock, finding))
+
+    # ------------------------------------------------------------------ #
+    def run(self, max_seconds: float | None = None, progress: bool = True) -> dict:
+        started_wall = time.perf_counter()
+        try:
+            if self.replay:
+                self._run_replay(max_seconds, progress)
+            else:
+                self._run_live(max_seconds)
+        except KeyboardInterrupt:
+            print("\ninterrupted", flush=True)
+        finally:
+            self._finish()
+        wall = time.perf_counter() - started_wall
+        return self.summary(wall_seconds=wall)
+
+    def _run_replay(self, max_seconds: float | None, progress: bool) -> None:
+        for camera in self.cameras:
+            camera.pending = camera.source.read()
+            if camera.pending is not None:
+                camera.decoded += 1
+        last_report = 0.0
+        while True:
+            live = [c for c in self.cameras if c.pending is not None]
+            if not live:
+                break
+            # Merge all cameras onto one timeline.
+            camera = min(live, key=lambda c: c.pending.video_s)
+            frame = camera.pending
+            if max_seconds is not None and frame.video_s > max_seconds:
+                break
+            assert isinstance(self.clock, VideoClock)
+            self.clock.advance_to(frame.video_s)
+            if camera.scheduler.should_process(frame.video_s):
+                self.process_frame(camera, frame)
+            self._periodic()
+            camera.pending = camera.source.read()
+            if camera.pending is None:
+                camera.finished = True
+            else:
+                camera.decoded += 1
+            if self.show and cv2.waitKey(1) & 0xFF in (27, ord("q")):
+                break
+            if progress and frame.video_s - last_report >= 10.0:
+                last_report = frame.video_s
+                print(f"  ... {frame.video_s:6.1f}s of video, {self.events_emitted} events",
+                      flush=True)
+
+    def _run_live(self, max_seconds: float | None) -> None:
+        started = time.monotonic()
+        while True:
+            if max_seconds is not None and time.monotonic() - started > max_seconds:
+                break
+            idle = True
+            for camera in self.cameras:
+                frame = camera.source.read()
+                if frame is None:
+                    self.health.camera_ok[camera.config.name] = getattr(camera.source, "connected", True)
+                    continue
+                idle = False
+                camera.decoded += 1
+                self.health.camera_ok[camera.config.name] = True
+                if camera.scheduler.should_process(frame.video_s):
+                    self.process_frame(camera, frame)
+            self._periodic()
+            if self.show and cv2.waitKey(1) & 0xFF in (27, ord("q")):
+                break
+            if idle:
+                time.sleep(0.005)
+
+    def _finish(self) -> None:
+        for camera in self.cameras:
+            if camera.zones is not None:
+                self._emit_all(camera.zones.flush(self.clock))
+            camera.source.close()
+        if self.show:
+            cv2.destroyAllWindows()
+        self.store.flush()
+
+    # ------------------------------------------------------------------ #
+    def summary(self, wall_seconds: float | None = None) -> dict:
+        out: dict = {
+            "store": self.config.store,
+            "node": self.config.node,
+            "detector": f"{self.config.detector.backend}:{self.config.detector.model}",
+            "events": self.events_emitted,
+            "video_seconds": round(self.clock.monotonic_s(), 2),
+            "wall_seconds": round(wall_seconds, 2) if wall_seconds else None,
+            "cameras": {},
+            "alerts": len(self.alerts.log),
+            "video_bytes_stored": self.health.video_bytes_stored,
+        }
+        for camera in self.cameras:
+            entry: dict = {
+                "role": camera.config.role,
+                "source": camera.config.source,
+                "frames_decoded": camera.decoded,
+                "frames_processed": camera.processed,
+                "target_fps": camera.scheduler.target_fps,
+            }
+            if camera.infer_ms:
+                ordered = sorted(camera.infer_ms)
+                entry["infer_ms_mean"] = round(sum(ordered) / len(ordered), 2)
+                entry["infer_ms_p95"] = round(ordered[int(0.95 * (len(ordered) - 1))], 2)
+            if camera.footfall is not None:
+                entry["entries"] = camera.footfall.entries
+                entry["exits"] = camera.footfall.exits
+                entry["occupancy"] = camera.footfall.occupancy
+            if camera.zones is not None:
+                entry["zone_visits"] = len(camera.zones.completed)
+            if camera.queue is not None:
+                entry["counters"] = camera.queue.summary()
+            if camera.shelf is not None:
+                entry["shelf"] = camera.shelf.summary()
+            if camera.heatmap is not None:
+                entry["heatmap"] = camera.heatmap.summary()
+            out["cameras"][camera.config.name] = entry
+        if self.forecaster.last is not None:
+            out["last_forecast"] = self.forecaster.last.model_dump(mode="json")
+        if wall_seconds and self.clock.monotonic_s() > 0:
+            out["replay_speed_x"] = round(self.clock.monotonic_s() / max(wall_seconds, 1e-6), 2)
+        return out
+
+    def close(self) -> None:
+        self.store.close()

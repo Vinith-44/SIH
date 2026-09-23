@@ -1,0 +1,7 @@
+# 1. In Kaggle: enable GPU, copy the training notebook, and run every cell.
+# 2. Download this Kaggle Output file:
+shelf_void_efficientdet_lite0.tflite
+
+# 3. Place it beside live_shelf_void_webcam.py on the laptop.
+py -m pip install tensorflow opencv-python numpy
+py live_shelf_void_webcam.py --model shelf_void_efficientdet_lite0.tflite

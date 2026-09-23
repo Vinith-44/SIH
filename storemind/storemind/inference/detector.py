@@ -450,6 +450,10 @@ def build_detector(config) -> Detector:
     if backend == "stub":
         return StubDetector()
     if backend == "scripted":
+        if not config.model:
+            # Each camera builds its own from the clip beside it (see
+            # Pipeline._per_camera_detector); this shared one sees nothing.
+            return StubDetector()
         from .scripted import ScriptedDetector
         return ScriptedDetector(config.model)
     if backend == "ultralytics":

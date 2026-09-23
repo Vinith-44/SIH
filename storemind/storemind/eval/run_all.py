@@ -24,49 +24,11 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from .common import fmt, machine_specs, pct
+from .common import BUCKETS, Section, fmt, machine_specs, pct
 
 REPO = Path(__file__).resolve().parents[2]
 VIDEOS = REPO.parent / "videos"
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
-
-BUCKETS = {
-    "A": "public benchmark with published ground truth",
-    "B": "our own field recording, hand-labelled",
-    "C": "simulation - logic validation only, NOT an accuracy measurement",
-}
-
-
-class Section:
-    def __init__(self, title: str, bucket: str, note: str = "") -> None:
-        self.title = title
-        self.bucket = bucket
-        self.note = note
-        self.rows: list[tuple[str, str, str]] = []   # metric, value, target
-        self.commands: list[str] = []
-        self.failed: str | None = None
-
-    def row(self, metric: str, value: str, target: str = "") -> None:
-        self.rows.append((metric, value, target))
-
-    def markdown(self) -> str:
-        out = [f"### {self.title}", "",
-               f"**Data bucket {self.bucket}** - {BUCKETS[self.bucket]}", ""]
-        if self.note:
-            out += [self.note, ""]
-        if self.failed:
-            out += [f"> Did not run: `{self.failed}`", ""]
-            return "\n".join(out)
-        if self.rows:
-            out += ["| metric | result | target |", "|---|---|---|"]
-            out += [f"| {m} | {v} | {t} |" for m, v, t in self.rows]
-            out += [""]
-        if self.commands:
-            out += ["<details><summary>commands</summary>", "", "```bash"]
-            out += self.commands
-            out += ["```", "", "</details>", ""]
-        return "\n".join(out)
-
 
 # --------------------------------------------------------------------------- #
 

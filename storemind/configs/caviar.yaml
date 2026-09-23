@@ -1,0 +1,97 @@
+# CAVIAR shopping-centre clips - the only REAL footage we have with published
+# ground truth (bucket A, research/09b_TEST_DATA_VALIDITY.md).
+#
+# Credit: EC Funded CAVIAR project / IST 2001 37540, CC BY-SA.
+# <https://homepages.inf.ed.ac.uk/rbf/CAVIARDATA1/>
+#
+# `source` is overridden per clip by `storemind.eval.eval_caviar`; the value
+# here is just the first scenario so the config can be run by hand.
+#
+# ---------------------------------------------------------------------------
+# WHERE THE COUNTING LINES CAME FROM (so nobody has to take it on trust)
+# ---------------------------------------------------------------------------
+# Both lines were placed by looking at the ground-truth trajectories overlaid on
+# a busy frame (`tools/caviar_preview.py`), then checked for stability: the
+# number of ground-truth crossings must not move when the annotation-jitter
+# margin changes.  Measured over all 8 scenarios:
+#
+#   corridor  y = 0.75, full width, entry_direction pos
+#     GT crossings: 20 IN / 13 OUT = 33
+#     margin 4 px / 8 px / 16 px -> 33 / 33 / 31 crossings  (stable)
+#
+#   front     y = 0.45, x from 0.40 to 1.00, entry_direction neg
+#     GT crossings: 10 IN / 8 OUT = 18
+#     margin 4 px / 8 px / 16 px -> 18 / 18 / 14 crossings
+#
+# The corridor line counts people walking past the camera along the mall
+# walkway.  The front line sits across the shop doorway, so its crossings can
+# be cross-checked against CAVIAR's own "shop enter" / "shop exit" activity
+# labels - a second, line-independent ground truth.
+#
+# ThreePastShop1 and WalkByShop1 produce zero crossings on the front line
+# because in those scenarios nobody enters the shop.  That is correct, and the
+# evaluation reports them rather than dropping them.
+# ---------------------------------------------------------------------------
+
+store: caviar-eval
+node: laptop
+
+detector:
+  backend: ultralytics
+  model: ../models/yolo11n.pt
+  # 384x288 footage: a person at the far end of the corridor is ~15 px wide, so
+  # the threshold is lower than the store default and the input is upscaled.
+  # Input size was chosen on measured recall against the CAVIAR annotation, not
+  # by guessing (OneStopEnter1cor, every 6th frame, IoU >= 0.4):
+  #     imgsz 320 -> recall 0.728      imgsz 448 -> recall 0.756
+  #     imgsz 640 -> recall 0.814      imgsz 448 @ conf 0.15 -> recall 0.776
+  # False positives were negligible at every setting, so the largest input wins.
+  conf: 0.25
+  iou: 0.5
+  imgsz: 640
+  person_class: 0
+
+tracker:
+  track_activation_threshold: 0.25
+  lost_track_buffer: 50      # CAVIAR people are often occluded by pillars
+  minimum_matching_threshold: 0.8
+  frame_rate: 25
+
+forecast:
+  period_s: 60.0
+
+alerts:
+  console: false
+  sound: false
+  voice_enabled: false
+
+storage:
+  db_path: data/caviar.db
+
+cameras:
+  - name: corridor
+    source: ../videos/entrance/caviar/OneStopEnter1cor.mpg
+    role: entrance
+    # 8 FPS is what research/04 section 6 budgets for a deployed entrance camera
+    # on a Pi 5, so the accuracy below is the accuracy of a configuration we
+    # would actually ship - not of an unaffordable one.
+    fps: 8
+    line:
+      name: corridor-passing-line
+      a: [0.00, 0.75]
+      b: [1.00, 0.75]
+      margin_px: 6          # 384x288 frame, so the band is small in pixels
+      entry_direction: pos  # walking towards the camera
+      cooldown_s: 2.0
+
+  - name: front
+    source: ../videos/entrance/caviar/OneStopEnter1front.mpg
+    role: entrance
+    fps: 8
+    line:
+      name: shop-doorway
+      a: [0.40, 0.45]
+      b: [1.00, 0.45]
+      margin_px: 6
+      entry_direction: neg  # walking away from the corridor, into the shop
+      cooldown_s: 2.0

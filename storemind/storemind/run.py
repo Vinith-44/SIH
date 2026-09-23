@@ -70,6 +70,11 @@ def apply_overrides(config, args) -> None:
             camera.source = source
     if args.backend:
         config.detector.backend = args.backend
+        if args.backend == "scripted" and not args.model:
+            # Without an explicit file, each camera replays the detections JSON
+            # that sits beside its own clip.  Leaving the config's .pt weights in
+            # place here would send a PyTorch file to the JSON parser.
+            config.detector.model = ""
     if args.model:
         config.detector.model = args.model
     if args.imgsz:

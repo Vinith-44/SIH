@@ -302,3 +302,51 @@ def fmt(value, digits: int = 2, suffix: str = "") -> str:
 
 def pct(value) -> str:
     return "not measured yet" if value is None else f"{value * 100:.1f}%"
+
+
+# --------------------------------------------------------------------------- #
+# RESULTS.md sections
+# --------------------------------------------------------------------------- #
+
+BUCKETS = {
+    "A": "public benchmark with published ground truth",
+    "B": "our own field recording, hand-labelled",
+    "C": "simulation - logic validation only, NOT an accuracy measurement",
+}
+
+
+class Section:
+    """One block of RESULTS.md.
+
+    Carries its data bucket with it so a row can never reach a slide without
+    saying what kind of data produced it (research/09b).
+    """
+
+    def __init__(self, title: str, bucket: str, note: str = "") -> None:
+        self.title = title
+        self.bucket = bucket
+        self.note = note
+        self.rows: list[tuple[str, str, str]] = []
+        self.commands: list[str] = []
+        self.failed: str | None = None
+
+    def row(self, metric: str, value: str, target: str = "") -> None:
+        self.rows.append((metric, value, target))
+
+    def markdown(self) -> str:
+        out = [f"### {self.title}", "",
+               f"**Data bucket {self.bucket}** - {BUCKETS[self.bucket]}", ""]
+        if self.note:
+            out += [self.note, ""]
+        if self.failed:
+            out += [f"> Did not run: `{self.failed}`", ""]
+            return chr(10).join(out)
+        if self.rows:
+            out += ["| metric | result | target |", "|---|---|---|"]
+            out += [f"| {m} | {v} | {t} |" for m, v, t in self.rows]
+            out += [""]
+        if self.commands:
+            out += ["<details><summary>commands</summary>", "", "```bash"]
+            out += self.commands
+            out += ["```", "", "</details>", ""]
+        return chr(10).join(out)

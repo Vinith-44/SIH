@@ -1,0 +1,8 @@
+video_time_s,direction,note
+10.24,out,gt_track=1
+19.36,in,gt_track=2
+20.32,in,gt_track=0
+43.96,out,gt_track=3
+56.20,in,gt_track=6
+56.40,out,gt_track=6
+58.36,in,gt_track=6

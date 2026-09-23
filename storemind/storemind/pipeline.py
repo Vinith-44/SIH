@@ -66,6 +66,11 @@ class CameraPipeline:
     tamper: TamperDetector | None = None
 
     shelf_method: str = "reference"
+    # Per-camera detector override.  Normally every camera shares one model (one
+    # model in memory is the whole point on a Pi), but the scripted backend
+    # replays a different detections file per clip, and a real deployment could
+    # want a shelf-specific model on the shelf camera.
+    detector: Detector | None = None
     frame_size: tuple[int, int] | None = None
     shelf_reference_taken: bool = False
     pending: Frame | None = None
@@ -160,7 +165,13 @@ class Pipeline:
     def __init__(self, config: StoreMindConfig, *, replay: bool = True, show: bool = False,
                  detector: Detector | None = None, bus: EventBus | None = None,
                  store: EventStore | None = None, sensor_bridge=None,
-                 realtime: bool = False, start_time=None) -> None:
+                 realtime: bool = False, start_time=None,
+                 on_tracks=None) -> None:
+        # `on_tracks(camera_name, frame, tracks)` is called once per processed
+        # frame.  The evaluation harness uses it to score tracking (ID switches)
+        # in the same run that scores counting, and the overlay recorder uses it
+        # to draw.  Nothing in the pipeline depends on it.
+        self.on_tracks = on_tracks
         self.config = config
         self.show = show
         self.replay = replay
@@ -246,10 +257,28 @@ class Pipeline:
             self.cameras.append(CameraPipeline(
                 config=cam, source=source, tracker=build_tracker(tracker_config),
                 scheduler=FpsScheduler(fps), store=self.config.store, node=self.config.node,
-                shelf_method=self.config.shelf.method))
+                shelf_method=self.config.shelf.method,
+                detector=self._per_camera_detector(cam)))
             self.health.camera_ok[cam.name] = True
 
     # ------------------------------------------------------------------ #
+    def _per_camera_detector(self, cam: CameraConfig) -> Detector | None:
+        """Give each camera its own scripted detector when replaying synthetic
+        clips, so a multi-camera config can be exercised without any model."""
+        if self.config.detector.backend != "scripted":
+            return None
+        if self.config.detector.model:
+            return None                      # one explicit file for every camera
+        candidate = Path(str(cam.source))
+        detections = candidate.with_name(f"{candidate.stem}_detections.json")
+        if not detections.is_file():
+            log.warning("camera %s: no %s, it will see nothing",
+                        cam.name, detections.name)
+            return None
+        from .inference.scripted import ScriptedDetector
+
+        return ScriptedDetector(detections)
+
     def _emit(self, event: Event) -> None:
         self.events_emitted += 1
         self.bus.publish(event)
@@ -280,15 +309,18 @@ class Pipeline:
 
         # A scripted detector replays boxes by frame index, so it must be told
         # which frame this is - the FPS scheduler skips frames.
-        seek = getattr(self.detector, "seek", None)
+        detector = camera.detector or self.detector
+        seek = getattr(detector, "seek", None)
         if seek is not None:
             seek(frame.index)
         started = time.perf_counter()
-        detections = self.detector.detect(frame.image)
+        detections = detector.detect(frame.image)
         camera.infer_ms.append((time.perf_counter() - started) * 1000.0)
         tracks = camera.tracker.update(detections)
         camera.last_tracks = tracks
         camera.processed += 1
+        if self.on_tracks is not None:
+            self.on_tracks(camera.config.name, frame, tracks)
         self.health.tick_frame(camera.config.name, time.monotonic())
 
         if camera.footfall is not None:

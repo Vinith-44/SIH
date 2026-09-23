@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>StoreMind</title>
+<meta name="description" content="Offline store operations dashboard">
+<!-- No CDN, no external fonts, no trackers. Everything this page needs is
+     served from the edge box, because the store may have no internet at all. -->
+<link rel="stylesheet" href="/static/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>&#128722;</text></svg>">
+</head>
+<body>
+
+<header class="bar">
+  <div class="brand">
+    <span class="dot" id="live-dot" title="connection"></span>
+    <strong>StoreMind</strong>
+    <span class="muted" id="store-name">-</span>
+  </div>
+  <div class="bar-right">
+    <span class="privacy" id="privacy" title="This counter is zero because the pipeline never opens a video writer.">
+      Video stored: 0 bytes
+    </span>
+    <span class="muted" id="clock">-</span>
+  </div>
+</header>
+
+<main>
+
+  <section class="tiles" id="tiles">
+    <div class="tile" id="tile-entries"><span class="label">Entered today</span><span class="value" id="v-entries">-</span></div>
+    <div class="tile" id="tile-exits"><span class="label">Exited</span><span class="value" id="v-exits">-</span></div>
+    <div class="tile" id="tile-occupancy"><span class="label">In store now</span><span class="value" id="v-occupancy">-</span></div>
+    <div class="tile" id="tile-forecast">
+      <span class="label">Counters recommended</span>
+      <span class="value" id="v-counters">-</span>
+      <span class="sub" id="v-forecast-sub">waiting for data</span>
+    </div>
+    <div class="tile" id="tile-risk">
+      <span class="label">Lost-sales risk</span>
+      <span class="value" id="v-risk">-</span>
+      <span class="sub">estimated, not booked revenue</span>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-alerts">
+    <h2>Alerts</h2>
+    <ul class="alerts" id="alerts"><li class="empty">No alerts</li></ul>
+  </section>
+
+  <section class="grid2">
+    <div class="panel">
+      <h2>Checkout counters</h2>
+      <div id="counters" class="counters"><p class="empty">No counter camera configured</p></div>
+    </div>
+    <div class="panel">
+      <h2>Shelves</h2>
+      <div id="shelves" class="shelfgrid"><p class="empty">No shelf camera configured</p></div>
+    </div>
+  </section>
+
+  <section class="grid2">
+    <div class="panel">
+      <h2>Footfall by hour</h2>
+      <div id="chart-footfall" class="chart"></div>
+    </div>
+    <div class="panel">
+      <h2>Zone dwell (total seconds)</h2>
+      <div id="chart-zones" class="chart"></div>
+    </div>
+  </section>
+
+  <section class="grid2">
+    <div class="panel">
+      <h2>Floor heatmap</h2>
+      <p class="muted small">Person-seconds per floor cell. Derived statistic - contains no pixels from any frame.</p>
+      <img id="heatmap" class="heatmap" alt="floor heatmap" hidden>
+      <p class="empty" id="heatmap-empty">No heatmap yet</p>
+    </div>
+    <div class="panel">
+      <h2>System health</h2>
+      <table class="kv" id="health"><tbody><tr><td class="empty" colspan="2">-</td></tr></tbody></table>
+      <div id="cameras" class="cameras"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Recent events</h2>
+    <ul class="events" id="events"><li class="empty">-</li></ul>
+  </section>
+
+</main>
+
+<footer class="muted small">
+  StoreMind runs entirely on this box. Frames live in RAM only; nothing but small
+  anonymous events is written to disk. No face recognition, no re-identification,
+  track IDs are random per session.
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

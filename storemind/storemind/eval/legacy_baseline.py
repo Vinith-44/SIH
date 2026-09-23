@@ -135,15 +135,34 @@ class LegacyResult:
         return max(0, self.entries - self.exits)
 
 
-def run_legacy(source: str, line_config, fps: float | None = None,
-               model: str | None = None, max_seconds: float | None = None) -> LegacyResult:
-    detector = LiteRTDetector(
+def build_legacy_detector(backend: str = "litert", model: str | None = None):
+    """The detector half of the legacy stack.
+
+    `litert` is the real thing: the legacy `1.tflite` with the squash
+    preprocessing. `scripted` substitutes perfect detections, which isolates the
+    *tracking and counting* half - on a synthetic clip the legacy detector fails
+    for reasons that have nothing to do with its algorithm, and blaming its
+    counting logic for that would be dishonest.
+    """
+    if backend == "scripted":
+        from ..inference.scripted import ScriptedDetector
+
+        if not model:
+            raise SystemExit("--legacy-backend scripted needs --legacy-model <detections.json>")
+        return ScriptedDetector(model)
+    return LiteRTDetector(
         model or LEGACY["model"],
         conf=LEGACY["detection_threshold"],
         person_class=LEGACY["person_class_id"],
         num_threads=LEGACY["num_threads"],
         letterbox_input=False,          # the squash bug, reproduced on purpose
     )
+
+
+def run_legacy(source: str, line_config, fps: float | None = None,
+               model: str | None = None, max_seconds: float | None = None,
+               backend: str = "litert") -> LegacyResult:
+    detector = build_legacy_detector(backend, model)
     tracker = LegacyCentroidTracker(LEGACY["tracker_max_distance_px"],
                                     LEGACY["tracker_max_misses"])
     # "positive_to_negative" / "negative_to_positive" in the legacy config; our
@@ -171,6 +190,9 @@ def run_legacy(source: str, line_config, fps: float | None = None,
             now = frame.video_s
             result.video_seconds = now
 
+            seek = getattr(detector, "seek", None)
+            if seek is not None:
+                seek(frame.index)
             started = time.perf_counter()
             detections: list[Detection] = detector.detect(frame.image)
             result.infer_ms.append((time.perf_counter() - started) * 1000.0)
@@ -202,6 +224,7 @@ def run_legacy(source: str, line_config, fps: float | None = None,
 
 def compare(config_path: str, camera: str, source: str, fps: float | None = None,
             backend: str | None = None, model: str | None = None,
+            legacy_backend: str = "litert", legacy_model: str | None = None,
             tolerance_s: float = 3.0) -> dict:
     config = load_config(config_path)
     camera_config = config.camera(camera)
@@ -211,7 +234,8 @@ def compare(config_path: str, camera: str, source: str, fps: float | None = None
     video = Path(source)
     truth = load_entries_gt(video)
 
-    legacy = run_legacy(source, camera_config.line, fps=fps or camera_config.fps)
+    legacy = run_legacy(source, camera_config.line, fps=fps or camera_config.fps,
+                        backend=legacy_backend, model=legacy_model)
     new = evaluate_new(config_path, camera, source, backend=backend, model=model, fps=fps)
 
     report: dict = {
@@ -225,7 +249,11 @@ def compare(config_path: str, camera: str, source: str, fps: float | None = None
             "track_ids_created": legacy.track_ids_created,
             "infer_ms_mean": (round(sum(legacy.infer_ms) / len(legacy.infer_ms), 2)
                               if legacy.infer_ms else None),
-            "detector": "EfficientDet-Lite0 (squashed 320x320) + centroid tracker + box centre",
+            "detector": (
+                "perfect detections + centroid tracker + box centre"
+                if legacy_backend == "scripted"
+                else "EfficientDet-Lite0 (squashed 320x320) + centroid tracker + box centre"),
+            "backend": legacy_backend,
         },
         "new": {
             "entries": new["predicted"]["entries"],
@@ -324,12 +352,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--source", required=True)
     parser.add_argument("--backend", default=None, help="backend for the NEW pipeline")
     parser.add_argument("--model", default=None, help="model for the NEW pipeline")
+    parser.add_argument("--legacy-backend", default="litert", choices=["litert", "scripted"],
+                        help="'scripted' compares the ALGORITHMS on identical perfect "
+                             "detections; 'litert' compares the whole stacks")
+    parser.add_argument("--legacy-model", default=None)
     parser.add_argument("--fps", type=float, default=None)
     parser.add_argument("--json", default=None)
     args = parser.parse_args(argv)
 
     report = compare(args.config, args.camera, args.source, fps=args.fps,
-                     backend=args.backend, model=args.model)
+                     backend=args.backend, model=args.model,
+                     legacy_backend=args.legacy_backend, legacy_model=args.legacy_model)
     print_report(report)
     if args.json:
         Path(args.json).parent.mkdir(parents=True, exist_ok=True)

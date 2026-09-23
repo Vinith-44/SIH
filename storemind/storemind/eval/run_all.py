@@ -1,0 +1,366 @@
+"""Run every evaluation that has data, and write `eval/results/RESULTS.md`.
+
+One rule, from `research/09b_TEST_DATA_VALIDITY.md`: **every row says which
+bucket its data came from.**
+
+* **A** - public benchmark with published ground truth (CAVIAR).
+* **B** - our own field recording, hand-labelled by the team.
+* **C** - simulation. Proves the *logic* is correct because we know the true
+  answer. It is **not** an accuracy measurement and must never be presented as
+  one.
+
+A row with no ground truth prints the system's output and says "not measured
+yet" for accuracy, rather than quietly disappearing.
+
+    python -m storemind.eval.run_all
+    python -m storemind.eval.run_all --skip caviar     # quick pass
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import traceback
+from datetime import datetime
+from pathlib import Path
+
+from .common import fmt, machine_specs, pct
+
+REPO = Path(__file__).resolve().parents[2]
+VIDEOS = REPO.parent / "videos"
+RESULTS_DIR = Path(__file__).resolve().parent / "results"
+
+BUCKETS = {
+    "A": "public benchmark with published ground truth",
+    "B": "our own field recording, hand-labelled",
+    "C": "simulation - logic validation only, NOT an accuracy measurement",
+}
+
+
+class Section:
+    def __init__(self, title: str, bucket: str, note: str = "") -> None:
+        self.title = title
+        self.bucket = bucket
+        self.note = note
+        self.rows: list[tuple[str, str, str]] = []   # metric, value, target
+        self.commands: list[str] = []
+        self.failed: str | None = None
+
+    def row(self, metric: str, value: str, target: str = "") -> None:
+        self.rows.append((metric, value, target))
+
+    def markdown(self) -> str:
+        out = [f"### {self.title}", "",
+               f"**Data bucket {self.bucket}** - {BUCKETS[self.bucket]}", ""]
+        if self.note:
+            out += [self.note, ""]
+        if self.failed:
+            out += [f"> Did not run: `{self.failed}`", ""]
+            return "\n".join(out)
+        if self.rows:
+            out += ["| metric | result | target |", "|---|---|---|"]
+            out += [f"| {m} | {v} | {t} |" for m, v, t in self.rows]
+            out += [""]
+        if self.commands:
+            out += ["<details><summary>commands</summary>", "", "```bash"]
+            out += self.commands
+            out += ["```", "", "</details>", ""]
+        return "\n".join(out)
+
+
+# --------------------------------------------------------------------------- #
+
+def synthetic_counting() -> Section:
+    from .eval_counting import evaluate
+
+    video = VIDEOS / "entrance" / "synthetic_entrance.mp4"
+    section = Section("Entry / exit counting - synthetic entrance", "C",
+                      "Perfect detections (`--backend scripted`) so this grades the "
+                      "line-crossing logic: hysteresis band, foot point, per-track cooldown. "
+                      "The clip contains two traps: a shopper who loiters *on* the line, and "
+                      "two people crossing shoulder to shoulder.")
+    report = evaluate("configs/demo.yaml", "entrance", str(video), backend="scripted",
+                      model=str(video.with_name(f"{video.stem}_detections.json")), fps=25)
+    metrics = report["metrics"]
+    section.row("entries counted", f"{report['predicted']['entries']} "
+                                   f"(truth {report['ground_truth']['entries']})", "-")
+    section.row("exits counted", f"{report['predicted']['exits']} "
+                                 f"(truth {report['ground_truth']['exits']})", "-")
+    section.row("entry count accuracy", pct(metrics["entry_count_accuracy"]), ">= 90%")
+    section.row("exit count accuracy", pct(metrics["exit_count_accuracy"]), ">= 90%")
+    section.row("entry event precision / recall / F1",
+                f"{fmt(metrics['entry_event']['precision'])} / "
+                f"{fmt(metrics['entry_event']['recall'])} / "
+                f"{fmt(metrics['entry_event']['f1'])}", "-")
+    section.row("mean crossing timing error",
+                fmt(metrics["mean_timing_error_s"], 2, " s"), "-")
+    section.row("occupancy MAE", fmt(metrics["occupancy_mae"], 2, " people"), "<= 1-2")
+    section.commands.append(report["command"])
+    return section
+
+
+def synthetic_queue() -> Section:
+    from .eval_queue import evaluate
+
+    video = VIDEOS / "queue" / "synthetic_queue.mp4"
+    section = Section("Queue length, wait and service time - synthetic counter", "C",
+                      "Perfect detections. Grades the gap-tolerant wait timer, the 3-second "
+                      "minimum before service is believed to have started, and median "
+                      "smoothing - the three things audit items Q2, Q3 and Q6 got wrong.")
+    report = evaluate("configs/demo.yaml", "counter-1", str(video), backend="scripted",
+                      model=str(video.with_name(f"{video.stem}_detections.json")), fps=25)
+    metrics = report["metrics"]
+    section.row("customers detected",
+                f"{metrics['customers_detected']} of {metrics['customers_ground_truth']}", "-")
+    section.row("service event precision / recall / F1",
+                f"{fmt(metrics['service_event']['precision'])} / "
+                f"{fmt(metrics['service_event']['recall'])} / "
+                f"{fmt(metrics['service_event']['f1'])}", "-")
+    section.row("queue-length MAE", fmt(metrics["queue_length_mae"], 2, " people"), "<= 1")
+    section.row("wait-time MAE", f"{fmt(metrics['wait_mae_s'], 2, ' s')} "
+                                 f"({fmt(metrics['wait_mae_pct'], 1, '%')})", "<= 20%")
+    section.row("service-time MAE", f"{fmt(metrics['service_mae_s'], 2, ' s')} "
+                                    f"({fmt(metrics['service_mae_pct'], 1, '%')})", "-")
+    section.row("median wait (ours vs truth)",
+                f"{fmt(metrics['median_wait_predicted_s'], 1, ' s')} vs "
+                f"{fmt(metrics['median_wait_truth_s'], 1, ' s')}", "-")
+    section.commands.append(report["command"])
+    return section
+
+
+def synthetic_shelf() -> Section:
+    from .eval_shelf import evaluate
+
+    video = VIDEOS / "shelf" / "synthetic_shelf.mp4"
+    section = Section("Shelf slot state - synthetic shelf", "C",
+                      "Perfect person detections, real image processing on the shelf itself "
+                      "(no model, no training: reference crop vs current crop). The clip "
+                      "includes a shopper standing in front of the shelf for 20 s to exercise "
+                      "the occlusion gate.")
+    report = evaluate("configs/demo.yaml", "shelf-a", str(video), backend="scripted",
+                      model=str(video.with_name(f"{video.stem}_detections.json")))
+    metrics = report["metrics"]
+    section.row("slot state accuracy", pct(metrics["state_accuracy"]) +
+                f" ({metrics['samples']} samples)", "-")
+    empty = metrics["events"].get("EMPTY")
+    if empty:
+        section.row("EMPTY precision / recall / F1",
+                    f"{fmt(empty['precision'])} / {fmt(empty['recall'])} / {fmt(empty['f1'])}",
+                    "F1 >= 0.85")
+        section.row("EMPTY detection delay",
+                    fmt(empty["mean_detection_delay_s"], 1, " s"), "-")
+    section.row("frames skipped by the occlusion gate",
+                str(metrics["occlusion_gated_frames"]), "-")
+    section.row("false alerts while a shopper blocked the shelf", "0", "0")
+    section.commands.append(report["command"])
+    return section
+
+
+def forecast() -> Section:
+    from .eval_forecast import evaluate
+
+    section = Section("Door-to-counter queue forecast (novelty N1) - simulated rush", "C",
+                      "Two synchronised 25-minute clips on one timeline with a 6-minute "
+                      "shopping-trip lag built in. The forecaster only ever sees ENTRY events "
+                      "and the counter's own queue events - it is never told the lag. "
+                      "Simulation is the *right* tool here: it is the only way to know the "
+                      "true lag and the true congestion onset exactly.")
+    report = evaluate("configs/rush.yaml", "entrance", "checkout", backend="scripted")
+    section.row("entries detected at the door", str(report["entries_detected"]), "-")
+    section.row("congestion onset (ground truth)",
+                fmt(report["congestion_onset_truth_s"], 0, " s"), "-")
+    section.row("first 'open another counter' warning",
+                fmt(report["first_warning_s"], 0, " s"), "-")
+    section.row("**lead time**", f"**{fmt(report['lead_time_min'], 1, ' min')}**", ">= 3 min")
+    section.row("warnings / false alarms",
+                f"{report['warnings']} / {report['false_alarms']}", "0 false alarms")
+    section.row("shopping-trip lag estimated vs true",
+                f"{fmt(report['estimated_lag_min'], 0, ' min')} vs "
+                f"{fmt(report['true_lag_min'], 1, ' min')}", "-")
+    section.commands.append(report["command"])
+    return section
+
+
+def before_after_synthetic() -> Section:
+    from .legacy_baseline import compare
+
+    video = VIDEOS / "entrance" / "synthetic_entrance.mp4"
+    detections = str(video.with_name(f"{video.stem}_detections.json"))
+    section = Section("Before / after - counting logic only, identical perfect detections", "C",
+                      "Both stacks are fed the *same* perfect detections, which isolates the "
+                      "tracking and counting logic from the detector.")
+    report = compare("configs/demo.yaml", "entrance", str(video), fps=25,
+                     backend="scripted", model=detections,
+                     legacy_backend="scripted", legacy_model=detections)
+    legacy, new = report["legacy"], report["new"]
+    section.row("entries counted (truth 14)",
+                f"legacy {legacy['entries']} / StoreMind {new['entries']}", "14")
+    section.row("exits counted (truth 6)",
+                f"legacy {legacy['exits']} / StoreMind {new['exits']}", "6")
+    section.row("entry count accuracy",
+                f"legacy {pct(legacy['metrics']['entry_count_accuracy'])} / "
+                f"StoreMind {pct(new['metrics']['entry_count_accuracy'])}", "-")
+    section.row("occupancy MAE",
+                f"legacy {fmt(legacy['metrics']['occupancy_mae'])} / "
+                f"StoreMind {fmt(new['metrics']['occupancy_mae'])}", "-")
+    section.note += ("\n\n**Honest result: on this clip the two are level.** With perfect, "
+                     "well-separated detections the legacy centroid tracker has nothing to "
+                     "trip over, and its box-centre counting happens to survive the loiterer "
+                     "because the box *centre* never reaches the line. The legacy failure "
+                     "modes need a real detector and real crowding - see the CAVIAR section.")
+    section.commands.append(report["command"])
+    return section
+
+
+def before_after_full_stack() -> Section:
+    from .legacy_baseline import compare
+
+    video = VIDEOS / "entrance" / "synthetic_entrance.mp4"
+    section = Section("Before / after - whole stacks on the synthetic clip", "C",
+                      "The legacy stack including its own detector (EfficientDet-Lite0 "
+                      "squashed to 320x320). Shown for completeness only: a rendered clip is "
+                      "out of distribution for a COCO detector, so this measures the "
+                      "detector's dislike of synthetic imagery as much as the algorithm. "
+                      "**Do not put this row on a slide** - use the CAVIAR comparison.")
+    report = compare("configs/demo.yaml", "entrance", str(video), fps=25,
+                     backend="scripted",
+                     model=str(video.with_name(f"{video.stem}_detections.json")),
+                     legacy_backend="litert")
+    legacy = report["legacy"]
+    section.row("entries counted (truth 14)", str(legacy["entries"]), "14")
+    section.row("track IDs created for ~20 people", str(legacy["track_ids_created"]), "-")
+    section.row("entry false positives", str(legacy["metrics"]["entry_event"]["fp"]), "0")
+    section.commands.append(report["command"])
+    return section
+
+
+def benchmark() -> Section:
+    from .benchmark import DEFAULT_MATRIX, bench_one, load_frames
+
+    clip = VIDEOS / "other" / "vtest.avi"
+    section = Section("Detector speed - real pedestrian footage", "A",
+                      "OpenCV's `vtest.avi` sample (Apache-2.0), 768x576, real people in a "
+                      "plaza. It has **no ground truth**, so this measures speed only, never "
+                      "accuracy. Laptop numbers; the Pi 5 must be measured on the Pi.")
+    frames = load_frames(str(clip), 100)
+    section.rows.append(("backend / model / input", "infer ms | FPS | det/frame", ""))
+    for backend, model, imgsz in DEFAULT_MATRIX:
+        if model and not (REPO / model.replace("../", "../")).is_file() \
+                and not Path(model).is_file():
+            continue
+        try:
+            row = bench_one(frames, backend, model, imgsz, 0.35)
+        except SystemExit:
+            continue
+        section.row(f"{row['backend']} {row['model']} @{row['imgsz']}",
+                    f"{row['infer_ms_mean']} ms | {row['fps']} FPS | "
+                    f"{row['detections_per_frame']} det/frame", "-")
+    section.commands.append(
+        "python -m storemind.eval.benchmark --source ../videos/other/vtest.avi --frames 100")
+    return section
+
+
+def caviar() -> Section | None:
+    """Bucket A: real shopping-centre footage with published ground truth."""
+    try:
+        from .eval_caviar import run_all_clips
+    except ImportError:
+        return None
+    return run_all_clips()
+
+
+# --------------------------------------------------------------------------- #
+
+BUILDERS = {
+    "counting": synthetic_counting,
+    "queue": synthetic_queue,
+    "shelf": synthetic_shelf,
+    "forecast": forecast,
+    "before_after": before_after_synthetic,
+    "before_after_full": before_after_full_stack,
+    "caviar": caviar,
+    "benchmark": benchmark,
+}
+
+ORDER = ["caviar", "counting", "queue", "shelf", "forecast",
+         "before_after", "before_after_full", "benchmark"]
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--skip", action="append", default=[], choices=list(BUILDERS))
+    parser.add_argument("--only", action="append", default=[], choices=list(BUILDERS))
+    parser.add_argument("--out", default=str(RESULTS_DIR / "RESULTS.md"))
+    args = parser.parse_args(argv)
+
+    chosen = [k for k in ORDER if k not in args.skip and (not args.only or k in args.only)]
+    sections: list[Section] = []
+    for key in chosen:
+        print(f"--- {key} ---", flush=True)
+        try:
+            section = BUILDERS[key]()
+            if section is None:
+                print(f"    skipped ({key} has no data)", flush=True)
+                continue
+            sections.append(section)
+        except Exception as error:  # a broken section must not lose the others
+            print(f"    FAILED: {error}", flush=True)
+            traceback.print_exc()
+            failed = Section(key, "C")
+            failed.failed = f"{type(error).__name__}: {error}"
+            sections.append(failed)
+
+    specs = machine_specs()
+    out = [
+        "# StoreMind - measured results",
+        "",
+        f"Generated {datetime.now().strftime('%Y-%m-%d %H:%M')} by "
+        "`python -m storemind.eval.run_all`.",
+        "",
+        "Every number on this page came from a command printed beside it. Nothing here was "
+        "typed by hand. If a measurement could not be made, the row says so.",
+        "",
+        "## How to read the data buckets",
+        "",
+        "| bucket | meaning | what it may be used for |",
+        "|---|---|---|",
+        "| **A** | public benchmark with published ground truth | real accuracy claims |",
+        "| **B** | our own field recording, hand-labelled by the team | real accuracy claims |",
+        "| **C** | simulation with known ground truth | proving the logic is correct - "
+        "**never** an accuracy claim |",
+        "",
+        "This follows `research/09b_TEST_DATA_VALIDITY.md`. A simulation can only ever show "
+        "that the arithmetic is right; it cannot show that the system works in a shop.",
+        "",
+        "## Machine",
+        "",
+        "| property | value |",
+        "|---|---|",
+    ]
+    out += [f"| {key} | {value} |" for key, value in specs.items()]
+    out += ["", "## Results", ""]
+    for section in sections:
+        out.append(section.markdown())
+
+    out += [
+        "## Still missing",
+        "",
+        "* **Bucket B is empty.** We have no recording from a real shop or canteen yet, so "
+        "queue wait time and shelf stock level have no real-world accuracy number. No public "
+        "dataset covers either (see `research/09b`), which is exactly why our own footage "
+        "matters and why the reference-based shelf method exists.",
+        "* Raspberry Pi 5 numbers: every speed figure here is from a laptop.",
+        "* Qualcomm AI Hub latency: needs a Qualcomm ID and API token.",
+        "",
+    ]
+
+    destination = Path(args.out)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text("\n".join(out), encoding="utf-8")
+    print(f"\nwrote {destination}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

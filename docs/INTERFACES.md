@@ -243,3 +243,17 @@ Markdown: a line `<!-- bucket: B -->`, then `# Title`, then free text.
 
 Buckets: **A** public benchmark · **B** our own recording · **C** simulation (logic only) ·
 **S** speed only · **Q** Qualcomm AI Hub hosted/proxy device · **P** published third-party figure (cite).
+
+**M3 additions (contract PR `a/m3-contract`, all optional):**
+
+| Key | Default (v1 value) | Meaning |
+|---|---|---|
+| `shelves[].white_balance`, `clahe`, `glare_mask`, `use_ssim`, `rectify` | true (false) | shelf v2 lighting robustness, see docs/SHELF.md |
+| `shelves[].texture` | `gradient` (`canny`) | fill measure: gain-normalised gradient density, or v1 Canny edges |
+| `shelves[].canny`, `canny_low`, `canny_high` | `auto` (`fixed`), 60, 160 | Canny thresholds when `texture: canny` |
+| `shelves[].reference_bank`, `bank_lux_ratio` | 4 (1), 1.8 | references per slot, one per lighting condition |
+| `shelves[].dark_lux`, `dark_brightness`, `lux_jump_ratio` | 15, 0.12, 2.5 (null) | too dark → UNKNOWN; sudden light change → skip one cycle |
+| `shelves[].drift_alpha` | 0.05 (0) | slow reference update while confidently FULL |
+| `shelves[].rectify_size`, `occluded_unknown_cycles`, `lux_node` | (96,128), 10, null | warp size; UNKNOWN after long occlusion; which ENVIRONMENT node's lux applies |
+| `shelves[].weight_mode`, `disagree_fill` | `fuse`, 0.4 | load-cell fusion; camera/weight disagreement → "check shelf" |
+| `shelves[].slots[].full_grams`, `deep` | null, false | weight when full (null = learnt at restock); deep shelf → weight wins |

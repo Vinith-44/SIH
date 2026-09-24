@@ -73,9 +73,14 @@ cameras:
       name: door
       a: [0.02, 0.50]
       b: [0.98, 0.50]
-      margin_px: 14          # hysteresis band: audit item S3
+      margin_px: 14          # hysteresis band: audit item S3 (v1 counter only)
       entry_direction: pos   # walking down the frame = entering the store
       cooldown_s: 3.0
+      # Counting v2 (M1, docs/COUNTING.md): defaults from the CAVIAR bake-off,
+      # gate ~3% of frame height.  Tune per site with the IR beam cross-check.
+      mode: gate
+      gate_px: 16
+      confirm_s: 0.5
     zones:
       - name: promo-endcap
         kind: promo

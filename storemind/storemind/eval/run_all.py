@@ -224,21 +224,34 @@ def benchmark() -> Section:
                       "They also move with the laptop's thermal and power state: the same "
                       "command on the same clip measured 27 ms and 159 ms per frame on "
                       "different days of this work. Compare rows within one run, never "
-                      "across runs.")
-    frames = load_frames(str(clip), 100)
-    for backend, model, imgsz in DEFAULT_MATRIX:
-        if model and not (REPO / model.replace("../", "../")).is_file() \
-                and not Path(model).is_file():
-            continue
-        try:
-            row = bench_one(frames, backend, model, imgsz, 0.35)
-        except SystemExit:
-            continue
-        section.row(f"{row['backend']} {row['model']} @{row['imgsz']}",
-                    f"{row['infer_ms_mean']} ms/frame &middot; {row['fps']} FPS &middot; "
-                    f"{row['detections_per_frame']} detections/frame", "-")
-    section.commands.append(
-        "python -m storemind.eval.benchmark --source ../videos/other/vtest.avi --frames 100")
+                      "across runs.\n\n"
+                      "**CPU only** (`STOREMIND_DEVICE=cpu`): the laptop's GPU is used for "
+                      "evaluation runs, but a GPU number says nothing about a Pi 5 or a "
+                      "QCS6490, so it is not shown here.")
+    import os
+
+    previous = os.environ.get("STOREMIND_DEVICE")
+    os.environ["STOREMIND_DEVICE"] = "cpu"
+    try:
+        frames = load_frames(str(clip), 100)
+        for backend, model, imgsz in DEFAULT_MATRIX:
+            if model and not (REPO / model.replace("../", "../")).is_file() \
+                    and not Path(model).is_file():
+                continue
+            try:
+                row = bench_one(frames, backend, model, imgsz, 0.35)
+            except SystemExit:
+                continue
+            section.row(f"{row['backend']} {row['model']} @{row['imgsz']} (CPU)",
+                        f"{row['infer_ms_mean']} ms/frame &middot; {row['fps']} FPS &middot; "
+                        f"{row['detections_per_frame']} detections/frame", "-")
+    finally:
+        if previous is None:
+            os.environ.pop("STOREMIND_DEVICE", None)
+        else:
+            os.environ["STOREMIND_DEVICE"] = previous
+    section.commands.append("STOREMIND_DEVICE=cpu python -m storemind.eval.benchmark "
+                            "--source ../videos/other/vtest.avi --frames 100")
     return section
 
 
@@ -251,6 +264,45 @@ def caviar() -> Section | None:
     # A full pass is about an hour of real inference. Reuse the stored run if
     # there is one; delete data/caviar_full.json to force a fresh measurement.
     return run_all_clips(cache=REPO / "data" / "caviar_full.json")
+
+
+def tracker_bakeoff() -> Section | None:
+    """Bucket A: M1 tracker bake-off + counter v2 (stored run of eval/bakeoff.py)."""
+    path = RESULTS_DIR / "tracker_bakeoff.json"
+    if not path.is_file():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    section = Section(
+        "Counting v2, detector and tracker bake-off - CAVIAR, cross-validated", "A",
+        "2-fold cross-validation over the two camera views: detector, tracker and counter "
+        "settings are chosen on one view and scored on the other, so every ground-truth "
+        "crossing below is scored by a setting chosen without it. All variants replay cached "
+        "detections, so only the component under test changes. The protocol was revised "
+        "after a first run (`tracker_bakeoff_run1.md`), and both runs are published. Full tables: "
+        "`eval/results/tracker_bakeoff.md`.")
+    for label, s in (("today: YOLO11n@640 + ByteTrack + v1 counter", data["baseline_bytetrack_v1"]),
+                     ("**counting v2 procedure, held-out (CV)**", data["cv_held_out"])):
+        section.row(f"{label}: entries (truth) / acc",
+                    f"{s['entries']} ({s['gt_entries']}) / {pct(s['entry_acc'])}", ">= 90%")
+        section.row(f"{label}: exits (truth) / acc",
+                    f"{s['exits']} ({s['gt_exits']}) / {pct(s['exit_acc'])}", ">= 90%")
+        section.row(f"{label}: entry / exit event F1",
+                    f"{fmt(s['entry_event']['f1'])} / {fmt(s['exit_event']['f1'])}", "-")
+    for fold in data["folds"]:
+        section.row(f"fold: tune {fold['tune']} -> test {fold['test']}",
+                    f"{fold['detector']} + {fold['tracker']}, test F1 "
+                    f"{fmt(fold['test_summary']['event_f1_mean'])}", "-")
+    shipped = data["shipped"]
+    section.row("shipped configuration (tuned on all clips)",
+                f"{shipped['detector']} + {shipped['tracker']}, "
+                f"`{', '.join(f'{k}={v}' for k, v in shipped['setting'].items())}`", "-")
+    cv = data["cv_held_out"]
+    if (cv["exit_acc"] or 0) < 0.9 or (cv["entry_acc"] or 0) < 0.9:
+        section.note += (f"\n\n**Did not meet target on held-out data:** entry accuracy "
+                         f"{pct(cv['entry_acc'])}, exit accuracy {pct(cv['exit_acc'])} "
+                         "(target >= 90%). See docs/COUNTING.md for what limits it.")
+    section.commands.append("python -m storemind.eval.detcache && python -m storemind.eval.bakeoff")
+    return section
 
 
 def platform_results(folder: Path = PLATFORM_DIR) -> list[Section]:
@@ -312,10 +364,11 @@ BUILDERS = {
     "before_after": before_after_synthetic,
     "before_after_full": before_after_full_stack,
     "caviar": caviar,
+    "bakeoff": tracker_bakeoff,
     "benchmark": benchmark,
 }
 
-ORDER = ["caviar", "counting", "queue", "shelf", "forecast",
+ORDER = ["caviar", "bakeoff", "counting", "queue", "shelf", "forecast",
          "before_after", "before_after_full", "benchmark"]
 
 

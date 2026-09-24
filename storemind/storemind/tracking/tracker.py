@@ -17,6 +17,7 @@ synthetic clips, not for real footage.
 
 from __future__ import annotations
 
+import inspect
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -48,24 +49,40 @@ class ByteTrackTracker(Tracker):
     package is preferred and the old class is only a fallback.
     """
 
+    kind = "bytetrack"
+
     def __init__(self, track_activation_threshold: float = 0.25, lost_track_buffer: int = 30,
-                 minimum_matching_threshold: float = 0.8, frame_rate: int = 8) -> None:
+                 minimum_matching_threshold: float = 0.8, frame_rate: int = 8,
+                 high_conf_det_threshold: float | None = None,
+                 minimum_consecutive_frames: int = 1) -> None:
         import supervision as sv
 
         self._sv = sv
         try:
-            from trackers import ByteTrackTracker as _ByteTrack
+            import trackers
 
-            self.tracker = _ByteTrack(
-                track_activation_threshold=track_activation_threshold,
-                lost_track_buffer=lost_track_buffer,
-                minimum_iou_threshold=1.0 - minimum_matching_threshold,
-                frame_rate=float(max(1, frame_rate)),
-                minimum_consecutive_frames=1,
-            )
+            cls = getattr(trackers, LIB_TRACKERS[self.kind])
+            # One parameter vocabulary for every tracker; each class takes the
+            # subset it understands.  BoT-SORT's camera-motion compensation is
+            # off: store CCTV is fixed, and CMC costs optical flow per frame.
+            offered = {
+                "track_activation_threshold": track_activation_threshold,
+                "lost_track_buffer": lost_track_buffer,
+                "minimum_iou_threshold": 1.0 - minimum_matching_threshold,
+                "minimum_iou_threshold_first_assoc": 1.0 - minimum_matching_threshold,
+                "frame_rate": float(max(1, frame_rate)),
+                "minimum_consecutive_frames": minimum_consecutive_frames,
+                "high_conf_det_threshold": high_conf_det_threshold,
+                "enable_cmc": False,
+            }
+            accepted = inspect.signature(cls.__init__).parameters
+            self.tracker = cls(**{k: v for k, v in offered.items()
+                                  if k in accepted and v is not None})
             self._update = self.tracker.update
-            self.impl = "trackers.ByteTrackTracker"
+            self.impl = f"trackers.{cls.__name__}"
         except ImportError:
+            if self.kind != "bytetrack":
+                raise
             import warnings
 
             with warnings.catch_warnings():
@@ -109,6 +126,32 @@ class ByteTrackTracker(Tracker):
         reset = getattr(self.tracker, "reset", None)
         if reset is not None:
             reset()
+
+
+class OCSORTTracker(ByteTrackTracker):
+    """OC-SORT (observation-centric re-update, direction consistency).  No ReID."""
+
+    kind = "ocsort"
+
+
+class BoTSORTTracker(ByteTrackTracker):
+    """BoT-SORT without ReID and without camera-motion compensation."""
+
+    kind = "botsort"
+
+
+class SORTTracker(ByteTrackTracker):
+    """Plain SORT: Kalman + IoU.  The bake-off's floor."""
+
+    kind = "sort"
+
+
+LIB_TRACKERS = {"bytetrack": "ByteTrackTracker", "ocsort": "OCSORTTracker",
+                "botsort": "BoTSORTTracker", "sort": "SORTTracker"}
+TRACKER_CLASSES: dict[str, type[ByteTrackTracker]] = {
+    "bytetrack": ByteTrackTracker, "ocsort": OCSORTTracker,
+    "botsort": BoTSORTTracker, "sort": SORTTracker,
+}
 
 
 class SimpleTracker(Tracker):
@@ -188,14 +231,17 @@ class SimpleTracker(Tracker):
 
 def build_tracker(config, fallback: bool = False) -> Tracker:
     """`config` is a `storemind.core.config.TrackerConfig`."""
-    if fallback:
+    kind = getattr(config, "type", "bytetrack")
+    if fallback or kind == "simple":
         return SimpleTracker()
     try:
-        return ByteTrackTracker(
+        return TRACKER_CLASSES[kind](
             track_activation_threshold=config.track_activation_threshold,
             lost_track_buffer=config.lost_track_buffer,
             minimum_matching_threshold=config.minimum_matching_threshold,
             frame_rate=config.frame_rate,
+            high_conf_det_threshold=getattr(config, "high_conf_det_threshold", None),
+            minimum_consecutive_frames=getattr(config, "minimum_consecutive_frames", 1),
         )
     except ImportError:
         return SimpleTracker()

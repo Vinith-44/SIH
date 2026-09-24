@@ -117,9 +117,38 @@ def count_id_switches(gt_by_frame: dict[int, list], pred_by_frame: dict[int, lis
             "match_rate": matched / gt_total if gt_total else None}
 
 
+def mot_metrics(gt_by_frame: dict[int, list], pred_by_frame: dict[int, list],
+                threshold: float = 0.5) -> dict:
+    """IDF1 / MOTA / IDSW with the TrackEval-compatible implementations in
+    `trackers.eval`, over the frames the pipeline processed."""
+    from trackers.eval import compute_clear_metrics, compute_identity_metrics
+
+    gt_ids, tr_ids, sims = [], [], []
+    for frame in sorted(pred_by_frame):
+        gts = gt_by_frame.get(frame, [])
+        preds = pred_by_frame[frame]
+        gt_ids.append(np.array([g.track for g in gts], dtype=int))
+        tr_ids.append(np.array([p.track_id for p in preds], dtype=int))
+        sims.append(np.array([[iou(g.xyxy, p.xyxy) for p in preds] for g in gts],
+                             dtype=float).reshape(len(gts), len(preds)))
+    if not gt_ids:
+        return {}
+    identity = compute_identity_metrics(gt_ids, tr_ids, sims, threshold)
+    clear = compute_clear_metrics(gt_ids, tr_ids, sims, threshold)
+    return {"IDF1": float(identity["IDF1"]), "IDTP": int(identity["IDTP"]),
+            "IDFP": int(identity["IDFP"]), "IDFN": int(identity["IDFN"]),
+            "MOTA": float(clear["MOTA"]), "IDSW": int(clear["IDSW"]),
+            "gt_dets": int(sum(len(g) for g in gt_ids)),
+            "pred_dets": int(sum(len(t) for t in tr_ids))}
+
+
 def run_clip(scenario: str, view: str, config_path: str = CONFIG,
              caviar_dir: Path = CAVIAR_DIR, write_csv: bool = True,
-             backend: str | None = None, model: str | None = None) -> dict:
+             backend: str | None = None, model: str | None = None,
+             detector=None, configure=None, timeline: bool = False,
+             track_log: list | None = None) -> dict:
+    """`detector` injects e.g. a `CachedDetector`; `configure(config)` may edit
+    the loaded config (tracker type, counter mode) before the run."""
     from ..pipeline import Pipeline
 
     corridor_xml, front_xml = SCENARIOS[scenario]
@@ -142,6 +171,8 @@ def run_clip(scenario: str, view: str, config_path: str = CONFIG,
     if model:
         config.detector.model = model
     config.alerts.console = False
+    if configure is not None:
+        configure(config)
 
     line = camera_config.line
     width, height = 384, 288           # every CAVIAR clip
@@ -164,10 +195,18 @@ def run_clip(scenario: str, view: str, config_path: str = CONFIG,
 
     def observe(_camera: str, frame, tracks) -> None:
         per_frame[frame.index] = list(tracks)
+        if track_log is not None:  # (video time, tracks) for counter-only replays
+            track_log.append((frame.video_s, list(tracks)))
 
     events: list = []
     pipeline = Pipeline(config, replay=True, show=False, store=_NullStore(),
-                        on_tracks=observe)
+                        on_tracks=observe, detector=detector)
+    if timeline:
+        # Replay only the cached frames with their timestamps: no video decode.
+        from ..inference.cached import CachedTimeline
+
+        pipeline.cameras[0].source.close()
+        pipeline.cameras[0].source = CachedTimeline(detector, name=view)
     pipeline.bus.subscribe_all(events.append)
     summary = pipeline.run(progress=False)
 
@@ -188,6 +227,9 @@ def run_clip(scenario: str, view: str, config_path: str = CONFIG,
             continue
         people_pairs.append((len(tracks), len(gt_by_frame.get(index, []))))
     tracking = count_id_switches(gt_by_frame, per_frame)
+    tracking.update(mot_metrics(gt_by_frame, {i: t for i, t in per_frame.items()
+                                              if i < clip.frames}))
+    counter = pipeline.cameras[0].footfall
 
     report = {
         "scenario": scenario,
@@ -215,6 +257,9 @@ def run_clip(scenario: str, view: str, config_path: str = CONFIG,
         "gt_mean_people_in_frame": (statistics.mean([b for _a, b in people_pairs])
                                     if people_pairs else None),
         "tracking": tracking,
+        "tracker": getattr(pipeline.cameras[0].tracker, "impl", type(pipeline.cameras[0].tracker).__name__),
+        "counter": type(counter).__name__ if counter is not None else None,
+        "rejected": dict(getattr(counter, "rejected", {}) or {}),
     }
     if view == "front":
         report["shop_enter_episodes"] = len(clip.context_episodes("shop enter"))

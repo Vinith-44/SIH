@@ -1,6 +1,6 @@
 # StoreMind - measured results
 
-Generated 2026-09-24 01:02 by `python -m storemind.eval.run_all`.
+Generated 2026-09-24 13:25 by `python -m storemind.eval.run_all`.
 
 Every number on this page came from a command printed beside it. Nothing here was typed by hand. If a measurement could not be made, the row says so.
 
@@ -12,6 +12,8 @@ Every number on this page came from a command printed beside it. Nothing here wa
 | **B** | our own field recording, hand-labelled by the team | real accuracy claims |
 | **C** | simulation with known ground truth | proving the logic is correct - **never** an accuracy claim |
 | **S** | real footage, no ground truth | speed only - **never** an accuracy claim |
+| **Q** | Qualcomm AI Hub hosted/proxy device | Qualcomm latency - **never** "our board" |
+| **P** | published third-party figure, cited | context only - not our measurement |
 
 This follows `research/09b_TEST_DATA_VALIDITY.md`. A simulation can only ever show that the arithmetic is right; it cannot show that the system works in a shop.
 
@@ -26,7 +28,7 @@ This follows `research/09b_TEST_DATA_VALIDITY.md`. A simulation can only ever sh
 | cpu_threads | 16 |
 | ram_gb | 16.9 |
 | opencv | 5.0.0 |
-| git_commit | 9d8680a |
+| git_commit | c454662 |
 
 ## Results
 
@@ -72,6 +74,34 @@ python -m storemind.eval.eval_caviar
 
 </details>
 
+### Counting v2, detector and tracker bake-off - CAVIAR, cross-validated
+
+**Data bucket A** - public benchmark with published ground truth
+
+2-fold cross-validation over the two camera views: detector, tracker and counter settings are chosen on one view and scored on the other, so every ground-truth crossing below is scored by a setting chosen without it. All variants replay cached detections, so only the component under test changes. The protocol was revised after a first run (`tracker_bakeoff_run1.md`), and both runs are published. Full tables: `eval/results/tracker_bakeoff.md`.
+
+**Did not meet target on held-out data:** entry accuracy 96.7%, exit accuracy 76.2% (target >= 90%). See docs/COUNTING.md for what limits it.
+
+| metric | result | target |
+|---|---|---|
+| today: YOLO11n@640 + ByteTrack + v1 counter: entries (truth) / acc | 33 (30) / 90.0% | >= 90% |
+| today: YOLO11n@640 + ByteTrack + v1 counter: exits (truth) / acc | 24 (21) / 85.7% | >= 90% |
+| today: YOLO11n@640 + ByteTrack + v1 counter: entry / exit event F1 | 0.89 / 0.76 | - |
+| **counting v2 procedure, held-out (CV)**: entries (truth) / acc | 31 (30) / 96.7% | >= 90% |
+| **counting v2 procedure, held-out (CV)**: exits (truth) / acc | 16 (21) / 76.2% | >= 90% |
+| **counting v2 procedure, held-out (CV)**: entry / exit event F1 | 0.82 / 0.76 | - |
+| fold: tune corridor -> test front | yolo26n@640 c0.15 + bytetrack, test F1 0.61 | - |
+| fold: tune front -> test corridor | yolo11n@960 c0.25 + bytetrack, test F1 0.85 | - |
+| shipped configuration (tuned on all clips) | yolo11s@640 c0.25 + bytetrack, `mode=gate, gate_px=8.0, min_track_age_s=0.0, direction_mode=off, confirm_s=0.5` | - |
+
+<details><summary>commands</summary>
+
+```bash
+python -m storemind.eval.detcache && python -m storemind.eval.bakeoff
+```
+
+</details>
+
 ### Entry / exit counting - synthetic entrance
 
 **Data bucket C** - simulation - logic validation only, NOT an accuracy measurement
@@ -85,7 +115,7 @@ Perfect detections (`--backend scripted`) so this grades the line-crossing logic
 | entry count accuracy | 100.0% | >= 90% |
 | exit count accuracy | 100.0% | >= 90% |
 | entry event precision / recall / F1 | 1.00 / 1.00 / 1.00 | - |
-| mean crossing timing error | 0.15 s | - |
+| mean crossing timing error | 0.08 s | - |
 | occupancy MAE | 0.08 people | <= 1-2 |
 
 <details><summary>commands</summary>
@@ -217,18 +247,20 @@ OpenCV's `vtest.avi` sample (Apache-2.0), 768x576, real people in a plaza. It ha
 
 These are laptop numbers and the Pi 5 must be measured on the Pi. They also move with the laptop's thermal and power state: the same command on the same clip measured 27 ms and 159 ms per frame on different days of this work. Compare rows within one run, never across runs.
 
+**CPU only** (`STOREMIND_DEVICE=cpu`): the laptop's GPU is used for evaluation runs, but a GPU number says nothing about a Pi 5 or a QCS6490, so it is not shown here.
+
 | metric | result | target |
 |---|---|---|
-| ultralytics yolo11n.pt @320 | 27.37 ms/frame &middot; 36.03 FPS &middot; 4.34 detections/frame | - |
-| ultralytics yolo11n.pt @416 | 42.51 ms/frame &middot; 23.32 FPS &middot; 4.44 detections/frame | - |
-| ultralytics yolo11n.pt @640 | 97.99 ms/frame &middot; 10.16 FPS &middot; 4.73 detections/frame | - |
-| ultralytics yolo26n.pt @640 | 88.65 ms/frame &middot; 11.23 FPS &middot; 4.73 detections/frame | - |
-| litert efficientdet_lite0_coco_legacy.tflite @320 | 20.34 ms/frame &middot; 48.24 FPS &middot; 4.2 detections/frame | - |
+| ultralytics yolo11n.pt @320 (CPU) | 31.93 ms/frame &middot; 30.89 FPS &middot; 4.34 detections/frame | - |
+| ultralytics yolo11n.pt @416 (CPU) | 52.37 ms/frame &middot; 18.94 FPS &middot; 4.44 detections/frame | - |
+| ultralytics yolo11n.pt @640 (CPU) | 106.81 ms/frame &middot; 9.33 FPS &middot; 4.73 detections/frame | - |
+| ultralytics yolo26n.pt @640 (CPU) | 144.29 ms/frame &middot; 6.9 FPS &middot; 4.73 detections/frame | - |
+| litert efficientdet_lite0_coco_legacy.tflite @320 (CPU) | 96.37 ms/frame &middot; 10.22 FPS &middot; 4.2 detections/frame | - |
 
 <details><summary>commands</summary>
 
 ```bash
-python -m storemind.eval.benchmark --source ../videos/other/vtest.avi --frames 100
+STOREMIND_DEVICE=cpu python -m storemind.eval.benchmark --source ../videos/other/vtest.avi --frames 100
 ```
 
 </details>

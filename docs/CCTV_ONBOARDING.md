@@ -1,6 +1,6 @@
 # CCTV onboarding
 
-**Owner:** B · **Filled in:** M2 · **Status:** URL cheat-sheet done; installer checklist and `docs/templates/` still to come.
+**Owner:** B · **Filled in:** M2 · **Status:** steps 3–4 (discover, probe) and the URL cheat-sheet done; the rest of the installer checklist and `docs/templates/` still to come.
 
 ## What goes here
 
@@ -11,6 +11,43 @@ The 15-minute installer checklist, questions to ask college IT, URL cheat-sheet,
 - research/24_CCTV_INTEGRATION.md §3, §5, §8
 
 ---
+
+## Find the cameras: discover, then probe
+
+Steps 3 and 4 of the 15-minute onboarding (research/24 §5). **Get written permission
+before you scan anything** — §5 step 1 and §8.
+
+**Step 3 — what is on this network?**
+
+```powershell
+python storemind\tools\discover.py --subnet 192.168.1.0/24
+```
+
+It TCP-scans the camera ports and guesses a brand from which ones answer: 37777 →
+CP Plus/Dahua, 8000 → Hikvision/Prama, 2020 → Tapo, 5543 → some CP Plus. Then it prints
+the candidate sub-stream URL for each guess. Port 554 on its own gives no guess, because
+RTSP alone genuinely does not identify a brand — try each template instead. It refuses
+ranges over `--max-hosts` (256), so scan one subnet at a time. `--json` to pipe it.
+
+**Step 4 — is that stream usable?**
+
+```powershell
+python storemind\tools\probe.py "rtsp://USER:PASS@192.168.1.108:554/cam/realmonitor?channel=1&subtype=1" --expect-fps 8
+```
+
+The number that matters is **measured** FPS, not the one in the stream header. A
+recorder will happily claim 25 and deliver 6, and only the measured figure tells you
+whether step 5's "8–10 FPS for entrance" actually happened. The probe also flags a
+stream wider than 1280px (you are on the main stream — the quickest way to overload a
+Pi running four cameras), a dark/IR picture, and a uniform frame that means the lens is
+covered.
+
+Exit codes suit an install script: `0` clean, `1` warnings, `2` could not open.
+`--cam entrance` additionally prints the `CAMERA_HEALTH` payload, so the verdict the
+health panel will show later is the one you see at onboarding.
+
+Credentials are redacted in all output from both tools, so the result is safe to paste
+into a chat while onboarding.
 
 ## URL cheat-sheet
 

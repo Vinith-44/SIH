@@ -65,6 +65,8 @@ models/
 storemind/data/
 storemind/runs/
 snapshots/
+# Generated at run time by ingest/go2rtc.py; go2rtc.yaml holds camera passwords.
+runtime/
 
 # Office lock files, local binaries, secrets (added 24 Sep for the two-person setup)
 ~$*

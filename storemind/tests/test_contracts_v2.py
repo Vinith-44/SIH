@@ -304,3 +304,34 @@ def test_platform_results_are_included_with_their_bucket(tmp_path):
     assert "ASUS Vivobook 15" in density.markdown()
     assert sections["24 h soak"].bucket == "B" and "RSS flat." in sections["24 h soak"].note
     assert sections["Platform - no_bucket"].failed
+
+
+# --------------------------------------------------------------------------- #
+# Config additions for M1 (counting v2, tracker choice, filters, staff)
+# --------------------------------------------------------------------------- #
+
+def test_m1_config_defaults_keep_v1_behaviour():
+    from storemind.core.config import LineConfig
+
+    line = LineConfig(a=(0, 0.5), b=(1, 0.5))
+    assert line.mode == "single" and line.beam_door is None
+    config = StoreMindConfig()
+    assert config.tracker.type == "bytetrack"
+    assert config.tracker.minimum_consecutive_frames == 1
+
+
+def test_m1_config_fields_validate():
+    config = StoreMindConfig(
+        tracker={"type": "ocsort"},
+        cameras=[{"name": "entrance", "source": "0", "role": "entrance",
+                  "line": {"a": [0, 0.5], "b": [1, 0.5], "mode": "gate", "gate_px": 20,
+                           "direction_mode": "strict", "beam_door": "door1"},
+                  "filters": [{"points": [[0, 0], [0.2, 0], [0.2, 1]], "min_score": 0.6}],
+                  "staff": {"zones": [[[0, 0], [0.3, 0], [0.3, 0.5]]], "badge": True}}])
+    camera = config.camera("entrance")
+    assert camera.line.mode == "gate" and camera.staff.badge
+    with pytest.raises(ValidationError):
+        StoreMindConfig(tracker={"type": "deepsort"})       # ReID trackers are not allowed
+    with pytest.raises(ValidationError):
+        StoreMindConfig(cameras=[{"name": "e", "source": "0",
+                                  "line": {"a": [0, 0], "b": [1, 0], "direction_mode": "loose"}}])

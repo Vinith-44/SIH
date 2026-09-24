@@ -211,6 +211,19 @@ restock_button, ld2450`. **A sensor that is not listed does not exist** — code
 
 `mqtt:` gains `listen: false`.
 
+**M1 additions (contract PR `a/m1-contract`, all optional, defaults = old behaviour):**
+
+| Key | Default | Meaning |
+|---|---|---|
+| `tracker.type` | `bytetrack` | `bytetrack` \| `ocsort` \| `botsort` (no ReID, no CMC) \| `sort` \| `simple`. ReID trackers are deliberately not allowed (privacy). |
+| `tracker.high_conf_det_threshold` | library default | score split for two-stage association |
+| `tracker.minimum_consecutive_frames` | `1` | frames before a track is confirmed |
+| `cameras[].line.mode` | `single` | `single` = v1 counter; `gate` = counting v2 (docs/COUNTING.md) |
+| `cameras[].line.gate_px`, `min_track_age_s`, `min_displacement_px`, `direction_mode` (`off`/`balanced`/`strict`), `direction_window_s`, `confirm_s` | 16, 0.5, 0, balanced, 1.0, 0 | gate counter parameters (pixels of the processed frame) |
+| `cameras[].line.beam_door` | null | IR-beam door id (`BEAM_CROSS.door`) watching this line → cross-check + fallback |
+| `cameras[].filters[]` | `[]` | `{points?, min_score?, min_area_px, max_area_frac, classes?}` per-zone detection filter |
+| `cameras[].staff` | null | `{zones, zone_dwell_s, badge, aruco_dict, badge_ids, badge_every_n}` staff exclusion |
+
 ## 5. Result files (Person B → `RESULTS.md`)
 
 Person A owns `RESULTS.md`. Person B writes measured platform results to

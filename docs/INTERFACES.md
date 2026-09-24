@@ -259,3 +259,15 @@ Buckets: **A** public benchmark · **B** our own recording · **C** simulation (
 | `shelves[].empty_threshold`, `low_threshold` | **0.28, 0.5** (0.15, 0.4) | defaults changed for the v2 fill scale (tuned on synthetic seeds 1-10) |
 | `SENSOR` with `sensor: "restock"`, `channel: <shelf>` | - | how the bridge publishes the `$R` restock button (no new event type) |
 | `shelves[].slots[].full_grams`, `deep` | null, false | weight when full (null = learnt at restock); deep shelf → weight wins |
+
+**M4 additions (contract PR `a/m4-contract`, all optional; `membership: polygon` = v1 behaviour):**
+
+| Key / field | Default | Meaning |
+|---|---|---|
+| `counters[].lane` | now optional | a lane polygon, **or** `lane_polyline` + `lane_width` (one of the two is required) |
+| `counters[].membership` | `polygon` | `dwell` = queue v2: a person joins only after `join_dwell_s` in the lane at ≤ `max_join_speed` (frame heights/s over `speed_window_s`); passers-by never join |
+| `counters[].lane_polyline`, `lane_width` | `[]`, 0.12 | centre line of a bent queue, billing end first; width as a fraction of frame height |
+| `counters[].tail_zone` | `[]` | polygon where the queue spills out → `tail_overflow` |
+| `counters[].party_dist`, `party_join_window_s` | 0.08, 4 s | people who stay this close and joined together are one party |
+| `counters[].balk_min_s`, `littles_window_s` | 2 s, 600 s | balk = stopped in the lane, left without joining; Little's-law window |
+| `QUEUE_STATE.queue_parties`, `wait_littles_s`, `arrivals_per_min`, `balks`, `reneges`, `tail_overflow` | null | new optional payload fields (schema stays v2: additive) |

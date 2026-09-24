@@ -349,3 +349,19 @@ def test_m3_shelf_config_fields_validate_and_v1_values_are_expressible():
     assert SlotConfig(name="A1", points=[(0, 0), (1, 0), (1, 1)], full_grams=1800, deep=True).deep
     with pytest.raises(ValidationError):
         ShelfConfig(name="s", texture="sift")
+
+
+def test_m4_queue_fields_are_optional_and_validate():
+    from storemind.core.config import CounterConfig
+
+    v1 = CounterConfig(name="c1", lane=[(0, 0), (1, 0), (1, 1)], billing=[(0, 0), (1, 0), (1, 1)])
+    assert v1.membership == "polygon"
+    bent = CounterConfig(name="c1", billing=[(0, 0), (1, 0), (1, 1)], membership="dwell",
+                         lane_polyline=[(0.5, 0.4), (0.5, 0.8), (0.2, 0.9)])
+    assert bent.lane == [] and bent.lane_width == 0.12
+    with pytest.raises(ValidationError):
+        CounterConfig(name="c1", billing=[(0, 0), (1, 0), (1, 1)])      # no lane at all
+    event = ev(EventType.QUEUE_STATE, {"counter": "c1", "queue_len": 3, "queue_len_smooth": 3.0,
+                                       "queue_parties": 2, "wait_littles_s": 95.0, "balks": 1,
+                                       "reneges": 0, "tail_overflow": False}, node="pi5-01")
+    assert event.data["queue_parties"] == 2

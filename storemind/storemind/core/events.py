@@ -102,6 +102,13 @@ class QueueStateData(_Payload):
     median_wait_s: float | None = None
     service_rate_per_min: float | None = None
     in_service: bool = False
+    # v2 (M4) - all optional
+    queue_parties: int | None = None     # groups who queue together count once
+    wait_littles_s: float | None = None  # Little's law W = L / lambda, cross-check
+    arrivals_per_min: float | None = None
+    balks: int | None = None             # stopped at the queue, left without joining
+    reneges: int | None = None           # joined, left before being served
+    tail_overflow: bool | None = None    # queue reaches the end of its lane
 
 
 class ServiceDoneData(_Payload):

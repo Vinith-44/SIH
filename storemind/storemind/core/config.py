@@ -79,7 +79,8 @@ class ZoneConfig(_Model):
 
 class CounterConfig(_Model):
     name: str
-    lane: list[Point]
+    # Either a lane polygon, or (v2) a lane polyline + width for bent queues.
+    lane: list[Point] = Field(default_factory=list)
     billing: list[Point]
     # A shopper must stand in the billing polygon this long before we believe
     # service started (audit Q3: ID flicker produced 0.4 s "services").
@@ -89,6 +90,24 @@ class CounterConfig(_Model):
     # Smoothed queue length that counts as congestion right now (as opposed to
     # the forecast, which warns before this happens).
     congestion_len: int = 5
+    # --- queue v2 (M4, docs/QUEUE.md).  membership "polygon" = v1 behaviour. --- #
+    membership: Literal["polygon", "dwell"] = "polygon"
+    join_dwell_s: float = 5.0         # in the lane this long (and slow) before joining
+    max_join_speed: float = 0.15      # frame heights per second; faster = walking past
+    speed_window_s: float = 2.0
+    lane_polyline: list[Point] = Field(default_factory=list)  # billing end first
+    lane_width: float = 0.12          # of frame height, around the polyline
+    tail_zone: list[Point] = Field(default_factory=list)      # queue spilling out
+    party_dist: float = 0.08          # of frame height: closer than this = together
+    party_join_window_s: float = 4.0  # joined within this of each other
+    balk_min_s: float = 2.0           # stopped in the lane at least this long, then left
+    littles_window_s: float = 600.0   # Little's-law averaging window
+
+    @model_validator(mode="after")
+    def _needs_a_lane(self) -> CounterConfig:
+        if not self.lane and len(self.lane_polyline) < 2:
+            raise ValueError(f"counter {self.name!r} needs 'lane' (polygon) or 'lane_polyline' (>= 2 points)")
+        return self
 
 
 class SlotConfig(_Model):

@@ -402,6 +402,34 @@ def shelf_fusion() -> Section | None:
     return section
 
 
+def qualcomm_aihub() -> Section | None:
+    """Bucket Q: Qualcomm AI Hub hosted devices (tools/aihub_profile.py)."""
+    path = RESULTS_DIR / "qualcomm_aihub.json"
+    if not path.is_file():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    section = Section(
+        "Detector on Qualcomm silicon - AI Hub hosted devices", "Q",
+        "Compiled to TFLite and profiled by Qualcomm AI Hub on devices it hosts "
+        f"({', '.join(data['devices'])}). **These are not our boards.** INT8 = AI Hub w8a8 quantization "
+        "with our calibration frames. 'NPU layers' is the share of network layers the profile placed on "
+        "the Hexagon NPU. Output agreement compares the device's detections with our local ONNX FP32 model on "
+        "vtest frames. Job links are in `eval/results/qualcomm_aihub.json`.")
+    for r in data["results"]:
+        label = f"{r['model']} {r['precision']} on {r.get('device', '?')}"
+        if "error" in r and "inference_ms" not in r:
+            section.row(label, f"failed: {r['error'][:90]}", "-")
+            continue
+        agree = ""
+        if r.get("recall_vs_local_fp32") is not None:
+            agree = (f" &middot; boxes vs local FP32: recall {pct(r['recall_vs_local_fp32'])}, "
+                     f"precision {pct(r['precision_vs_local_fp32'])}")
+        section.row(label, f"{r['inference_ms']} ms &middot; {r['peak_memory_mb']} MB peak &middot; "
+                           f"NPU layers {pct(r['npu_share'])}{agree}", "-")
+    section.commands.append(data["command"])
+    return section
+
+
 def platform_results(folder: Path = PLATFORM_DIR) -> list[Section]:
     """Person B's measured results, one section per file, never edited by A.
 
@@ -499,6 +527,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if "platform" not in args.skip:
         print("--- platform ---", flush=True)
+        sections += [q for q in [qualcomm_aihub()] if q is not None]
         sections += platform_results()
 
     specs = machine_specs()

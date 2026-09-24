@@ -1,60 +1,37 @@
-# HANDOFF — Person A (Vinith) — 2026-09-24 (evening)
+# HANDOFF — Person A (Vinith) — 2026-09-24 (night)
 
 Overwritten every session. Read `CLAUDE.md` first, then this.
 
 ## Open PRs (Ram approves)
-- **#13 Contract (M6)**: PICKUP action/units, slot unit_grams, alerts open_hours. Merge before the M6 PR.
-- **M6 PR** (`a/m6-fusion` -> master): shelf interaction fusion, sensor simulator, eval, docs/MEMS.md §4-6.
-- Merged: #1-#5, #7, #9-#12 (PR-0, M1, M3, M4 and their contracts), plus Ram's #6/#8 (M2).
+- **#15 M8** (`a/m8-models`): exports, eval_export, tools/bench_pi.py, docs/MODELS.md.
+- **#16 Contract (M9)**: litert_qnn / ort_qnn backends, qnn_lib, require_accelerator. Merge before the M9 PR.
+- **M9 PR** (`a/m9-aihub`): AI Hub tool + results, QNN backends, docs/QUALCOMM.md, deploy/qualcomm/.
+  #15 and M9 both add sections to `eval/run_all.py`: whichever merges second needs a small conflict fix (keep both).
+- Merged: PR-0, M1, M3, M4, M6 and their contracts (#1-#5, #7, #9-#14), plus Ram's M2 (#6, #8).
 
-## M1 outcome (docs/COUNTING.md)
-- Code done: gate counter, 4 trackers, per-zone filters, staff zones + ArUco badges, IR-beam
-  cross-check + fallback, detection cache, cross-validated bake-off. 235 tests pass.
-- **Held-out CAVIAR: exit accuracy 76.2% (target ≥ 90%: not met)**, entry 96.7%, F1 0.82/0.76.
-  Today's default scores 85.7% exits, F1 0.89/0.76. Settings do not transfer between the two
-  views. Per the user, **no more CAVIAR tuning**. The IR beam is the per-site calibration path.
-- Shipped: YOLO11n@640 + ByteTrack + gate defaults. YOLO11s runs at 3.75 FPS on the laptop CPU,
-  so it cannot hit 8 FPS on a Pi. It is recorded as the Qualcomm NPU option (M9). YOLO26n is the
-  Pi candidate for M8.
-- The venv has CUDA torch (cu130). Speed numbers in RESULTS.md are forced to CPU.
+## Where each milestone stands (details in docs/)
+| Milestone | State | Honest headline |
+|---|---|---|
+| M1 counting (COUNTING.md) | merged | held-out CAVIAR exit accuracy 76% — **target 90% not met**; IR beam = per-site calibration |
+| M3 shelf (SHELF.md) | merged | synthetic EMPTY F1 0.92 (v1 0.74); **real shelf not measured** |
+| M4 queue (QUEUE.md) | merged | passers-by fixed (joins 825 vs 833 true); per-person wait 33% under ID switches; **canteen clip not recorded** |
+| M6 fusion (MEMS.md) | merged | simulated picks F1 0.98, units 99.7%; **no hardware yet** |
+| M8 models (MODELS.md) | PR #15 | FP32 exports lossless on CAVIAR; INT8 moves 2-4 crossings; **Pi speed not measured** |
+| M9 Qualcomm (QUALCOMM.md) | PR open | AI Hub hosted RB3 Gen 2 (QCS6490), bucket Q: YOLO11n INT8 12.8 ms, 100% NPU; YOLO11s INT8 11.0 ms; FP32 ~140-240 ms |
 
-## M3 shelf v2: done except the bucket-B photo set
-- PR #5 (`a/m3-contract`): shelf config keys and the v2 threshold defaults. PR #6 (`a/m3-shelf-v2`): the engine,
-  tools and evals.
-- Synthetic test seeds: EMPTY F1 0.92 (v1 0.74), evening 0.93 (v1 0.15), dark → UNKNOWN. This is bucket C.
-- **Real acceptance (our own shelf, EMPTY F1 ≥ 0.85 day+evening) is not measured.** The team needs to capture one:
-  docs/HARDWARE_TODO.md "M3 - shelf photos".
-- For Person B:
-  - the dashboard can show `pipeline.reorder.whatsapp_text()` and the new slot `reason` strings;
-  - the bridge publishes `$R` as `SENSOR {sensor: "restock", channel: <shelf>}`.
+## M9 notes
+- INT8 needs the boxes/scores head split (the first AI Hub run detected nothing; fixed; run 1 is kept as evidence).
+- `models/yolo11n_aihub_w8a8.tflite` also runs on any CPU with `backend: litert`: this resolves M8's LiteRT INT8
+  item without WSL.
+- Run the tool with `PYTHONIOENCODING=utf-8` on Windows (qai-hub prints emoji).
 
-## M4 queue v2: done except the bucket-B clip (docs/QUEUE.md)
-- Simulated tracks, held out, v2 vs v1:
-  - joins 825 vs 2598 (truth 833); passers-by no longer inflate lambda;
-  - queue MAE 0.19 vs 0.38; party MAE 0.15;
-  - Little's-law W err 12% under ID switches; per-person wait err 33% under ID switches (target 20%: not met).
-- **Balk/renege split does not work** (0/65 balks); only "walked away unserved" is usable.
-- **Real canteen clip not recorded**: docs/HARDWARE_TODO.md "M4 - canteen queue clip".
-- For Ram's dashboard: QUEUE_STATE now carries `queue_parties`, `wait_littles_s`, `arrivals_per_min`, `balks`,
-  `reneges`, `tail_overflow`; the new alert key is `QUEUE_OVERFLOW:<counter>`.
-
-## M6-fusion: done except hardware (docs/MEMS.md)
-- Simulated bridge events, held out (bucket C): M6 picks F1 0.98 (units 99.7%), put-backs F1 0.93,
-  0 false shrinks, 15/15 fallen packs caught. v1 picks F1 0.09.
-- Depends on Ram's M5/M6 firmware + bridge. Nothing has run on the board yet. The simulator encodes our assumptions
-  about the firmware (docs/MEMS.md §5).
-- For Ram:
-  - fill docs/MEMS.md §1-3;
-  - publish SHELF_MOTION/WEIGHT/CAMERA_MOUNT/PRESENCE as in the contract;
-  - the dashboard can show PICKUP.action;
-  - new alert keys: SHELF_TILT, FALLEN_STOCK, CAMERA_MOVED/BUMP/TILT, AFTER_HOURS.
-
-## Next: M8 models (branch `a/m8-models`)
-NCNN + LiteRT INT8 (+ ONNX) export of YOLO11n and YOLO26n; `tools/bench_pi.py` (median/p95 ms, FPS, temp, throttle,
-PMIC power -> mJ/frame); detector backend chosen in config. Then M9 (AI Hub), M10.
+## Next: M10 (stretch) "Ask your store" + daily summary
+Local small LLM -> read-only SQL over whitelisted views -> every answer cites rows; 20 test questions, 0 invented
+numbers. Then M11 (final docs + demo pack, shared with Ram).
 
 ## Blocked / needs the team
-- Ram's approval of #1, then #2 and #3.
-- Our own recordings (bucket B): shelf photos across a day, a canteen queue clip, and 30 walked
-  door crossings with the IR beam (docs/HARDWARE_TODO.md).
-- Qualcomm AI Hub token (`qai-hub configure`, never in the repo).
+- Ram's approval of #15, #16 and the M9 PR.
+- Our own recordings (bucket B): shelf photos across a day, a canteen queue clip, 30 walked door crossings with the
+  IR beam, and the M6 shelf test on Ram's board (docs/HARDWARE_TODO.md).
+- Pi 5 run of `tools/bench_pi.py` (docs/HARDWARE_TODO.md "M8").
+- Optional: a real QCS6490 board, to move the Q numbers to S (deploy/qualcomm/README.md checklist).

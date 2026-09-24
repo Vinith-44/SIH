@@ -237,7 +237,7 @@ static void test_uplink_decode_values(void)
 static void test_frame_edge_cases(void)
 {
     sm_frame_t fr;
-    char line[128];
+    char line[160];     /* body (up to 128) + "$", "*XX" and CRLF: keeps gcc -Wformat-truncation quiet */
 
     /* Exactly 96 bytes with \r\n is fine, 97 is not: "$R,1,1,<id>*XX\r\n". */
     char body[128] = "R,1,1,";

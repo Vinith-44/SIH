@@ -1,0 +1,252 @@
+{
+  "bucket": "Q",
+  "note": "Qualcomm AI Hub hosted devices - not our own board",
+  "date": "2026-09-24T20:20:41",
+  "devices": [
+    "Dragonwing RB3 Gen 2 Vision Kit",
+    "QCS8550 (Proxy)"
+  ],
+  "command": "python tools/aihub_profile.py --models ../models/yolo11n.onnx ../models/yolo26n.onnx ../models/yolo11s.onnx --devices Dragonwing RB3 Gen 2 Vision Kit QCS8550 (Proxy) --calib C:/Users/VANJAN~1/AppData/Local/Temp/claude/C--Users-VANJANGI-VINITH/ae698255-07c8-4a12-afc5-065bc75017dc/scratchpad/calib/images/val",
+  "results": [
+    {
+      "model": "yolo11n",
+      "precision": "fp32",
+      "device": "Dragonwing RB3 Gen 2 Vision Kit",
+      "compile_job": "jgzllnmk5",
+      "compile_url": "https://workbench.aihub.qualcomm.com/jobs/jgzllnmk5/",
+      "profile_job": "jp2rrer4g",
+      "profile_url": "https://workbench.aihub.qualcomm.com/jobs/jp2rrer4g/",
+      "inference_ms": 150.893,
+      "peak_memory_mb": 66.1,
+      "first_load_ms": 3755.7,
+      "layers_by_unit": {
+        "NPU": 18,
+        "CPU": 155,
+        "GPU": 168
+      },
+      "npu_share": 0.053,
+      "inference_job": "jp1nn618g",
+      "recall_vs_local_fp32": 1.0,
+      "precision_vs_local_fp32": 1.0,
+      "boxes_reference": 29,
+      "boxes_device": 29,
+      "wall_s": 946
+    },
+    {
+      "model": "yolo11n",
+      "precision": "fp32",
+      "device": "QCS8550 (Proxy)",
+      "compile_job": "jgddd2yrg",
+      "compile_url": "https://workbench.aihub.qualcomm.com/jobs/jgddd2yrg/",
+      "profile_job": "j57ee91vp",
+      "profile_url": "https://workbench.aihub.qualcomm.com/jobs/j57ee91vp/",
+      "inference_ms": 5.966,
+      "peak_memory_mb": 100.7,
+      "first_load_ms": 2268.7,
+      "layers_by_unit": {
+        "NPU": 341
+      },
+      "npu_share": 1.0,
+      "wall_s": 354
+    },
+    {
+      "model": "yolo11n",
+      "precision": "w8a8",
+      "device": "Dragonwing RB3 Gen 2 Vision Kit",
+      "compile_job": "jgk2281wg",
+      "compile_url": "https://workbench.aihub.qualcomm.com/jobs/jgk2281wg/",
+      "profile_job": "j57ee9q9p",
+      "profile_url": "https://workbench.aihub.qualcomm.com/jobs/j57ee9q9p/",
+      "inference_ms": 12.792,
+      "peak_memory_mb": 16.7,
+      "first_load_ms": 3048.0,
+      "layers_by_unit": {
+        "NPU": 368
+      },
+      "npu_share": 1.0,
+      "inference_job": "jgnzzn6jg",
+      "recall_vs_local_fp32": 1.0,
+      "precision_vs_local_fp32": 0.9354838709677419,
+      "boxes_reference": 29,
+      "boxes_device": 31,
+      "wall_s": 1085
+    },
+    {
+      "model": "yolo11n",
+      "precision": "w8a8",
+      "device": "QCS8550 (Proxy)",
+      "compile_job": "jgnzzn0jg",
+      "compile_url": "https://workbench.aihub.qualcomm.com/jobs/jgnzzn0jg/",
+      "profile_job": "jprll06kp",
+      "profile_url": "https://workbench.aihub.qualcomm.com/jobs/jprll06kp/",
+      "inference_ms": 2.695,
+      "peak_memory_mb": 118.9,
+      "first_load_ms": 1018.2,
+      "layers_by_unit": {
+        "NPU": 368
+      },
+      "npu_share": 1.0,
+      "wall_s": 245
+    },
+    {
+      "model": "yolo26n",
+      "precision": "fp32",
+      "device": "Dragonwing RB3 Gen 2 Vision Kit",
+      "compile_job": "jgjrr7l7p",
+      "compile_url": "https://workbench.aihub.qualcomm.com/jobs/jgjrr7l7p/",
+      "profile_job": "jp1nnjdkg",
+      "profile_url": "https://workbench.aihub.qualcomm.com/jobs/jp1nnjdkg/",
+      "inference_ms": 138.049,
+      "peak_memory_mb": 64.2,
+      "first_load_ms": 4094.3,
+      "layers_by_unit": {
+        "NPU": 21,
+        "CPU": 192,
+        "GPU": 179
+      },
+      "npu_share": 0.054,
+      "inference_job": "j5m00m9wg",
+      "recall_vs_local_fp32": 1.0,
+      "precision_vs_local_fp32": 1.0,
+      "boxes_reference": 29,
+      "boxes_device": 29,
+      "wall_s": 1226
+    },
+    {
+      "model": "yolo26n",
+      "precision": "fp32",
+      "device": "QCS8550 (Proxy)",
+      "compile_job": "jgollrxqg",
+      "compile_url": "https://workbench.aihub.qualcomm.com/jobs/jgollrxqg/",
+      "profile_job": "jpvlldjk5",
+      "profile_url": "https://workbench.aihub.qualcomm.com/jobs/jpvlldjk5/",
+      "inference_ms": 5.775,
+      "peak_memory_mb": 125.3,
+      "first_load_ms": 1533.5,
+      "layers_by_unit": {
+        "NPU": 392
+      },
+      "npu_share": 1.0,
+      "wall_s": 297
+    },
+    {
+      "model": "yolo26n",
+      "precision": "w8a8",
+      "device": "Dragonwing RB3 Gen 2 Vision Kit",
+      "compile_job": "jgollr0kg",
+      "compile_url": "https://workbench.aihub.qualcomm.com/jobs/jgollr0kg/",
+      "profile_job": "jpxll4jlp",
+      "profile_url": "https://workbench.aihub.qualcomm.com/jobs/jpxll4jlp/",
+      "inference_ms": 13.883,
+      "peak_memory_mb": 18.9,
+      "first_load_ms": 2870.1,
+      "layers_by_unit": {
+        "NPU": 419
+      },
+      "npu_share": 1.0,
+      "inference_job": "jpvlllrz5",
+      "recall_vs_local_fp32": 1.0,
+      "precision_vs_local_fp32": 0.9354838709677419,
+      "boxes_reference": 29,
+      "boxes_device": 31,
+      "wall_s": 836
+    },
+    {
+      "model": "yolo26n",
+      "precision": "w8a8",
+      "device": "QCS8550 (Proxy)",
+      "compile_job": "jgolllodg",
+      "compile_url": "https://workbench.aihub.qualcomm.com/jobs/jgolllodg/",
+      "profile_job": "jgjrrro8p",
+      "profile_url": "https://workbench.aihub.qualcomm.com/jobs/jgjrrro8p/",
+      "inference_ms": 2.904,
+      "peak_memory_mb": 115.8,
+      "first_load_ms": 1174.8,
+      "layers_by_unit": {
+        "NPU": 419
+      },
+      "npu_share": 1.0,
+      "wall_s": 240
+    },
+    {
+      "model": "yolo11s",
+      "precision": "fp32",
+      "device": "Dragonwing RB3 Gen 2 Vision Kit",
+      "compile_job": "j5wlllr6p",
+      "compile_url": "https://workbench.aihub.qualcomm.com/jobs/j5wlllr6p/",
+      "profile_job": "jglyyyq85",
+      "profile_url": "https://workbench.aihub.qualcomm.com/jobs/jglyyyq85/",
+      "inference_ms": 239.254,
+      "peak_memory_mb": 107.9,
+      "first_load_ms": 8282.3,
+      "layers_by_unit": {
+        "NPU": 18,
+        "CPU": 155,
+        "GPU": 168
+      },
+      "npu_share": 0.053,
+      "inference_job": "jgolll7qg",
+      "recall_vs_local_fp32": 1.0,
+      "precision_vs_local_fp32": 1.0,
+      "boxes_reference": 30,
+      "boxes_device": 30,
+      "wall_s": 934
+    },
+    {
+      "model": "yolo11s",
+      "precision": "fp32",
+      "device": "QCS8550 (Proxy)",
+      "compile_job": "jgddddwrg",
+      "compile_url": "https://workbench.aihub.qualcomm.com/jobs/jgddddwrg/",
+      "profile_job": "j57eeezvp",
+      "profile_url": "https://workbench.aihub.qualcomm.com/jobs/j57eeezvp/",
+      "inference_ms": 7.033,
+      "peak_memory_mb": 116.7,
+      "first_load_ms": 2704.2,
+      "layers_by_unit": {
+        "NPU": 341
+      },
+      "npu_share": 1.0,
+      "wall_s": 480
+    },
+    {
+      "model": "yolo11s",
+      "precision": "w8a8",
+      "device": "Dragonwing RB3 Gen 2 Vision Kit",
+      "compile_job": "jp3zzzk35",
+      "compile_url": "https://workbench.aihub.qualcomm.com/jobs/jp3zzzk35/",
+      "profile_job": "j5wlllv3p",
+      "profile_url": "https://workbench.aihub.qualcomm.com/jobs/j5wlllv3p/",
+      "inference_ms": 10.986,
+      "peak_memory_mb": 26.2,
+      "first_load_ms": 2694.1,
+      "layers_by_unit": {
+        "NPU": 368
+      },
+      "npu_share": 1.0,
+      "inference_job": "jg9zzze8p",
+      "recall_vs_local_fp32": 1.0,
+      "precision_vs_local_fp32": 0.8571428571428571,
+      "boxes_reference": 30,
+      "boxes_device": 35,
+      "wall_s": 790
+    },
+    {
+      "model": "yolo11s",
+      "precision": "w8a8",
+      "device": "QCS8550 (Proxy)",
+      "compile_job": "j57eeor9p",
+      "compile_url": "https://workbench.aihub.qualcomm.com/jobs/j57eeor9p/",
+      "profile_job": "jp4yyer1p",
+      "profile_url": "https://workbench.aihub.qualcomm.com/jobs/jp4yyer1p/",
+      "inference_ms": 3.53,
+      "peak_memory_mb": 147.7,
+      "first_load_ms": 2044.2,
+      "layers_by_unit": {
+        "NPU": 368
+      },
+      "npu_share": 1.0,
+      "wall_s": 288
+    }
+  ]
+}

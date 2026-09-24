@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+import sys
 from pathlib import Path
 
 import cv2
@@ -96,11 +97,30 @@ def nms(boxes: np.ndarray, scores: np.ndarray, iou_threshold: float) -> list[int
     return keep
 
 
+def merge_yolo_outputs(outputs: list[np.ndarray]) -> np.ndarray:
+    """YOLO heads exported for INT8 keep boxes (4 channels) and class scores as
+    two outputs, so each gets its own quantization scale (one shared scale
+    crushes 0-1 scores next to 0-640 pixel boxes).  Put them back together as
+    the usual (1, 4 + classes, N) tensor.  A single output passes through."""
+    if len(outputs) == 1:
+        return outputs[0]
+    arrays = [np.asarray(o) for o in outputs]
+    # The channel axis is the one where boxes (4) and scores (classes) differ;
+    # runtimes may return the two outputs in either order.
+    differ = [axis for axis in range(1, arrays[0].ndim) if arrays[0].shape[axis] != arrays[1].shape[axis]]
+    channel_axis = differ[0] if differ else 1
+    arrays.sort(key=lambda a: a.shape[channel_axis] != 4)          # boxes first
+    return np.concatenate(arrays, axis=channel_axis)
+
+
 class Detector:
     """The interface every backend implements."""
 
     name = "detector"
     input_size = 640
+    # What actually runs the network: "cpu", "cuda:0", "qnn-htp (...)" or
+    # "cpu (fallback: ...)".  Reported so a demo never claims an NPU it is not using.
+    accelerator = "cpu"
 
     def detect(self, image: np.ndarray) -> list[Detection]:
         raise NotImplementedError
@@ -172,6 +192,7 @@ class UltralyticsDetector(Detector):
 
         self.model = YOLO(model)
         self.device = resolve_device(device)
+        self.accelerator = self.device
         self.conf = conf
         self.iou = iou
         self.input_size = imgsz
@@ -242,6 +263,15 @@ class UltralyticsDetector(Detector):
         return out
 
 
+def _load_qnn_delegate(lib: str):
+    """Qualcomm QNN TFLite delegate on the HTP (NPU) backend."""
+    try:
+        from ai_edge_litert.interpreter import load_delegate
+    except ImportError:
+        from tflite_runtime.interpreter import load_delegate
+    return load_delegate(lib, options={"backend_type": "htp"})
+
+
 class LiteRTDetector(Detector):
     """TFLite detector.
 
@@ -257,17 +287,32 @@ class LiteRTDetector(Detector):
 
     def __init__(self, model: str, conf: float = 0.35, iou: float = 0.5,
                  person_class: int = 0, num_threads: int = 4,
-                 letterbox_input: bool = True) -> None:
+                 letterbox_input: bool = True, qnn_lib: str | None = None,
+                 require_accelerator: bool = False) -> None:
         # `letterbox_input=False` reproduces the legacy squash-to-square
         # preprocessing (audit S1) and exists only so `eval/legacy_baseline.py`
         # can measure what that cost us.  Never use it in production.
         self.letterbox_input = letterbox_input
-        self.interpreter = self._make_interpreter(model, num_threads)
+        delegates = []
+        self.accelerator = "cpu"
+        if qnn_lib is not None:                     # litert_qnn: Hexagon NPU via the QNN delegate
+            try:
+                delegates = [_load_qnn_delegate(qnn_lib)]
+                self.accelerator = "qnn-htp (LiteRT QNN delegate)"
+            except Exception as error:              # noqa: BLE001 - any load failure means CPU
+                if require_accelerator:
+                    raise SystemExit(f"QNN delegate {qnn_lib!r} could not be loaded: {error}") from error
+                log.warning("QNN delegate %s not available (%s): running on CPU", qnn_lib, error)
+                self.accelerator = f"cpu (fallback: QNN delegate not loaded: {error})"
+        self.interpreter = self._make_interpreter(model, num_threads, delegates)
         self.interpreter.allocate_tensors()
         self.input_detail = self.interpreter.get_input_details()[0]
         self.output_details = self.interpreter.get_output_details()
         shape = self.input_detail["shape"]
-        self.in_h, self.in_w = int(shape[1]), int(shape[2])
+        # Models compiled by Qualcomm AI Hub keep our NCHW input (1, 3, H, W).
+        self.channels_first = int(shape[1]) == 3 and int(shape[3]) != 3
+        self.in_h, self.in_w = (int(shape[2]), int(shape[3])) if self.channels_first else \
+            (int(shape[1]), int(shape[2]))
         self.input_size = max(self.in_h, self.in_w)
         self.conf = conf
         self.iou = iou
@@ -276,7 +321,7 @@ class LiteRTDetector(Detector):
         self.postprocess = "tflite_detection" if len(self.output_details) >= 4 else "yolo"
 
     @staticmethod
-    def _make_interpreter(model: str, num_threads: int):
+    def _make_interpreter(model: str, num_threads: int, delegates: list | None = None):
         if not Path(model).is_file():
             raise SystemExit(f"TFLite model not found: {model}")
         try:  # the modern package (audit item S10: tf.lite.Interpreter is deprecated)
@@ -292,6 +337,9 @@ class LiteRTDetector(Detector):
                     raise SystemExit(
                         "No TFLite runtime. Install one of: ai-edge-litert, tflite-runtime, tensorflow"
                     ) from error
+        if delegates:
+            return Interpreter(model_path=str(model), num_threads=num_threads,
+                               experimental_delegates=delegates)
         return Interpreter(model_path=str(model), num_threads=num_threads)
 
     def _prepare(self, image: np.ndarray) -> tuple[np.ndarray, LetterboxInfo]:
@@ -321,6 +369,8 @@ class LiteRTDetector(Detector):
                              info_dtype.min, info_dtype.max).astype(dtype)
         else:
             tensor = rgb.astype(dtype)
+        if self.channels_first:
+            tensor = np.transpose(tensor, (2, 0, 1))
         return tensor[None, ...], info
 
     def _dequant(self, index: int, detail: dict) -> np.ndarray:
@@ -353,7 +403,7 @@ class LiteRTDetector(Detector):
                                          float(score), self.person_class))
             return out
 
-        return self._decode_yolo(outputs[0], info, width, height)
+        return self._decode_yolo(merge_yolo_outputs(outputs), info, width, height)
 
     @staticmethod
     def _pick_detection_outputs(outputs: list[np.ndarray]):
@@ -417,14 +467,34 @@ class OnnxDetector(Detector):
     name = "onnx"
 
     def __init__(self, model: str, conf: float = 0.35, iou: float = 0.5,
-                 imgsz: int = 640, person_class: int = 0, num_threads: int = 4) -> None:
+                 imgsz: int = 640, person_class: int = 0, num_threads: int = 4,
+                 qnn_lib: str | None = None, use_qnn: bool = False,
+                 require_accelerator: bool = False) -> None:
         import onnxruntime as ort
 
         if not Path(model).is_file():
             raise SystemExit(f"ONNX model not found: {model}")
         options = ort.SessionOptions()
         options.intra_op_num_threads = num_threads
-        self.session = ort.InferenceSession(model, options, providers=["CPUExecutionProvider"])
+        providers: list = ["CPUExecutionProvider"]
+        reason = ""
+        if use_qnn:                                   # ort_qnn: Hexagon NPU via the QNN EP
+            if "QNNExecutionProvider" in ort.get_available_providers():
+                lib = qnn_lib or ("QnnHtp.dll" if sys.platform == "win32" else "libQnnHtp.so")
+                providers = [("QNNExecutionProvider", {"backend_path": lib}), "CPUExecutionProvider"]
+            else:
+                reason = "onnxruntime build has no QNNExecutionProvider (install onnxruntime-qnn)"
+        self.session = ort.InferenceSession(model, options, providers=providers)
+        if use_qnn and self.session.get_providers()[0] == "QNNExecutionProvider":
+            self.accelerator = "qnn-htp (ORT QNN EP)"
+        elif use_qnn:
+            reason = reason or "QNN EP did not initialise"
+            if require_accelerator:
+                raise SystemExit(f"ort_qnn: {reason}")
+            log.warning("ort_qnn: %s - running on CPU", reason)
+            self.accelerator = f"cpu (fallback: {reason})"
+        else:
+            self.accelerator = "cpu"
         self.input_name = self.session.get_inputs()[0].name
         shape = self.session.get_inputs()[0].shape
         static = [s for s in shape[2:] if isinstance(s, int)]
@@ -439,7 +509,7 @@ class OnnxDetector(Detector):
         padded, info = letterbox(image, self.input_size)
         rgb = cv2.cvtColor(padded, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
         tensor = np.transpose(rgb, (2, 0, 1))[None, ...]
-        raw = self.session.run(None, {self.input_name: tensor})[0]
+        raw = merge_yolo_outputs(self.session.run(None, {self.input_name: tensor}))
         pred = raw[0] if raw.ndim == 3 else raw
         if pred.shape[0] < pred.shape[1]:
             pred = pred.T
@@ -485,4 +555,15 @@ def build_detector(config) -> Detector:
         return OnnxDetector(config.model, conf=config.conf, iou=config.iou,
                             imgsz=config.imgsz, person_class=config.person_class,
                             num_threads=config.num_threads)
+    if backend == "litert_qnn":
+        return LiteRTDetector(config.model, conf=config.conf, iou=config.iou,
+                              person_class=config.person_class, num_threads=config.num_threads,
+                              qnn_lib=getattr(config, "qnn_lib", None) or "libQnnTFLiteDelegate.so",
+                              require_accelerator=getattr(config, "require_accelerator", False))
+    if backend == "ort_qnn":
+        return OnnxDetector(config.model, conf=config.conf, iou=config.iou,
+                            imgsz=config.imgsz, person_class=config.person_class,
+                            num_threads=config.num_threads, use_qnn=True,
+                            qnn_lib=getattr(config, "qnn_lib", None),
+                            require_accelerator=getattr(config, "require_accelerator", False))
     raise SystemExit(f"unknown detector backend: {backend}")

@@ -35,12 +35,12 @@ class LineConfig(_Model):
     cooldown_s: float = 3.0
     # --- counting v2 (M1, docs/COUNTING.md).  mode "single" = v1 behaviour. --- #
     mode: Literal["single", "gate"] = "single"
-    gate_px: float = 16.0            # width of the A->B band centred on the line
-    min_track_age_s: float = 0.5     # a track younger than this cannot count
+    gate_px: float = 10.0            # width of the A->B band centred on the line (~3% of frame height)
+    min_track_age_s: float = 0.0     # a track younger than this cannot count
     min_displacement_px: float = 0.0  # net movement across the line in the window
-    direction_mode: Literal["off", "balanced", "strict"] = "balanced"
+    direction_mode: Literal["off", "balanced", "strict"] = "off"
     direction_window_s: float = 1.0
-    confirm_s: float = 0.0           # stay on the far side this long before counting
+    confirm_s: float = 0.5           # stay on the far side this long before counting
     beam_door: str | None = None     # IR break-beam door that watches this line
 
 

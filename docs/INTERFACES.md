@@ -219,7 +219,7 @@ restock_button, ld2450`. **A sensor that is not listed does not exist** — code
 | `tracker.high_conf_det_threshold` | library default | score split for two-stage association |
 | `tracker.minimum_consecutive_frames` | `1` | frames before a track is confirmed |
 | `cameras[].line.mode` | `single` | `single` = v1 counter; `gate` = counting v2 (docs/COUNTING.md) |
-| `cameras[].line.gate_px`, `min_track_age_s`, `min_displacement_px`, `direction_mode` (`off`/`balanced`/`strict`), `direction_window_s`, `confirm_s` | 16, 0.5, 0, balanced, 1.0, 0 | gate counter parameters (pixels of the processed frame) |
+| `cameras[].line.gate_px`, `min_track_age_s`, `min_displacement_px`, `direction_mode` (`off`/`balanced`/`strict`), `direction_window_s`, `confirm_s` | 10, 0, 0, off, 1.0, 0.5 (set from the M1 CAVIAR bake-off) | gate counter parameters (pixels of the processed frame) |
 | `cameras[].line.beam_door` | null | IR-beam door id (`BEAM_CROSS.door`) watching this line → cross-check + fallback |
 | `cameras[].filters[]` | `[]` | `{points?, min_score?, min_area_px, max_area_frac, classes?}` per-zone detection filter |
 | `cameras[].staff` | null | `{zones, zone_dwell_s, badge, aruco_dict, badge_ids, badge_every_n}` staff exclusion |

@@ -59,6 +59,7 @@ add_executable(storemind_node
   protocol/src/sm_proto.c
   protocol/src/sm_cobs_crc.c
   logic/src/sm_logic.c
+  logic/src/sm_mems.c
   ${HAL_SOURCES}
   ${RTOS_SOURCES}
 )
@@ -82,7 +83,7 @@ target_include_directories(storemind_node PRIVATE
 
 # Our code is held to -Werror; vendor code is compiled but not warned about.
 set(OWN_SOURCES Core/Src/main.c Core/Src/stm32f1xx_it.c Core/Src/stm32f1xx_hal_msp.c Core/Src/syscalls.c ${APP_SOURCES}
-    protocol/src/sm_proto.c protocol/src/sm_cobs_crc.c logic/src/sm_logic.c)
+    protocol/src/sm_proto.c protocol/src/sm_cobs_crc.c logic/src/sm_logic.c logic/src/sm_mems.c)
 set_source_files_properties(${OWN_SOURCES} PROPERTIES COMPILE_OPTIONS "-Wall;-Wextra;-Werror;-Wshadow")
 set_source_files_properties(${HAL_SOURCES} ${RTOS_SOURCES}
     ${CMSIS_DEVICE_DIR}/Source/Templates/system_stm32f1xx.c PROPERTIES COMPILE_OPTIONS "-w")

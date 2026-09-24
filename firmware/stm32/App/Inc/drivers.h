@@ -35,6 +35,10 @@ bool hx711_ready(const hx711_t *hx);
 int32_t hx711_read(const hx711_t *hx);       /* 24-bit signed, channel A gain 128 */
 void hx711_power_down(const hx711_t *hx);
 
+/* ---- MPU6050 accelerometer (0x68 / 0x69), +-2 g -> mg ------------------ */
+bool mpu6050_init(uint8_t addr7);
+bool mpu6050_read_mg(uint8_t addr7, int32_t mg[3]);
+
 /* ---- BH1750 light sensor (0x23) ---------------------------------------- */
 bool bh1750_init(void);
 bool bh1750_read_lux(int32_t *lux);

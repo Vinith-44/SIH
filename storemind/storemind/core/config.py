@@ -106,8 +106,8 @@ class SlotConfig(_Model):
 class ShelfConfig(_Model):
     name: str
     slots: list[SlotConfig] = Field(default_factory=list)
-    low_threshold: float = 0.4
-    empty_threshold: float = 0.15
+    low_threshold: float = 0.5        # v2 fill scale (v1 used 0.4)
+    empty_threshold: float = 0.28     # v2 fill scale (v1 used 0.15); tuned on synthetic seeds 1-10
     vote_k: int = 3
     vote_n: int = 5
     # Skip a frame entirely when a person box overlaps the shelf by this much.

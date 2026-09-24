@@ -11,7 +11,8 @@ StoreMind = offline edge-AI retail platform: shopper analytics + shelf/inventory
 - `research/23_PIPELINE_DEEP_RESEARCH.md` and `research/24_CCTV_INTEGRATION.md` = the research behind it.
 
 ## Two people work in parallel (two laptops, two Claude Codes, one GitHub repo)
-- **Person A = Vinith** (RTX 4050): vision & intelligence. **Person B = friend** (CPU laptop): platform & hardware integration. Ownership table: research/26 §1. The user tells you which person you are at session start; if not, ask.
+- **Person A = Vinith** (GitHub `Vinith-44`, RTX 4050): vision & intelligence. **Person B = Ram** (CPU laptop): platform & hardware integration. Ownership table: research/26 §1. The user tells you which person you are at session start; if not, ask.
+- **Use the names.** Say "Vinith" and "Ram" (not "your friend" or "the teammate") in chat, PR descriptions, handoffs, logs and docs. Older files that say "friend" mean Ram.
 - Only edit paths your person owns. Shared contract files (`core/events.py`, `core/bus.py`, `core/config.py`, config schema, `pipeline.py`, `run.py`, `requirements.txt`, `CLAUDE.md`, `docs/INTERFACES.md`, `docs/PROTOCOL.md`) change only in a small separate PR approved by the other person.
 - Never work on `master`. Branch per milestone (`a/...` or `b/...`), PR, the other person approves. Start every session with `git switch master && git pull`, then merge master into your branch.
 - Logs are per person: `logs/WORK_LOG_A.md` / `logs/WORK_LOG_B.md` (append-only) and `handoff/HANDOFF_A.md` / `handoff/HANDOFF_B.md` (overwrite each session). The root `WORK_LOG.md` and `HANDOFF_FOR_CLAUDE.md` are frozen history/index files.

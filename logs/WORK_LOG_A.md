@@ -222,3 +222,33 @@ Commands and results:
 - Docs: docs/QUALCOMM.md (Q table + P comparison, kept separate) and deploy/qualcomm/README.md (port guide,
   "prepared, not run on hardware").
 - Tests: 379 passed.
+## 2026-09-25 - M10 "Ask your store" + daily summary (branch `a/m10-ask`)
+
+- New package `storemind/storemind/llm/` (Person A path; no contract change, no new Python dependency):
+  - `views.py`: 8 whitelisted TEMP views over `events` on a `mode=ro` connection. A SQLite authorizer allows only
+    SELECT on those views plus a whitelist of plain functions; one statement, 50 rows, 2 s.
+  - `ask.py`: Ollama backend (`qwen2.5-coder:1.5b`, stdlib HTTP to localhost) first, keyword rules as the fallback.
+    Answers are rendered from the rows and carry sql/columns/rows/`model_query`. A model sentence is only a
+    `{column}` template filled by code, with units taken from the column name. `verify_numbers()` is the final guard.
+  - `summary.py`: daily summary in en/te/hi from fixed queries and templates, no model; "no data" instead of 0.
+- `eval/eval_ask.py`: 2 simulated days (2,598 events through the real EventStore), truth computed in Python.
+  Three sets of 20 questions written one after another (A, then B held out, then C held out).
+  - Run 1 (A, untuned), run 2 (B), run 3 (C first run = the held-out result), run 4 (C, current code).
+    Evidence files: `ask_run1_untuned.json`, `ask_run2_before_changes.json`, `ask_run3_c_first_run*.json`,
+    `ask.json`, `ask_3b.json`.
+  - **0 invented numbers in every run, set and backend** (acceptance met).
+  - Held-out accuracy (C, first run, deployed LLM then rules): **13/20 correct, 7 wrong**. Run 4: 15/20 (not held out).
+  - Found and disclosed along the way:
+    - the keyword rules overfit (A 20/20, B 13/20);
+    - the model mislabelled seconds as minutes and the grader missed it; unit check added, runs 1-3 re-graded
+      (scores fell 1-2);
+    - "the quietest hour was 8" (count used as the hour) led to the template design;
+    - recording extra truth before run 2 reordered the zone-visit random draws (only zone data changed).
+  - qwen2.5-coder:3b is no better on held-out C (12/20 deployed); the default stays 1.5B. Laptop GPU ≈5 s per question;
+    **Pi 5 not measured**.
+- run_all: new "ask" section (bucket C); fixed the stale "Qualcomm needs a token" line in "Still missing".
+- Docs: docs/ASK.md (design, what the check does and does not prove, full run history, Ram's wiring notes);
+  docs/README.md index row.
+- After run 4: a rupee template followed by "rupees" no longer prints "Rs 770.5 rupees" (wording only, no number
+  changes; unit-tested).
+- Tests: 472 passed (30 new in tests/test_ask.py: guard, verifier, templates/units, fallbacks, summary).

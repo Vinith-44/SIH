@@ -1,6 +1,6 @@
 # StoreMind - measured results
 
-Generated 2026-09-24 23:00 by `python -m storemind.eval.run_all`.
+Generated 2026-09-25 00:31 by `python -m storemind.eval.run_all`.
 
 Every number on this page came from a command printed beside it. Nothing here was typed by hand. If a measurement could not be made, the row says so.
 
@@ -28,7 +28,7 @@ This follows `research/09b_TEST_DATA_VALIDITY.md`. A simulation can only ever sh
 | cpu_threads | 16 |
 | ram_gb | 16.9 |
 | opencv | 5.0.0 |
-| git_commit | 274e61d |
+| git_commit | 36cbd7b |
 
 ## Results
 
@@ -262,6 +262,48 @@ python -m storemind.eval.eval_fusion
 
 </details>
 
+### Ask your store - questions answered from the event database (simulated store)
+
+**Data bucket C** - simulation - logic validation only, NOT an accuracy measurement
+
+Questions in plain English -> one read-only SQL query over whitelisted views -> an answer that cites its rows. The expected answers are computed in Python from the simulated events, not with SQL. **Invented numbers** = numbers in an answer that appear in none of the cited rows (target 0). **Wrong** = a real, cited result for the wrong query (or a seconds value called minutes); the dashboard must show the query. **Set C, first run** is the held-out number: those 20 questions were written after every change they could have influenced, and are re-graded here with the stricter unit check added later. **Run 4** is the current code on the same questions, no longer held out. History: docs/ASK.md section 3. LLM latency is on the laptop GPU, not the Pi.
+
+| metric | result | target |
+|---|---|---|
+| rules: set C first run (held out), correct / wrong / refused | 12 / 6 / 2 of 20 |  |
+| rules: set C run 4 (current code, seen), correct / wrong / refused | 12 / 6 / 2 of 20 |  |
+| rules: invented numbers, run 4 (sets A+B+C, 60 questions) | 0 | 0 |
+| rules: Hindi / Telugu visitor question (4 phrasings) | 0 / 4 |  |
+| llm (qwen2.5-coder:1.5b): set C first run (held out), correct / wrong / refused | 11 / 7 / 2 of 20 |  |
+| llm (qwen2.5-coder:1.5b): set C run 4 (current code, seen), correct / wrong / refused | 13 / 5 / 2 of 20 |  |
+| llm (qwen2.5-coder:1.5b): invented numbers, run 4 (sets A+B+C, 60 questions) | 0 | 0 |
+| llm (qwen2.5-coder:1.5b): median seconds per question | 4.97 |  |
+| llm (qwen2.5-coder:1.5b): Hindi / Telugu visitor question (4 phrasings) | 2 / 4 |  |
+| llm (qwen2.5-coder:1.5b), then rules - deployed: set C first run (held out), correct / wrong / refused | 13 / 7 / 0 of 20 |  |
+| llm (qwen2.5-coder:1.5b), then rules - deployed: set C run 4 (current code, seen), correct / wrong / refused | 15 / 5 / 0 of 20 |  |
+| llm (qwen2.5-coder:1.5b), then rules - deployed: invented numbers, run 4 (sets A+B+C, 60 questions) | 0 | 0 |
+| llm (qwen2.5-coder:1.5b), then rules - deployed: median seconds per question | 4.97 |  |
+| llm (qwen2.5-coder:1.5b), then rules - deployed: Hindi / Telugu visitor question (4 phrasings) | 2 / 4 |  |
+| llm (qwen2.5-coder:3b): set C first run (held out), correct / wrong / refused | 13 / 7 / 0 of 20 |  |
+| llm (qwen2.5-coder:3b): set C run 4 (current code, seen), correct / wrong / refused | 15 / 5 / 0 of 20 |  |
+| llm (qwen2.5-coder:3b): invented numbers, run 4 (sets A+B+C, 60 questions) | 0 | 0 |
+| llm (qwen2.5-coder:3b): median seconds per question | 5.26 |  |
+| llm (qwen2.5-coder:3b): Hindi / Telugu visitor question (4 phrasings) | 3 / 4 |  |
+| llm (qwen2.5-coder:3b), then rules - deployed: set C first run (held out), correct / wrong / refused | 12 / 8 / 0 of 20 |  |
+| llm (qwen2.5-coder:3b), then rules - deployed: set C run 4 (current code, seen), correct / wrong / refused | 14 / 6 / 0 of 20 |  |
+| llm (qwen2.5-coder:3b), then rules - deployed: invented numbers, run 4 (sets A+B+C, 60 questions) | 0 | 0 |
+| llm (qwen2.5-coder:3b), then rules - deployed: median seconds per question | 5.23 |  |
+| llm (qwen2.5-coder:3b), then rules - deployed: Hindi / Telugu visitor question (4 phrasings) | 3 / 4 |  |
+
+<details><summary>commands</summary>
+
+```bash
+python -m storemind.eval.eval_ask
+python -m storemind.eval.eval_ask --model qwen2.5-coder:3b --no-rules --out storemind/storemind/eval/results/ask_3b.json
+```
+
+</details>
+
 ### Door-to-counter queue forecast - simulated rush
 
 **Data bucket C** - simulation - logic validation only, NOT an accuracy measurement
@@ -342,11 +384,11 @@ These are laptop numbers and the Pi 5 must be measured on the Pi. They also move
 
 | metric | result | target |
 |---|---|---|
-| ultralytics yolo11n.pt @320 (CPU) | 27.99 ms/frame &middot; 35.24 FPS &middot; 4.34 detections/frame | - |
-| ultralytics yolo11n.pt @416 (CPU) | 43.18 ms/frame &middot; 22.96 FPS &middot; 4.44 detections/frame | - |
-| ultralytics yolo11n.pt @640 (CPU) | 97.59 ms/frame &middot; 10.21 FPS &middot; 4.73 detections/frame | - |
-| ultralytics yolo26n.pt @640 (CPU) | 89.25 ms/frame &middot; 11.16 FPS &middot; 4.73 detections/frame | - |
-| litert efficientdet_lite0_coco_legacy.tflite @320 (CPU) | 18.52 ms/frame &middot; 52.89 FPS &middot; 4.2 detections/frame | - |
+| ultralytics yolo11n.pt @320 (CPU) | 28.45 ms/frame &middot; 34.67 FPS &middot; 4.34 detections/frame | - |
+| ultralytics yolo11n.pt @416 (CPU) | 43.91 ms/frame &middot; 22.58 FPS &middot; 4.44 detections/frame | - |
+| ultralytics yolo11n.pt @640 (CPU) | 99.39 ms/frame &middot; 10.02 FPS &middot; 4.73 detections/frame | - |
+| ultralytics yolo26n.pt @640 (CPU) | 99.55 ms/frame &middot; 10.0 FPS &middot; 4.73 detections/frame | - |
+| litert efficientdet_lite0_coco_legacy.tflite @320 (CPU) | 19.86 ms/frame &middot; 49.4 FPS &middot; 4.2 detections/frame | - |
 
 <details><summary>commands</summary>
 
@@ -439,4 +481,4 @@ python tools/aihub_profile.py --models ../models/yolo11n.onnx ../models/yolo26n.
 
 * **Bucket B is empty.** We have no recording from a real shop or canteen yet, so queue wait time and shelf stock level have no real-world accuracy number. No public dataset covers either (see `research/09b`), which is exactly why our own footage matters and why the reference-based shelf method exists.
 * Raspberry Pi 5 numbers: every speed figure here is from a laptop.
-* Qualcomm AI Hub latency: needs a Qualcomm ID and API token.
+* Qualcomm: only AI Hub hosted devices (bucket Q); no Qualcomm board of our own yet.

@@ -1,0 +1,1237 @@
+{
+ "bucket": "C",
+ "today": "2026-03-15",
+ "seed": 7,
+ "n_events": 2598,
+ "report": [
+  {
+   "label": "rules",
+   "n": 20,
+   "correct": 18,
+   "wrong": 1,
+   "refused": 1,
+   "invented_numbers": 0,
+   "phrased": 0,
+   "phrasing_dropped": 0,
+   "fell_back_to_rules": 0,
+   "median_s": 0.0030467000033240765,
+   "rows": [
+    {
+     "q": "How many customers came in today?",
+     "verdict": "correct",
+     "backend": "rules",
+     "text": "people in: 178",
+     "sql": "SELECT count(*) AS people_in FROM entries WHERE direction = 'in' AND day = '2026-03-15'",
+     "rows": [
+      [
+       178
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 0.01
+    },
+    {
+     "q": "Show the number of visitors for yesterday and today.",
+     "verdict": "wrong",
+     "backend": "rules",
+     "text": "people in: 154",
+     "sql": "SELECT count(*) AS people_in FROM entries WHERE direction = 'in' AND day = '2026-03-14'",
+     "rows": [
+      [
+       154
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 0.01
+    },
+    {
+     "q": "What was the busiest hour today?",
+     "verdict": "correct",
+     "backend": "rules",
+     "text": "hour: 18; people in: 34",
+     "sql": "SELECT hour, count(*) AS people_in FROM entries WHERE direction = 'in' AND day = '2026-03-15' GROUP BY hour ORDER BY people_in DESC LIMIT 1",
+     "rows": [
+      [
+       18,
+       34
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 0.0
+    },
+    {
+     "q": "How many people entered between 6 pm and 7 pm today?",
+     "verdict": "correct",
+     "backend": "rules",
+     "text": "people in: 34",
+     "sql": "SELECT count(*) AS people_in FROM entries WHERE direction = 'in' AND day = '2026-03-15' AND hour = 18",
+     "rows": [
+      [
+       34
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 0.0
+    },
+    {
+     "q": "How many customers were served at the billing counters today?",
+     "verdict": "correct",
+     "backend": "rules",
+     "text": "customers served: 131",
+     "sql": "SELECT count(*) AS customers_served FROM services WHERE day = '2026-03-15'",
+     "rows": [
+      [
+       131
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 0.0
+    },
+    {
+     "q": "What was the average waiting time at billing today?",
+     "verdict": "correct",
+     "backend": "rules",
+     "text": "avg wait s: 211.3; avg wait min: 3.5",
+     "sql": "SELECT round(avg(wait_s), 1) AS avg_wait_s, round(avg(wait_s) / 60.0, 1) AS avg_wait_min FROM services WHERE day = '2026-03-15' AND wait_s IS NOT NULL",
+     "rows": [
+      [
+       211.3,
+       3.5
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 0.0
+    },
+    {
+     "q": "What was the longest queue today?",
+     "verdict": "correct",
+     "backend": "rules",
+     "text": "longest queue people: 8",
+     "sql": "SELECT max(people_waiting) AS longest_queue_people FROM queue WHERE day = '2026-03-15'",
+     "rows": [
+      [
+       8
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 0.0
+    },
+    {
+     "q": "Which counter served the most customers today?",
+     "verdict": "correct",
+     "backend": "rules",
+     "text": "counter: billing-1; customers served: 78",
+     "sql": "SELECT counter, count(*) AS customers_served FROM services WHERE day = '2026-03-15' GROUP BY counter ORDER BY customers_served DESC LIMIT 1",
+     "rows": [
+      [
+       "billing-1",
+       78
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 0.0
+    },
+    {
+     "q": "What is the average service time at counter 2 today?",
+     "verdict": "correct",
+     "backend": "rules",
+     "text": "avg service s: 106.4",
+     "sql": "SELECT round(avg(service_s), 1) AS avg_service_s FROM services WHERE day = '2026-03-15' AND counter = 'billing-2'",
+     "rows": [
+      [
+       106.4
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 0.0
+    },
+    {
+     "q": "Which products are out of stock right now?",
+     "verdict": "correct",
+     "backend": "rules",
+     "text": "shelf | slot | sku\ns1 | a1 | Maggi\ns2 | b2 | Amul Butter",
+     "sql": "SELECT shelf, slot, sku FROM slots s WHERE state = 'EMPTY' AND ts = (SELECT max(ts) FROM slots t WHERE t.shelf = s.shelf AND t.slot = s.slot) ORDER BY shelf, slot",
+     "rows": [
+      [
+       "s1",
+       "a1",
+       "Maggi"
+      ],
+      [
+       "s2",
+       "b2",
+       "Amul Butter"
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 0.01
+    },
+    {
+     "q": "Which items are running low?",
+     "verdict": "correct",
+     "backend": "rules",
+     "text": "shelf | slot | sku\ns1 | a3 | Tata Salt\ns2 | b3 | Dairy Milk",
+     "sql": "SELECT shelf, slot, sku FROM slots s WHERE state = 'LOW' AND ts = (SELECT max(ts) FROM slots t WHERE t.shelf = s.shelf AND t.slot = s.slot) ORDER BY shelf, slot",
+     "rows": [
+      [
+       "s1",
+       "a3",
+       "Tata Salt"
+      ],
+      [
+       "s2",
+       "b3",
+       "Dairy Milk"
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 0.01
+    },
+    {
+     "q": "How many alerts were raised today?",
+     "verdict": "correct",
+     "backend": "rules",
+     "text": "alerts: 7",
+     "sql": "SELECT count(*) AS alerts FROM alerts WHERE day = '2026-03-15'",
+     "rows": [
+      [
+       7
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 0.0
+    },
+    {
+     "q": "How many critical alerts were there yesterday?",
+     "verdict": "correct",
+     "backend": "rules",
+     "text": "critical alerts: 1",
+     "sql": "SELECT count(*) AS critical_alerts FROM alerts WHERE severity = 'CRITICAL' AND day = '2026-03-14'",
+     "rows": [
+      [
+       1
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 0.0
+    },
+    {
+     "q": "What is the estimated value of lost sales today?",
+     "verdict": "correct",
+     "backend": "rules",
+     "text": "est value inr: 770.5; looks: 14",
+     "sql": "SELECT round(sum(est_value_inr), 2) AS est_value_inr, count(*) AS looks FROM lost_sales WHERE day = '2026-03-15'",
+     "rows": [
+      [
+       770.5,
+       14
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 0.0
+    },
+    {
+     "q": "Which product lost the most sales today?",
+     "verdict": "correct",
+     "backend": "rules",
+     "text": "sku: Amul Butter; est value inr: 473.89",
+     "sql": "SELECT sku, round(sum(est_value_inr), 2) AS est_value_inr FROM lost_sales WHERE day = '2026-03-15' GROUP BY sku ORDER BY est_value_inr DESC LIMIT 1",
+     "rows": [
+      [
+       "Amul Butter",
+       473.89
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 0.0
+    },
+    {
+     "q": "How many units were picked from slot a1 today?",
+     "verdict": "correct",
+     "backend": "rules",
+     "text": "units picked: 11",
+     "sql": "SELECT sum(units) AS units_picked FROM picks WHERE action = 'pick' AND day = '2026-03-15' AND slot = 'a1'",
+     "rows": [
+      [
+       11
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 0.0
+    },
+    {
+     "q": "How many times did shoppers put items back today?",
+     "verdict": "refused",
+     "backend": "",
+     "text": "I can't answer that from the store's records. I can answer questions about visitors, billing queues, shelf stock, lost-sale estimates, shelf picks, zone visits and alerts.",
+     "sql": null,
+     "rows": [],
+     "notes": [
+      "rules: cannot answer"
+     ],
+     "invented": [],
+     "seconds": 0.01
+    },
+    {
+     "q": "How many shoppers visited the promo end-cap today?",
+     "verdict": "correct",
+     "backend": "rules",
+     "text": "visits: 13",
+     "sql": "SELECT count(*) AS visits FROM zone_visits WHERE day = '2026-03-15' AND zone = 'promo-endcap'",
+     "rows": [
+      [
+       13
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 0.0
+    },
+    {
+     "q": "What is our profit margin this month?",
+     "verdict": "correct",
+     "backend": "",
+     "text": "I can't answer that from the store's records. I can answer questions about visitors, billing queues, shelf stock, lost-sale estimates, shelf picks, zone visits and alerts.",
+     "sql": null,
+     "rows": [],
+     "notes": [
+      "rules: cannot answer"
+     ],
+     "invented": [],
+     "seconds": 0.0
+    },
+    {
+     "q": "Who was the cashier at counter 1 this morning?",
+     "verdict": "correct",
+     "backend": "",
+     "text": "I can't answer that from the store's records. I can answer questions about visitors, billing queues, shelf stock, lost-sale estimates, shelf picks, zone visits and alerts.",
+     "sql": null,
+     "rows": [],
+     "notes": [
+      "rules: cannot answer"
+     ],
+     "invented": [],
+     "seconds": 0.0
+    }
+   ],
+   "other_languages": {
+    "label": "rules",
+    "n": 4,
+    "correct": 0,
+    "wrong": 0,
+    "refused": 4,
+    "invented_numbers": 0,
+    "phrased": 0,
+    "phrasing_dropped": 0,
+    "fell_back_to_rules": 0,
+    "median_s": 0.0010907999967457727,
+    "rows": [
+     {
+      "q": "आज कितने ग्राहक आए?",
+      "verdict": "refused",
+      "backend": "",
+      "text": "I can't answer that from the store's records. I can answer questions about visitors, billing queues, shelf stock, lost-sale estimates, shelf picks, zone visits and alerts.",
+      "sql": null,
+      "rows": [],
+      "notes": [
+       "rules: cannot answer"
+      ],
+      "invented": [],
+      "seconds": 0.0
+     },
+     {
+      "q": "ఈ రోజు ఎంత మంది కస్టమర్లు వచ్చారు?",
+      "verdict": "refused",
+      "backend": "",
+      "text": "I can't answer that from the store's records. I can answer questions about visitors, billing queues, shelf stock, lost-sale estimates, shelf picks, zone visits and alerts.",
+      "sql": null,
+      "rows": [],
+      "notes": [
+       "rules: cannot answer"
+      ],
+      "invented": [],
+      "seconds": 0.0
+     },
+     {
+      "q": "aaj kitne log aaye?",
+      "verdict": "refused",
+      "backend": "",
+      "text": "I can't answer that from the store's records. I can answer questions about visitors, billing queues, shelf stock, lost-sale estimates, shelf picks, zone visits and alerts.",
+      "sql": null,
+      "rows": [],
+      "notes": [
+       "rules: cannot answer"
+      ],
+      "invented": [],
+      "seconds": 0.0
+     },
+     {
+      "q": "ee roju entha mandi vacharu?",
+      "verdict": "refused",
+      "backend": "",
+      "text": "I can't answer that from the store's records. I can answer questions about visitors, billing queues, shelf stock, lost-sale estimates, shelf picks, zone visits and alerts.",
+      "sql": null,
+      "rows": [],
+      "notes": [
+       "rules: cannot answer"
+      ],
+      "invented": [],
+      "seconds": 0.0
+     }
+    ],
+    "regraded": {
+     "correct": 0,
+     "wrong": 0,
+     "refused": 4,
+     "note": "grade() with the unit check"
+    }
+   },
+   "regraded": {
+    "correct": 18,
+    "wrong": 1,
+    "refused": 1,
+    "note": "grade() with the unit check"
+   }
+  },
+  {
+   "label": "llm (qwen2.5-coder:1.5b)",
+   "n": 20,
+   "correct": 9,
+   "wrong": 7,
+   "refused": 4,
+   "invented_numbers": 0,
+   "phrased": 14,
+   "phrasing_dropped": 0,
+   "fell_back_to_rules": 0,
+   "median_s": 4.970591499994043,
+   "rows": [
+    {
+     "q": "How many customers came in today?",
+     "verdict": "correct",
+     "backend": "ollama",
+     "text": "178 customers came in today.",
+     "sql": "SELECT count(*) AS people_in FROM entries WHERE direction = 'in' AND day = '2026-03-15'",
+     "rows": [
+      [
+       178
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 50.65
+    },
+    {
+     "q": "Show the number of visitors for yesterday and today.",
+     "verdict": "wrong",
+     "backend": "ollama",
+     "text": "308 visitors yesterday and 308 visitors today.",
+     "sql": "SELECT count(*) AS visitors_yesterday, count(*) AS visitors_today FROM entries WHERE day = '2026-03-14'",
+     "rows": [
+      [
+       308,
+       308
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 4.97
+    },
+    {
+     "q": "What was the busiest hour today?",
+     "verdict": "refused",
+     "backend": "",
+     "text": "I can't answer that from the store's records. I can answer questions about visitors, billing queues, shelf stock, lost-sale estimates, shelf picks, zone visits and alerts.",
+     "sql": null,
+     "rows": [],
+     "notes": [
+      "ollama: query refused (no such column: people_in)"
+     ],
+     "invented": [],
+     "seconds": 2.69
+    },
+    {
+     "q": "How many people entered between 6 pm and 7 pm today?",
+     "verdict": "wrong",
+     "backend": "ollama",
+     "text": "No people entered between 6 pm and 7 pm today.",
+     "sql": "SELECT count(*) AS people_in FROM entries WHERE direction = 'in' AND ts BETWEEN '2026-03-15 18:00:00' AND '2026-03-15 19:00:00'",
+     "rows": [
+      [
+       0
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 5.26
+    },
+    {
+     "q": "How many customers were served at the billing counters today?",
+     "verdict": "correct",
+     "backend": "ollama",
+     "text": "131 customers were served at the billing counters today.",
+     "sql": "SELECT count(*) AS customers_served FROM services WHERE counter IN ('billing-1', 'billing-2') AND day = '2026-03-15'",
+     "rows": [
+      [
+       131
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 5.01
+    },
+    {
+     "q": "What was the average waiting time at billing today?",
+     "verdict": "wrong",
+     "backend": "ollama",
+     "text": "The average waiting time at billing today was 201.31 seconds.",
+     "sql": "SELECT avg(wait_s) AS avg_wait_s FROM services WHERE counter = 'billing-1' AND day = '2026-03-15'",
+     "rows": [
+      [
+       201.3144927536232
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 5.05
+    },
+    {
+     "q": "What was the longest queue today?",
+     "verdict": "wrong",
+     "backend": "ollama",
+     "text": "The longest queue today was at billing-2.",
+     "sql": "SELECT max(counter) AS longest_queue_counter FROM queue WHERE day = '2026-03-15'",
+     "rows": [
+      [
+       "billing-2"
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 4.83
+    },
+    {
+     "q": "Which counter served the most customers today?",
+     "verdict": "wrong",
+     "backend": "ollama",
+     "text": "billing-2 served the most customers today.",
+     "sql": "SELECT counter, count(*) AS customers_served FROM services WHERE ts = (SELECT max(ts) FROM services t WHERE t.day = '2026-03-15')",
+     "rows": [
+      [
+       "billing-2",
+       1
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 4.84
+    },
+    {
+     "q": "What is the average service time at counter 2 today?",
+     "verdict": "correct",
+     "backend": "ollama",
+     "text": "The average service time at counter 2 today is 106.43 minutes.",
+     "sql": "SELECT avg(service_s) AS avg_service_s FROM services WHERE counter = 'billing-2' AND day = '2026-03-15'",
+     "rows": [
+      [
+       106.42641509433963
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 5.14
+    },
+    {
+     "q": "Which products are out of stock right now?",
+     "verdict": "refused",
+     "backend": "",
+     "text": "I can't answer that from the store's records. I can answer questions about visitors, billing queues, shelf stock, lost-sale estimates, shelf picks, zone visits and alerts.",
+     "sql": null,
+     "rows": [],
+     "notes": [
+      "ollama: cannot answer"
+     ],
+     "invented": [],
+     "seconds": 2.31
+    },
+    {
+     "q": "Which items are running low?",
+     "verdict": "refused",
+     "backend": "",
+     "text": "I can't answer that from the store's records. I can answer questions about visitors, billing queues, shelf stock, lost-sale estimates, shelf picks, zone visits and alerts.",
+     "sql": null,
+     "rows": [],
+     "notes": [
+      "ollama: cannot answer"
+     ],
+     "invented": [],
+     "seconds": 2.25
+    },
+    {
+     "q": "How many alerts were raised today?",
+     "verdict": "correct",
+     "backend": "ollama",
+     "text": "7 alerts were raised today.",
+     "sql": "SELECT count(*) AS alerts_today FROM alerts WHERE day = '2026-03-15'",
+     "rows": [
+      [
+       7
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 4.79
+    },
+    {
+     "q": "How many critical alerts were there yesterday?",
+     "verdict": "refused",
+     "backend": "",
+     "text": "I can't answer that from the store's records. I can answer questions about visitors, billing queues, shelf stock, lost-sale estimates, shelf picks, zone visits and alerts.",
+     "sql": null,
+     "rows": [],
+     "notes": [
+      "ollama: cannot answer"
+     ],
+     "invented": [],
+     "seconds": 2.35
+    },
+    {
+     "q": "What is the estimated value of lost sales today?",
+     "verdict": "correct",
+     "backend": "ollama",
+     "text": "The estimated value of lost sales today is 770.5 INR.",
+     "sql": "SELECT sum(est_value_inr) AS estimated_value_inr FROM lost_sales WHERE day = '2026-03-15'",
+     "rows": [
+      [
+       770.5
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 5.06
+    },
+    {
+     "q": "Which product lost the most sales today?",
+     "verdict": "correct",
+     "backend": "ollama",
+     "text": "Amul Butter lost the most sales today with 473.89 units sold.",
+     "sql": "SELECT sku, sum(est_value_inr) AS total_sales FROM lost_sales WHERE day = '2026-03-15' GROUP BY sku ORDER BY total_sales DESC LIMIT 1",
+     "rows": [
+      [
+       "Amul Butter",
+       473.89
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 5.04
+    },
+    {
+     "q": "How many units were picked from slot a1 today?",
+     "verdict": "wrong",
+     "backend": "ollama",
+     "text": "No matching data in the store's records.",
+     "sql": "SELECT sum(units) AS units_picked FROM picks WHERE shelf = 'a1' AND action = 'pick' AND day = '2026-03-15'",
+     "rows": [
+      [
+       null
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 2.61
+    },
+    {
+     "q": "How many times did shoppers put items back today?",
+     "verdict": "correct",
+     "backend": "ollama",
+     "text": "7 shoppers put items back today.",
+     "sql": "SELECT count(*) AS put_backs FROM picks WHERE shelf = 's2' AND action = 'put_back' AND day = '2026-03-15'",
+     "rows": [
+      [
+       7
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 4.97
+    },
+    {
+     "q": "How many shoppers visited the promo end-cap today?",
+     "verdict": "correct",
+     "backend": "ollama",
+     "text": "13 shoppers visited the promo end-cap today.",
+     "sql": "SELECT count(*) AS shoppers_visited FROM zone_visits WHERE zone = 'promo-endcap' AND day = '2026-03-15'",
+     "rows": [
+      [
+       13
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 4.92
+    },
+    {
+     "q": "What is our profit margin this month?",
+     "verdict": "wrong",
+     "backend": "ollama",
+     "text": "Our profit margin this month is 0.57.",
+     "sql": "SELECT SUM(service_s) AS total_service_s, SUM(wait_s) AS total_wait_s, SUM(service_s) / SUM(wait_s) AS profit_margin FROM services WHERE day BETWEEN '2026-03-01' AND '2026-03-31'",
+     "rows": [
+      [
+       27861.4,
+       48504.5,
+       0.5744085600305127
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 5.22
+    },
+    {
+     "q": "Who was the cashier at counter 1 this morning?",
+     "verdict": "correct",
+     "backend": "",
+     "text": "I can't answer that from the store's records. I can answer questions about visitors, billing queues, shelf stock, lost-sale estimates, shelf picks, zone visits and alerts.",
+     "sql": null,
+     "rows": [],
+     "notes": [
+      "ollama: cannot answer"
+     ],
+     "invented": [],
+     "seconds": 2.26
+    }
+   ],
+   "other_languages": {
+    "label": "llm (qwen2.5-coder:1.5b)",
+    "n": 4,
+    "correct": 2,
+    "wrong": 0,
+    "refused": 2,
+    "invented_numbers": 0,
+    "phrased": 2,
+    "phrasing_dropped": 0,
+    "fell_back_to_rules": 0,
+    "median_s": 4.8717314999958035,
+    "rows": [
+     {
+      "q": "आज कितने ग्राहक आए?",
+      "verdict": "correct",
+      "backend": "ollama",
+      "text": "There are 178 people in the shop.",
+      "sql": "SELECT count(*) AS people_in FROM entries WHERE direction = 'in' AND day = '2026-03-15'",
+      "rows": [
+       [
+        178
+       ]
+      ],
+      "notes": [],
+      "invented": [],
+      "seconds": 4.87
+     },
+     {
+      "q": "ఈ రోజు ఎంత మంది కస్టమర్లు వచ్చారు?",
+      "verdict": "refused",
+      "backend": "",
+      "text": "I can't answer that from the store's records. I can answer questions about visitors, billing queues, shelf stock, lost-sale estimates, shelf picks, zone visits and alerts.",
+      "sql": null,
+      "rows": [],
+      "notes": [
+       "ollama: cannot answer"
+      ],
+      "invented": [],
+      "seconds": 2.22
+     },
+     {
+      "q": "aaj kitne log aaye?",
+      "verdict": "correct",
+      "backend": "ollama",
+      "text": "178 people aaye",
+      "sql": "SELECT count(*) AS people_in FROM entries WHERE direction = 'in' AND day = '2026-03-15'",
+      "rows": [
+       [
+        178
+       ]
+      ],
+      "notes": [],
+      "invented": [],
+      "seconds": 4.9
+     },
+     {
+      "q": "ee roju entha mandi vacharu?",
+      "verdict": "refused",
+      "backend": "",
+      "text": "I can't answer that from the store's records. I can answer questions about visitors, billing queues, shelf stock, lost-sale estimates, shelf picks, zone visits and alerts.",
+      "sql": null,
+      "rows": [],
+      "notes": [
+       "ollama: cannot answer"
+      ],
+      "invented": [],
+      "seconds": 2.33
+     }
+    ],
+    "regraded": {
+     "correct": 2,
+     "wrong": 0,
+     "refused": 2,
+     "note": "grade() with the unit check"
+    }
+   },
+   "regraded": {
+    "correct": 8,
+    "wrong": 8,
+    "refused": 4,
+    "note": "grade() with the unit check"
+   }
+  },
+  {
+   "label": "llm (qwen2.5-coder:1.5b) + rules fallback",
+   "n": 20,
+   "correct": 13,
+   "wrong": 7,
+   "refused": 0,
+   "invented_numbers": 0,
+   "phrased": 14,
+   "phrasing_dropped": 0,
+   "fell_back_to_rules": 4,
+   "median_s": 4.902403300002334,
+   "rows": [
+    {
+     "q": "How many customers came in today?",
+     "verdict": "correct",
+     "backend": "ollama",
+     "text": "178 customers came in today.",
+     "sql": "SELECT count(*) AS people_in FROM entries WHERE direction = 'in' AND day = '2026-03-15'",
+     "rows": [
+      [
+       178
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 4.9
+    },
+    {
+     "q": "Show the number of visitors for yesterday and today.",
+     "verdict": "wrong",
+     "backend": "ollama",
+     "text": "308 visitors yesterday and 308 visitors today.",
+     "sql": "SELECT count(*) AS visitors_yesterday, count(*) AS visitors_today FROM entries WHERE day = '2026-03-14'",
+     "rows": [
+      [
+       308,
+       308
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 5.1
+    },
+    {
+     "q": "What was the busiest hour today?",
+     "verdict": "correct",
+     "backend": "rules",
+     "text": "hour: 18; people in: 34",
+     "sql": "SELECT hour, count(*) AS people_in FROM entries WHERE direction = 'in' AND day = '2026-03-15' GROUP BY hour ORDER BY people_in DESC LIMIT 1",
+     "rows": [
+      [
+       18,
+       34
+      ]
+     ],
+     "notes": [
+      "ollama: query refused (no such column: people_in)"
+     ],
+     "invented": [],
+     "seconds": 2.7
+    },
+    {
+     "q": "How many people entered between 6 pm and 7 pm today?",
+     "verdict": "wrong",
+     "backend": "ollama",
+     "text": "No people entered between 6 pm and 7 pm today.",
+     "sql": "SELECT count(*) AS people_in FROM entries WHERE direction = 'in' AND ts BETWEEN '2026-03-15 18:00:00' AND '2026-03-15 19:00:00'",
+     "rows": [
+      [
+       0
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 5.09
+    },
+    {
+     "q": "How many customers were served at the billing counters today?",
+     "verdict": "correct",
+     "backend": "ollama",
+     "text": "131 customers were served at the billing counters today.",
+     "sql": "SELECT count(*) AS customers_served FROM services WHERE counter IN ('billing-1', 'billing-2') AND day = '2026-03-15'",
+     "rows": [
+      [
+       131
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 5.01
+    },
+    {
+     "q": "What was the average waiting time at billing today?",
+     "verdict": "wrong",
+     "backend": "ollama",
+     "text": "The average waiting time at billing today was 201.31 seconds.",
+     "sql": "SELECT avg(wait_s) AS avg_wait_s FROM services WHERE counter = 'billing-1' AND day = '2026-03-15'",
+     "rows": [
+      [
+       201.3144927536232
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 5.03
+    },
+    {
+     "q": "What was the longest queue today?",
+     "verdict": "wrong",
+     "backend": "ollama",
+     "text": "The longest queue today was at billing-2.",
+     "sql": "SELECT max(counter) AS longest_queue_counter FROM queue WHERE day = '2026-03-15'",
+     "rows": [
+      [
+       "billing-2"
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 4.83
+    },
+    {
+     "q": "Which counter served the most customers today?",
+     "verdict": "wrong",
+     "backend": "ollama",
+     "text": "billing-2 served the most customers today.",
+     "sql": "SELECT counter, count(*) AS customers_served FROM services WHERE ts = (SELECT max(ts) FROM services t WHERE t.day = '2026-03-15')",
+     "rows": [
+      [
+       "billing-2",
+       1
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 4.89
+    },
+    {
+     "q": "What is the average service time at counter 2 today?",
+     "verdict": "correct",
+     "backend": "ollama",
+     "text": "The average service time at counter 2 today is 106.43 minutes.",
+     "sql": "SELECT avg(service_s) AS avg_service_s FROM services WHERE counter = 'billing-2' AND day = '2026-03-15'",
+     "rows": [
+      [
+       106.42641509433963
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 5.08
+    },
+    {
+     "q": "Which products are out of stock right now?",
+     "verdict": "correct",
+     "backend": "rules",
+     "text": "shelf | slot | sku\ns1 | a1 | Maggi\ns2 | b2 | Amul Butter",
+     "sql": "SELECT shelf, slot, sku FROM slots s WHERE state = 'EMPTY' AND ts = (SELECT max(ts) FROM slots t WHERE t.shelf = s.shelf AND t.slot = s.slot) ORDER BY shelf, slot",
+     "rows": [
+      [
+       "s1",
+       "a1",
+       "Maggi"
+      ],
+      [
+       "s2",
+       "b2",
+       "Amul Butter"
+      ]
+     ],
+     "notes": [
+      "ollama: cannot answer"
+     ],
+     "invented": [],
+     "seconds": 2.28
+    },
+    {
+     "q": "Which items are running low?",
+     "verdict": "correct",
+     "backend": "rules",
+     "text": "shelf | slot | sku\ns1 | a3 | Tata Salt\ns2 | b3 | Dairy Milk",
+     "sql": "SELECT shelf, slot, sku FROM slots s WHERE state = 'LOW' AND ts = (SELECT max(ts) FROM slots t WHERE t.shelf = s.shelf AND t.slot = s.slot) ORDER BY shelf, slot",
+     "rows": [
+      [
+       "s1",
+       "a3",
+       "Tata Salt"
+      ],
+      [
+       "s2",
+       "b3",
+       "Dairy Milk"
+      ]
+     ],
+     "notes": [
+      "ollama: cannot answer"
+     ],
+     "invented": [],
+     "seconds": 2.31
+    },
+    {
+     "q": "How many alerts were raised today?",
+     "verdict": "correct",
+     "backend": "ollama",
+     "text": "7 alerts were raised today.",
+     "sql": "SELECT count(*) AS alerts_today FROM alerts WHERE day = '2026-03-15'",
+     "rows": [
+      [
+       7
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 4.74
+    },
+    {
+     "q": "How many critical alerts were there yesterday?",
+     "verdict": "correct",
+     "backend": "rules",
+     "text": "critical alerts: 1",
+     "sql": "SELECT count(*) AS critical_alerts FROM alerts WHERE severity = 'CRITICAL' AND day = '2026-03-14'",
+     "rows": [
+      [
+       1
+      ]
+     ],
+     "notes": [
+      "ollama: cannot answer"
+     ],
+     "invented": [],
+     "seconds": 2.32
+    },
+    {
+     "q": "What is the estimated value of lost sales today?",
+     "verdict": "correct",
+     "backend": "ollama",
+     "text": "The estimated value of lost sales today is 770.5 INR.",
+     "sql": "SELECT sum(est_value_inr) AS estimated_value_inr FROM lost_sales WHERE day = '2026-03-15'",
+     "rows": [
+      [
+       770.5
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 4.95
+    },
+    {
+     "q": "Which product lost the most sales today?",
+     "verdict": "correct",
+     "backend": "ollama",
+     "text": "Amul Butter lost the most sales today with 473.89 units sold.",
+     "sql": "SELECT sku, sum(est_value_inr) AS total_sales FROM lost_sales WHERE day = '2026-03-15' GROUP BY sku ORDER BY total_sales DESC LIMIT 1",
+     "rows": [
+      [
+       "Amul Butter",
+       473.89
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 5.13
+    },
+    {
+     "q": "How many units were picked from slot a1 today?",
+     "verdict": "wrong",
+     "backend": "ollama",
+     "text": "No matching data in the store's records.",
+     "sql": "SELECT sum(units) AS units_picked FROM picks WHERE shelf = 'a1' AND action = 'pick' AND day = '2026-03-15'",
+     "rows": [
+      [
+       null
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 2.67
+    },
+    {
+     "q": "How many times did shoppers put items back today?",
+     "verdict": "correct",
+     "backend": "ollama",
+     "text": "7 shoppers put items back today.",
+     "sql": "SELECT count(*) AS put_backs FROM picks WHERE shelf = 's2' AND action = 'put_back' AND day = '2026-03-15'",
+     "rows": [
+      [
+       7
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 4.86
+    },
+    {
+     "q": "How many shoppers visited the promo end-cap today?",
+     "verdict": "correct",
+     "backend": "ollama",
+     "text": "13 shoppers visited the promo end-cap today.",
+     "sql": "SELECT count(*) AS shoppers_visited FROM zone_visits WHERE zone = 'promo-endcap' AND day = '2026-03-15'",
+     "rows": [
+      [
+       13
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 5.04
+    },
+    {
+     "q": "What is our profit margin this month?",
+     "verdict": "wrong",
+     "backend": "ollama",
+     "text": "Our profit margin this month is 0.57.",
+     "sql": "SELECT SUM(service_s) AS total_service_s, SUM(wait_s) AS total_wait_s, SUM(service_s) / SUM(wait_s) AS profit_margin FROM services WHERE day BETWEEN '2026-03-01' AND '2026-03-31'",
+     "rows": [
+      [
+       27861.4,
+       48504.5,
+       0.5744085600305127
+      ]
+     ],
+     "notes": [],
+     "invented": [],
+     "seconds": 5.2
+    },
+    {
+     "q": "Who was the cashier at counter 1 this morning?",
+     "verdict": "correct",
+     "backend": "",
+     "text": "I can't answer that from the store's records. I can answer questions about visitors, billing queues, shelf stock, lost-sale estimates, shelf picks, zone visits and alerts.",
+     "sql": null,
+     "rows": [],
+     "notes": [
+      "ollama: cannot answer",
+      "rules: cannot answer"
+     ],
+     "invented": [],
+     "seconds": 2.26
+    }
+   ],
+   "other_languages": {
+    "label": "llm (qwen2.5-coder:1.5b) + rules fallback",
+    "n": 4,
+    "correct": 2,
+    "wrong": 0,
+    "refused": 2,
+    "invented_numbers": 0,
+    "phrased": 2,
+    "phrasing_dropped": 0,
+    "fell_back_to_rules": 0,
+    "median_s": 4.839403100006166,
+    "rows": [
+     {
+      "q": "आज कितने ग्राहक आए?",
+      "verdict": "correct",
+      "backend": "ollama",
+      "text": "There are 178 people in the shop.",
+      "sql": "SELECT count(*) AS people_in FROM entries WHERE direction = 'in' AND day = '2026-03-15'",
+      "rows": [
+       [
+        178
+       ]
+      ],
+      "notes": [],
+      "invented": [],
+      "seconds": 4.94
+     },
+     {
+      "q": "ఈ రోజు ఎంత మంది కస్టమర్లు వచ్చారు?",
+      "verdict": "refused",
+      "backend": "",
+      "text": "I can't answer that from the store's records. I can answer questions about visitors, billing queues, shelf stock, lost-sale estimates, shelf picks, zone visits and alerts.",
+      "sql": null,
+      "rows": [],
+      "notes": [
+       "ollama: cannot answer",
+       "rules: cannot answer"
+      ],
+      "invented": [],
+      "seconds": 2.28
+     },
+     {
+      "q": "aaj kitne log aaye?",
+      "verdict": "correct",
+      "backend": "ollama",
+      "text": "178 people aaye",
+      "sql": "SELECT count(*) AS people_in FROM entries WHERE direction = 'in' AND day = '2026-03-15'",
+      "rows": [
+       [
+        178
+       ]
+      ],
+      "notes": [],
+      "invented": [],
+      "seconds": 4.84
+     },
+     {
+      "q": "ee roju entha mandi vacharu?",
+      "verdict": "refused",
+      "backend": "",
+      "text": "I can't answer that from the store's records. I can answer questions about visitors, billing queues, shelf stock, lost-sale estimates, shelf picks, zone visits and alerts.",
+      "sql": null,
+      "rows": [],
+      "notes": [
+       "ollama: cannot answer",
+       "rules: cannot answer"
+      ],
+      "invented": [],
+      "seconds": 2.34
+     }
+    ],
+    "regraded": {
+     "correct": 2,
+     "wrong": 0,
+     "refused": 2,
+     "note": "grade() with the unit check"
+    }
+   },
+   "regraded": {
+    "correct": 12,
+    "wrong": 8,
+    "refused": 0,
+    "note": "grade() with the unit check"
+   }
+  }
+ ],
+ "summary_sample": {
+  "en": "StoreMind daily summary - 2026-03-15\n178 people came in. Busiest hour: 18:00-19:00 (34 people).\n131 customers were billed. Average wait 3.5 min; longest queue 8 people.\n2 shelf slots were empty at the end of the day: Maggi, Amul Butter.\n2 items are running low: Tata Salt, Dairy Milk.\nEstimated sales at risk from empty shelves: Rs 771 (14 times a shopper looked at an empty or low shelf). This is an estimate.\n7 alerts (2 critical).",
+  "te": "StoreMind రోజువారీ సారాంశం - 2026-03-15\n178 మంది దుకాణానికి వచ్చారు. అత్యంత రద్దీ సమయం: 18:00-19:00 (34 మంది).\n131 మంది కస్టమర్లకు బిల్లింగ్ జరిగింది. సగటు నిరీక్షణ 3.5 నిమిషాలు; అతి పొడవైన క్యూ 8 మంది.\nరోజు చివరికి 2 షెల్ఫ్ స్లాట్లు ఖాళీగా ఉన్నాయి: Maggi, Amul Butter.\n2 వస్తువులు తక్కువగా ఉన్నాయి: Tata Salt, Dairy Milk.\nఖాళీ షెల్ఫ్‌ల వల్ల అంచనా అమ్మకాల నష్టం: రూ. 771 (14 సార్లు కస్టమర్లు ఖాళీ లేదా తక్కువ షెల్ఫ్‌ను చూశారు). ఇది అంచనా మాత్రమే.\n7 హెచ్చరికలు (2 తీవ్రమైనవి).",
+  "hi": "StoreMind दैनिक सारांश - 2026-03-15\n178 लोग दुकान में आए। सबसे व्यस्त समय: 18:00-19:00 (34 लोग)।\n131 ग्राहकों का बिल बना। औसत इंतज़ार 3.5 मिनट; सबसे लंबी कतार 8 लोग।\nदिन के अंत में 2 शेल्फ़ स्लॉट खाली थे: Maggi, Amul Butter।\n2 सामान कम बचे हैं: Tata Salt, Dairy Milk।\nखाली शेल्फ़ के कारण अनुमानित बिक्री नुकसान: रु. 771 (14 बार ग्राहकों ने खाली या कम शेल्फ़ देखी)। यह केवल एक अनुमान है।\n7 अलर्ट (2 गंभीर)।"
+ },
+ "summary_no_data_sample": {
+  "en": "StoreMind daily summary - 2026-03-01\nNo visitor count data for this day.\nNo billing queue data for this day.\nNo shelf data for this day.\nNo alert data for this day."
+ }
+}

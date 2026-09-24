@@ -285,3 +285,58 @@ class SeqTracker:
         self.lost += gap
         self.last = seq
         return gap
+
+
+# --------------------------------------------------------------------------- #
+# Binary production mode building blocks (docs/PROTOCOL.md section 6).  The
+# firmware has the same functions in C (firmware/stm32/protocol); the host C
+# tests check both give identical bytes (tests/golden_vectors.h).
+# --------------------------------------------------------------------------- #
+
+
+def crc16_ccitt(data: bytes) -> int:
+    """CRC-16/CCITT-FALSE: poly 0x1021, init 0xFFFF, no reflection, no final XOR."""
+    crc = 0xFFFF
+    for byte in data:
+        crc ^= byte << 8
+        for _ in range(8):
+            crc = ((crc << 1) ^ 0x1021) & 0xFFFF if crc & 0x8000 else (crc << 1) & 0xFFFF
+    return crc
+
+
+def cobs_encode(data: bytes) -> bytes:
+    """COBS: the output has no 0x00 bytes; the caller appends the 0x00 delimiter."""
+    out = bytearray([0])
+    code_at, code = 0, 1
+    for byte in data:
+        if byte == 0:
+            out[code_at] = code
+            code_at, code = len(out), 1
+            out.append(0)
+            continue
+        out.append(byte)
+        code += 1
+        if code == 0xFF:
+            out[code_at] = code
+            code_at, code = len(out), 1
+            out.append(0)
+    out[code_at] = code
+    return bytes(out)
+
+
+def cobs_decode(data: bytes) -> bytes:
+    out = bytearray()
+    i = 0
+    while i < len(data):
+        code = data[i]
+        i += 1
+        if code == 0 or i + code - 1 > len(data):
+            raise ProtocolError("framing", "corrupt COBS block")
+        block = data[i:i + code - 1]
+        if 0 in block:
+            raise ProtocolError("framing", "zero inside a COBS frame")
+        out += block
+        i += code - 1
+        if code != 0xFF and i < len(data):
+            out.append(0)
+    return bytes(out)

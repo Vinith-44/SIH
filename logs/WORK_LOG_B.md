@@ -52,3 +52,25 @@ Measured (bucket C, simulator):
 - CLI run: simulator `--speed 10` + `bridge --config configs/sensors_sim.yaml --no-mqtt --print --seconds 6`
   → 83 lines, 58 events, 0 errors, $S acked.
 - `ruff check .` clean; `pytest -q` → 521 passed, 6 skipped.
+
+## 2026-09-25 — M5c: STM32 firmware, 8 FreeRTOS tasks, CI build (`b/m5c-firmware`)
+
+Roadmap step 5. Docs: `docs/FIRMWARE.md` §4, `docs/WIRING.md` (pin table).
+
+- `firmware/stm32/`: CubeMX-layout project (Core/ + App/) built by CMake; ST HAL + CMSIS
+  (STM32CubeF1 v1.8.7 submodules) and FreeRTOS 10.6.2 + ST CMSIS-RTOS2 fetched at configure
+  time and pinned by SHA-256. 8 tasks with the guide's names and priority order; queues
+  (sensor -> fusion -> UART), UART RX ring buffer from the USART1 IRQ, EXTI edges with DWT
+  microsecond stamps, IWDG kicked only when every task has checked in, flash-backed config
+  (tare / cal / MEMS thresholds / enabled sensors, CRC-16), reset cause in $H.
+- `firmware/stm32/logic/`: portable patterns, two-beam direction, load-cell filter + stability,
+  debounce, with host tests; its CMake also runs the protocol tests.
+- CI: host job now builds logic+protocol; new `firmware (STM32F103 build)` job (apt gcc-arm-none-eabi,
+  flash <= 60 KB / RAM <= 18 KB budget, .hex/.bin/.elf/.map artifact).
+
+Measured:
+- `python -m ziglang cc ... firmware/stm32/logic/tests/test_sm_logic.c` → `68 checks, 0 failures`.
+- `cmake -S firmware/stm32 -B <build> -G Ninja -DCMAKE_TOOLCHAIN_FILE=<abs>/firmware/stm32/cmake/arm-none-eabi.cmake && cmake --build <build>`
+  (xPack arm-none-eabi-gcc 15.2.1): 0 warnings; `arm-none-eabi-size`: text 28228, data 24, bss 12352
+  → flash 28,252 B (44% of 63 KB), RAM 12,376 B (60% of 20 KB; 9 KB of it is the FreeRTOS heap).
+- Not measured: anything on a real board (no Blue Pill here). Bring-up + HIL steps are M5d.

@@ -280,3 +280,11 @@ Buckets: **A** public benchmark · **B** our own recording · **C** simulation (
 | `PICKUP.units` | null | packs taken or returned = |grams| ÷ `slots[].unit_grams` |
 | `shelves[].slots[].unit_grams` | null | weight of one pack, entered at calibration |
 | `alerts.open_hours` | `[]` | e.g. `["09:00-13:30", "16:00-22:00"]`; `PRESENCE` (PIR) outside them → after-hours alert. Empty = rule off |
+
+**M9 additions (contract PR `a/m9-contract`, all optional):**
+
+| Key | Default | Meaning |
+|---|---|---|
+| `detector.backend` | + `litert_qnn`, `ort_qnn` | Qualcomm Hexagon NPU: LiteRT + QNN TFLite delegate (`backend_type: htp`), or ONNX Runtime + QNN execution provider |
+| `detector.qnn_lib` | null (platform default name) | path to `libQnnTFLiteDelegate.so` / `libQnnHtp.so` / `QnnHtp.dll` |
+| `detector.require_accelerator` | false | false = fall back to CPU and log it (the detector reports `accelerator: cpu (fallback)`); true = refuse to start |

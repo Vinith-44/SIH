@@ -25,21 +25,24 @@ from pathlib import Path
 import cv2
 
 from .alerts.manager import AlertManager, build_alert_manager
-from .analytics.footfall import FootfallCounter
+from .analytics.footfall import FootfallCounter, GateCounter, build_counter
 from .analytics.heatmap import FloorHeatmap
 from .analytics.queue import CounterSpec, QueueEngine
 from .analytics.shelf import ShelfEngine, SlotSpec
+from .analytics.staff import StaffFilter
 from .analytics.zones import ZoneEngine, ZoneSpec
 from .core.bus import EventBus, MqttBus
 from .core.clock import Clock, VideoClock, WallClock
 from .core.config import CameraConfig, StoreMindConfig
 from .core.events import Event, EventType, Severity
 from .core.geometry import Line, Polygon
+from .fusion.beam import BeamCrossCheck
 from .fusion.forecast import Forecaster
 from .fusion.fusion import FusionEngine
 from .health.monitor import HealthMonitor, TamperDetector
 from .ingest.sources import Frame, FpsScheduler, FrameSource, open_source
 from .inference.detector import Detector, build_detector
+from .inference.filters import DetectionFilter
 from .store.db import EventStore
 from .tracking.tracker import Tracker, build_tracker
 
@@ -58,7 +61,9 @@ class CameraPipeline:
     node: str
 
     line: Line | None = None
-    footfall: FootfallCounter | None = None
+    footfall: FootfallCounter | GateCounter | None = None
+    det_filter: DetectionFilter | None = None
+    staff: StaffFilter | None = None
     zones: ZoneEngine | None = None
     heatmap: FloorHeatmap | None = None
     queue: QueueEngine | None = None
@@ -91,9 +96,12 @@ class CameraPipeline:
         if cfg.line is not None:
             self.line = Line(cfg.line.name, tuple(cfg.line.a), tuple(cfg.line.b),
                              cfg.line.margin_px).resolve(width, height)
-            self.footfall = FootfallCounter(
-                self.line, entry_direction=cfg.line.entry_direction,
-                cooldown_s=cfg.line.cooldown_s, store=self.store, node=self.node, cam=cfg.name)
+            self.footfall = build_counter(self.line, cfg.line, store=self.store,
+                                          node=self.node, cam=cfg.name)
+        if cfg.filters:
+            self.det_filter = DetectionFilter(cfg.filters, width, height)
+        if cfg.staff is not None:
+            self.staff = StaffFilter(cfg.staff, width, height)
 
         if cfg.zones:
             specs = [
@@ -218,6 +226,15 @@ class Pipeline:
             self.forecaster.note_entry(self.clock.monotonic_s())
 
         self.bus.subscribe_types(EventType.ENTRY, on_entry)
+
+        doors = {c.line.beam_door: c.name for c in self.config.cameras
+                 if c.line is not None and c.line.beam_door}
+        self.beam_check = (BeamCrossCheck(doors, store=self.config.store, node=self.config.node)
+                           if doors else None)
+        if self.beam_check is not None:
+            self.bus.subscribe_types(
+                [EventType.BEAM_CROSS, EventType.ENTRY, EventType.EXIT, EventType.CAMERA_HEALTH],
+                lambda event: self._emit_all(self.beam_check.on_event(event)))
         self.bus.subscribe_types([EventType.SLOT_STATE, EventType.SENSOR, EventType.ZONE_VISIT],
                                  self._fusion_input)
         self.bus.subscribe_types(EventType.SLOT_STATE, self._on_slot_state)
@@ -298,6 +315,8 @@ class Pipeline:
             was = camera.tamper.tampered
             now_tampered = camera.tamper.update(frame.image)
             self.health.tamper[camera.config.name] = now_tampered
+            if self.beam_check is not None and camera.config.name in self.beam_check.camera_ok:
+                self.beam_check.camera_ok[camera.config.name] = not now_tampered
             if now_tampered and not was:
                 self._emit_all(self.alerts.raise_alert(
                     f"CAMERA_TAMPER:{camera.config.name}",
@@ -318,6 +337,8 @@ class Pipeline:
         started = time.perf_counter()
         detections = detector.detect(frame.image)
         camera.infer_ms.append((time.perf_counter() - started) * 1000.0)
+        if camera.det_filter is not None:
+            detections = camera.det_filter(detections)
         tracks = camera.tracker.update(detections)
         camera.last_tracks = tracks
         camera.processed += 1
@@ -325,15 +346,20 @@ class Pipeline:
             self.on_tracks(camera.config.name, frame, tracks)
         self.health.tick_frame(camera.config.name, time.monotonic())
 
+        # Staff are excluded from every customer metric; the shelf occlusion
+        # gate below still sees them (they block the shelf like anyone else).
+        staff = (camera.staff.update(frame.image, tracks, self.clock.monotonic_s())
+                 if camera.staff is not None else set())
+        customers = [t for t in tracks if t.track_id not in staff] if staff else tracks
         if camera.footfall is not None:
-            self._emit_all(camera.footfall.update(tracks, self.clock))
+            self._emit_all(camera.footfall.update(tracks, self.clock, exclude=staff))
         if camera.zones is not None:
-            self._emit_all(camera.zones.update(tracks, self.clock))
+            self._emit_all(camera.zones.update(customers, self.clock))
         if camera.heatmap is not None:
-            camera.heatmap.update(tracks, self.clock, (width, height))
+            camera.heatmap.update(customers, self.clock, (width, height))
         if camera.queue is not None:
             before = len(camera.queue.checkout_arrivals)
-            self._emit_all(camera.queue.update(tracks, self.clock))
+            self._emit_all(camera.queue.update(customers, self.clock))
             for stamp in camera.queue.checkout_arrivals[before:]:
                 self.forecaster.note_checkout_arrival(stamp)
         if camera.shelf is not None:
@@ -403,6 +429,8 @@ class Pipeline:
     # ------------------------------------------------------------------ #
     def _periodic(self) -> None:
         now = self.clock.monotonic_s()
+        for key, message, evidence in (self.beam_check.alerts() if self.beam_check else []):
+            self._emit_all(self.alerts.raise_alert(key, message, Severity.WARN, self.clock, evidence))
         mu = None
         open_counters = 0
         for camera in self.cameras:

@@ -28,7 +28,7 @@ from pathlib import Path
 
 from ..core.config import DetectorConfig
 from ..inference.detector import build_detector
-from .common import accuracy_from_counts, fmt, pct
+from .common import fmt, pct
 
 RESULTS = Path(__file__).resolve().parent / "results"
 MODELS = Path(__file__).resolve().parents[3] / "models"

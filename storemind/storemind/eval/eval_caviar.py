@@ -42,10 +42,8 @@ import numpy as np
 
 from ..core.config import load_config
 from ..core.events import EventType
-from ..core.geometry import foot_point
 from .caviar import (
     CAVIAR_CREDIT,
-    CAVIAR_FPS,
     SCENARIOS,
     crossing_sensitivity,
     gt_crossings,

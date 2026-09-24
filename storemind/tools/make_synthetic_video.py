@@ -316,7 +316,6 @@ def scene_queue(seconds: int = 180, seed: int = 23) -> Scene:
 def scene_shelf(seconds: int = 150, seed: int = 31) -> Scene:
     """A four-slot shelf that is emptied slot by slot, with a shopper standing in
     front of it for 20 s to exercise the occlusion gate."""
-    rng = random.Random(seed)
     frames = seconds * FPS
     slots = [(0.10, 0.22, 0.30, 0.55), (0.34, 0.22, 0.54, 0.55),
              (0.58, 0.22, 0.78, 0.55), (0.10, 0.60, 0.30, 0.90)]

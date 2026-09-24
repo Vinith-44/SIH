@@ -93,7 +93,7 @@ def before_after_chart(caviar: dict, out: Path) -> Path | None:
         if theirs:
             series.append(("Legacy pipeline", theirs[index], SERIES_2))
         for position, (label, value, colour) in enumerate(series):
-            bar = ax.bar([position], [value], 0.55, label=label, color=colour, zorder=3)[0]
+            ax.bar([position], [value], 0.55, label=label, color=colour, zorder=3)
             ax.text(position, value, f"{int(value)}", ha="center", va="bottom",
                     color=INK, fontsize=11, fontweight="600")
 

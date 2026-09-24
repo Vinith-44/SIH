@@ -222,7 +222,10 @@ def test_reorder_drafts_open_on_empty_and_close_on_restock():
         queue.on_event(make_event(ts=clock.now(), store="s", node="n", type=EventType.SLOT_STATE,
                                   data=SlotStateData(shelf="shelf-a", slot=name, sku=sku, state=state)))
 
-    slot("LOW"); slot("EMPTY"); slot("EMPTY", "B1", "Soap bar"); slot("UNKNOWN", "B1", "Soap bar")
+    slot("LOW")
+    slot("EMPTY")
+    slot("EMPTY", "B1", "Soap bar")
+    slot("UNKNOWN", "B1", "Soap bar")
     drafts = queue.open_drafts()
     assert [(d["sku"], d["state"]) for d in drafts] == [("Atta 5kg", "EMPTY"), ("Soap bar", "EMPTY")]
     text = queue.whatsapp_text("BVRIT canteen", now=datetime(2026, 9, 24, 18, 0))

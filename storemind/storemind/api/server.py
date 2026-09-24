@@ -27,7 +27,7 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from ..core.events import Event, EventType
+from ..core.events import Event
 
 log = logging.getLogger(__name__)
 STATIC = Path(__file__).resolve().parent / "static"

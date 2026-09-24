@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+# A newer push to the same PR/branch cancels the older run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Matches the laptop venvs. requirements.txt says "tested on 3.11", but both
+  # of us run 3.13 and every pin resolves there, so CI tests what we actually use.
+  PYTHON_VERSION: "3.13"
+  # Pinned to the version we lint with locally. A newer ruff enables new rules
+  # and would fail a PR that passes on the laptop; 0.16's defaults are already
+  # far wider than 0.6's, which is why ruff.toml states the rule set explicitly.
+  RUFF_VERSION: "0.16.8"
+  MEDIAMTX_VERSION: "v1.21.1"
+  GO2RTC_VERSION: "v1.9.14"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  lint:
+    name: lint (ruff)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install ruff
+        run: pip install "ruff==${RUFF_VERSION}"
+      - name: ruff check
+        run: ruff check --output-format=github .
+
+  test:
+    name: test (pytest, CPU)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: storemind/requirements.txt
+      - name: System packages (ffmpeg, OpenCV runtime)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends ffmpeg libgl1
+      - name: CPU-only PyTorch (avoids the multi-GB CUDA wheels)
+        run: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      - name: Project requirements
+        run: pip install -r storemind/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+      - name: pytest
+        # From the repo root: storemind/tests is a package, so pytest puts
+        # storemind/ on sys.path itself and `import storemind.x` resolves.
+        run: pip install pytest && pytest -q
+
+  e2e:
+    name: e2e (fake CCTV -> go2rtc -> reader)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check M2 files are present
+        id: m2
+        run: |
+          if [ -f tools/e2e_smoke.py ] && [ -d storemind/storemind/ingest ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::M2 files not on this branch yet; skipping e2e."
+          fi
+      - uses: actions/setup-python@v5
+        if: steps.m2.outputs.present == 'true'
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: ffmpeg + OpenCV (headless is enough for ingest)
+        if: steps.m2.outputs.present == 'true'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends ffmpeg
+          pip install opencv-python-headless numpy
+      - name: MediaMTX + go2rtc into tools/bin
+        if: steps.m2.outputs.present == 'true'
+        run: |
+          mkdir -p tools/bin
+          curl -fsSL -o /tmp/mediamtx.tgz \
+            "https://github.com/bluenviron/mediamtx/releases/download/${MEDIAMTX_VERSION}/mediamtx_${MEDIAMTX_VERSION}_linux_amd64.tar.gz"
+          tar -xzf /tmp/mediamtx.tgz -C tools/bin mediamtx
+          curl -fsSL -o tools/bin/go2rtc \
+            "https://github.com/AlexxIT/go2rtc/releases/download/${GO2RTC_VERSION}/go2rtc_linux_amd64"
+          chmod +x tools/bin/mediamtx tools/bin/go2rtc
+          tools/bin/go2rtc -version
+      - name: e2e smoke test
+        if: steps.m2.outputs.present == 'true'
+        run: python tools/e2e_smoke.py

@@ -9,13 +9,12 @@ import pytest
 from pydantic import ValidationError
 
 from storemind.core.bus import EventBus, topic_for
-from storemind.core.clock import IST, ManualClock
+from storemind.core.clock import IST
 from storemind.core.events import (
     EntryExitData,
     Event,
     EventType,
     QueueStateData,
-    Severity,
     SlotState,
     make_event,
 )

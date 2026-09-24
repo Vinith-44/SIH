@@ -335,3 +335,17 @@ def test_m1_config_fields_validate():
     with pytest.raises(ValidationError):
         StoreMindConfig(cameras=[{"name": "e", "source": "0",
                                   "line": {"a": [0, 0], "b": [1, 0], "direction_mode": "loose"}}])
+
+
+def test_m3_shelf_config_fields_validate_and_v1_values_are_expressible():
+    from storemind.core.config import ShelfConfig, SlotConfig
+
+    shelf = ShelfConfig(name="s")
+    assert shelf.reference_bank == 4 and shelf.dark_lux == 15.0 and shelf.texture == "gradient"
+    v1 = ShelfConfig(name="s", white_balance=False, clahe=False, texture="canny", canny="fixed",
+                     use_ssim=False, glare_mask=False, reference_bank=1, dark_lux=None,
+                     dark_brightness=None, lux_jump_ratio=None, drift_alpha=0.0, rectify=False)
+    assert v1.reference_bank == 1
+    assert SlotConfig(name="A1", points=[(0, 0), (1, 0), (1, 1)], full_grams=1800, deep=True).deep
+    with pytest.raises(ValidationError):
+        ShelfConfig(name="s", texture="sift")

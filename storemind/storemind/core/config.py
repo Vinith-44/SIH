@@ -98,6 +98,9 @@ class SlotConfig(_Model):
     price: float | None = None
     # Facings visible when the slot is freshly restocked; used for fill ratio.
     reference_facings: int | None = None
+    # --- shelf v2 (M3): load-cell fusion.  Channel mapping stays in sensors.cell_map. --- #
+    full_grams: float | None = None   # weight when full; None = learnt at the "Restocked" press
+    deep: bool = False                # deep shelf: the camera sees only the front row -> weight wins
 
 
 class ShelfConfig(_Model):
@@ -115,6 +118,30 @@ class ShelfConfig(_Model):
     auto_reference_s: float | None = 0.0
     # Where reference crops are kept between runs.
     reference_dir: str | None = None
+    # --- shelf v2 (M3, docs/SHELF.md).  The values in the comments reproduce v1. --- #
+    white_balance: bool = True        # gray-world on the frame (v1: false)
+    clahe: bool = True                # CLAHE on luminance before every measure (v1: false)
+    texture: Literal["gradient", "canny"] = "gradient"  # gain-normalised gradients (v1: canny)
+    canny: Literal["auto", "fixed"] = "auto"            # median-based thresholds (v1: fixed)
+    canny_low: int = 60
+    canny_high: int = 160
+    use_ssim: bool = True             # gradient SSIM joins the fill estimate (v1: false)
+    ssim_weight: float = 0.3
+    glare_mask: bool = True           # ignore specular pixels (v1: false)
+    glare_v: int = 245
+    glare_s: int = 40
+    reference_bank: int = 4           # references per slot, one per lighting (v1: 1)
+    bank_lux_ratio: float = 1.8       # lux within this ratio = "same lighting"
+    dark_lux: float | None = 15.0     # BH1750 below this -> UNKNOWN "too dark", never EMPTY (v1: null)
+    dark_brightness: float | None = 0.12  # same rule from frame brightness when no light sensor
+    lux_jump_ratio: float | None = 2.5    # sudden change -> skip one cycle (v1: null)
+    drift_alpha: float = 0.05         # slow reference update while confidently FULL (v1: 0)
+    rectify: bool = True              # 4-point slots warped to a rectangle (v1: false)
+    rectify_size: tuple[int, int] = (96, 128)   # width, height after warping
+    occluded_unknown_cycles: int = 10  # occluded this many cycles in a row -> UNKNOWN
+    lux_node: str | None = None       # ENVIRONMENT.node whose lux applies here; null = any
+    weight_mode: Literal["camera", "fuse"] = "fuse"
+    disagree_fill: float = 0.4        # camera vs weight fill gap that asks for a "check shelf"
 
 
 class FloorPlanConfig(_Model):

@@ -122,8 +122,6 @@ cameras:
         slot: A1
     shelves:
       - name: shelf-a
-        low_threshold: 0.45
-        empty_threshold: 0.18
         vote_k: 2
         vote_n: 3
         occlusion_iou: 0.05

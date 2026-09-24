@@ -33,6 +33,38 @@ class LineConfig(_Model):
     # Which sign of the crossing counts as entering the store.
     entry_direction: Literal["pos", "neg"] = "pos"
     cooldown_s: float = 3.0
+    # --- counting v2 (M1, docs/COUNTING.md).  mode "single" = v1 behaviour. --- #
+    mode: Literal["single", "gate"] = "single"
+    gate_px: float = 16.0            # width of the A->B band centred on the line
+    min_track_age_s: float = 0.5     # a track younger than this cannot count
+    min_displacement_px: float = 0.0  # net movement across the line in the window
+    direction_mode: Literal["off", "balanced", "strict"] = "balanced"
+    direction_window_s: float = 1.0
+    confirm_s: float = 0.0           # stay on the far side this long before counting
+    beam_door: str | None = None     # IR break-beam door that watches this line
+
+
+class DetectionFilterConfig(_Model):
+    """Frigate-style per-zone filter applied before tracking.  A detection whose
+    foot point is inside `points` (or anywhere, if `points` is empty) must pass
+    every set threshold."""
+
+    points: list[Point] = Field(default_factory=list)
+    min_score: float | None = None
+    min_area_px: float = 0.0
+    max_area_frac: float = 1.0       # of the frame area: drops "whole-frame" boxes
+    classes: list[int] | None = None
+
+
+class StaffConfig(_Model):
+    """Staff exclusion: never identified, only excluded from customer counts."""
+
+    zones: list[list[Point]] = Field(default_factory=list)  # cashier / back door
+    zone_dwell_s: float = 2.0        # this long inside a staff zone = staff
+    badge: bool = False              # printed ArUco badge
+    aruco_dict: str = "DICT_4X4_50"
+    badge_ids: list[int] = Field(default_factory=list)  # empty = any marker id
+    badge_every_n: int = 2           # look for badges every N processed frames
 
 
 class ZoneConfig(_Model):
@@ -109,6 +141,8 @@ class CameraConfig(_Model):
     floor_plan: FloorPlanConfig | None = None
     reference_frame: str | None = None  # for camera-tamper detection
     shelf_period_s: float = 30.0  # shelf cameras: one frame every N seconds
+    filters: list[DetectionFilterConfig] = Field(default_factory=list)
+    staff: StaffConfig | None = None
 
 
 class DetectorConfig(_Model):
@@ -126,6 +160,10 @@ class TrackerConfig(_Model):
     lost_track_buffer: int = 30
     minimum_matching_threshold: float = 0.8
     frame_rate: int = 8
+    # M1 tracker bake-off: bytetrack | ocsort | botsort (no ReID) | sort | simple
+    type: Literal["bytetrack", "ocsort", "botsort", "sort", "simple"] = "bytetrack"
+    high_conf_det_threshold: float | None = None   # None = the library default
+    minimum_consecutive_frames: int = 1
 
 
 class ForecastConfig(_Model):

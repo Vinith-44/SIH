@@ -3,8 +3,8 @@ name: CI
 on:
   push:
     branches: [master]
+  # Every PR, whatever its base, so stacked PRs (b/m5b on top of b/m5a) get checks too.
   pull_request:
-    branches: [master]
   workflow_dispatch:
 
 # A newer push to the same PR/branch cancels the older run.

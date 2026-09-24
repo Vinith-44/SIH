@@ -65,6 +65,12 @@ models/
 storemind/data/
 storemind/runs/
 snapshots/
+# Generated at run time by ingest/go2rtc.py; go2rtc.yaml holds camera passwords.
+runtime/
+# go2rtc's self-signed pair, in case it is ever started from another folder.
+# auto.key is a private key and must never be committed.
+auto.crt
+auto.key
 
 # Office lock files, local binaries, secrets (added 24 Sep for the two-person setup)
 ~$*
@@ -72,3 +78,6 @@ tools/bin/
 storemind/tools/bin/
 configs/secrets.yaml
 storemind/configs/secrets.yaml
+
+# Separate venvs (e.g. the TensorFlow model-export venv, M8)
+.venv-*/

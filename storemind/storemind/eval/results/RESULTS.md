@@ -1,6 +1,6 @@
 # StoreMind - measured results
 
-Generated 2026-09-24 22:50 by `python -m storemind.eval.run_all`.
+Generated 2026-09-24 23:00 by `python -m storemind.eval.run_all`.
 
 Every number on this page came from a command printed beside it. Nothing here was typed by hand. If a measurement could not be made, the row says so.
 
@@ -28,7 +28,7 @@ This follows `research/09b_TEST_DATA_VALIDITY.md`. A simulation can only ever sh
 | cpu_threads | 16 |
 | ram_gb | 16.9 |
 | opencv | 5.0.0 |
-| git_commit | 77bc4a2 |
+| git_commit | 274e61d |
 
 ## Results
 
@@ -342,16 +342,66 @@ These are laptop numbers and the Pi 5 must be measured on the Pi. They also move
 
 | metric | result | target |
 |---|---|---|
-| ultralytics yolo11n.pt @320 (CPU) | 167.38 ms/frame &middot; 5.91 FPS &middot; 4.34 detections/frame | - |
-| ultralytics yolo11n.pt @416 (CPU) | 251.91 ms/frame &middot; 3.94 FPS &middot; 4.44 detections/frame | - |
-| ultralytics yolo11n.pt @640 (CPU) | 575.82 ms/frame &middot; 1.73 FPS &middot; 4.73 detections/frame | - |
-| ultralytics yolo26n.pt @640 (CPU) | 533.19 ms/frame &middot; 1.87 FPS &middot; 4.73 detections/frame | - |
-| litert efficientdet_lite0_coco_legacy.tflite @320 (CPU) | 95.99 ms/frame &middot; 10.28 FPS &middot; 4.2 detections/frame | - |
+| ultralytics yolo11n.pt @320 (CPU) | 27.99 ms/frame &middot; 35.24 FPS &middot; 4.34 detections/frame | - |
+| ultralytics yolo11n.pt @416 (CPU) | 43.18 ms/frame &middot; 22.96 FPS &middot; 4.44 detections/frame | - |
+| ultralytics yolo11n.pt @640 (CPU) | 97.59 ms/frame &middot; 10.21 FPS &middot; 4.73 detections/frame | - |
+| ultralytics yolo26n.pt @640 (CPU) | 89.25 ms/frame &middot; 11.16 FPS &middot; 4.73 detections/frame | - |
+| litert efficientdet_lite0_coco_legacy.tflite @320 (CPU) | 18.52 ms/frame &middot; 52.89 FPS &middot; 4.2 detections/frame | - |
 
 <details><summary>commands</summary>
 
 ```bash
 STOREMIND_DEVICE=cpu python -m storemind.eval.benchmark --source ../videos/other/vtest.avi --frames 100
+```
+
+</details>
+
+### Exported detectors - fidelity to FP32 and laptop-CPU speed
+
+**Data bucket S** - no ground truth - speed measurement only, never an accuracy claim
+
+Each export's person boxes vs the FP32 PyTorch model's on vtest.avi (frames used for INT8 calibration skipped). This measures agreement with the reference model, not accuracy, and laptop CPU speed (4 threads), not Pi speed. Full table: `eval/results/model_export.md`.
+
+| metric | result | target |
+|---|---|---|
+| yolo11n pytorch fp32 (5.61 MB) | recall/precision vs FP32 100.0% / 100.0% &middot; 99.7 ms median | - |
+| yolo11n onnx fp32 (10.74 MB) | recall/precision vs FP32 100.0% / 100.0% &middot; 29.8 ms median | - |
+| yolo11n onnx int8 (3.21 MB) | recall/precision vs FP32 97.6% / 100.0% &middot; 32.9 ms median | - |
+| yolo11n ncnn fp32 (10.66 MB) | recall/precision vs FP32 100.0% / 100.0% &middot; 52.3 ms median | - |
+| yolo26n pytorch fp32 (5.54 MB) | recall/precision vs FP32 100.0% / 100.0% &middot; 41.1 ms median | - |
+| yolo26n onnx fp32 (9.93 MB) | recall/precision vs FP32 100.0% / 100.0% &middot; 24.3 ms median | - |
+| yolo26n onnx int8 (3.06 MB) | recall/precision vs FP32 99.6% / 99.0% &middot; 29.7 ms median | - |
+| yolo26n ncnn fp32 (9.85 MB) | recall/precision vs FP32 100.0% / 100.0% &middot; 138.3 ms median | - |
+
+<details><summary>commands</summary>
+
+```bash
+python -m storemind.eval.eval_export --caviar
+```
+
+</details>
+
+### Exported detectors - counting on CAVIAR per format
+
+**Data bucket A** - public benchmark with published ground truth
+
+All 16 CAVIAR clips through the shipped counter (ByteTrack + gate) with each export. The settings are the shipped ones, which were tuned on these clips, so compare formats with each other. The accuracy claim is the cross-validated one above.
+
+| metric | result | target |
+|---|---|---|
+| yolo11n pytorch fp32: entries / exits (truth 30 / 21) | 28 / 21 &middot; F1 0.93 / 0.86 | - |
+| yolo11n onnx fp32: entries / exits (truth 30 / 21) | 28 / 21 &middot; F1 0.93 / 0.86 | - |
+| yolo11n onnx int8: entries / exits (truth 30 / 21) | 28 / 19 &middot; F1 0.93 / 0.90 | - |
+| yolo11n ncnn fp32: entries / exits (truth 30 / 21) | 28 / 21 &middot; F1 0.93 / 0.86 | - |
+| yolo26n pytorch fp32: entries / exits (truth 30 / 21) | 27 / 16 &middot; F1 0.88 / 0.81 | - |
+| yolo26n onnx fp32: entries / exits (truth 30 / 21) | 27 / 16 &middot; F1 0.88 / 0.81 | - |
+| yolo26n onnx int8: entries / exits (truth 30 / 21) | 25 / 14 &middot; F1 0.91 / 0.80 | - |
+| yolo26n ncnn fp32: entries / exits (truth 30 / 21) | 27 / 16 &middot; F1 0.88 / 0.81 | - |
+
+<details><summary>commands</summary>
+
+```bash
+python -m storemind.eval.eval_export --caviar
 ```
 
 </details>

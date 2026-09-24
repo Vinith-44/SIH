@@ -117,12 +117,44 @@ A DVR refuses clients once its limit is hit, so go2rtc connects **once** per cam
 everything else reads its restream (research/24 §6):
 
 ```
-DVR/NVR ──rtsp──> go2rtc :8554 ──> pipeline, dashboard, snapshots
+DVR/NVR ──rtsp──> go2rtc :8564 ──> pipeline, dashboard, snapshots
 ```
 
 `go2rtc_streams()` builds the `streams:` block of `go2rtc.yaml` from the camera list;
 the pipeline then opens `go2rtc_stream_url("entrance")` →
-`rtsp://127.0.0.1:8554/entrance`, and snapshots come from
+`rtsp://127.0.0.1:8564/entrance`, and snapshots come from
 `go2rtc_snapshot_url("entrance")` → `http://127.0.0.1:1984/api/frame.jpeg?src=entrance`.
 
+**Why 8564 and not 8554.** go2rtc's RTSP server defaults to 8554 — and so does MediaMTX,
+which `tools/fake_cctv.py` uses for the demo cameras. Running both, as the end-to-end
+check does, would have go2rtc fighting MediaMTX for the port, so go2rtc is moved to 8564
+and 8554 is left to the fake CCTV.
+
 `go2rtc.yaml` contains passwords and is git-ignored, as is `tools/bin/go2rtc.exe`.
+
+## Fake CCTV for the demo
+
+research/24 §9 keeps a backup that needs no venue Wi-Fi and no borrowed DVR: replay our
+recorded clips as real RTSP cameras, through the same code path as a real store.
+
+```powershell
+python storemind\tools\fake_cctv.py --testsrc 2          # no video files needed
+python storemind\tools\fake_cctv.py --video videos\entrance\synthetic_entrance.mp4
+```
+
+It serves `rtsp://127.0.0.1:8554/cam1`, `cam2`, … and a camera pointed at it is configured
+like any other, with `brand: mediamtx`. Ctrl+C shuts MediaMTX and ffmpeg down cleanly; a
+"Broken pipe" from ffmpeg on the way out is normal.
+
+Needs `mediamtx` and `ffmpeg` in `tools\bin\` (git-ignored) or on PATH.
+
+## Proving the chain works
+
+```powershell
+python tools\e2e_smoke.py
+```
+
+Starts fake CCTV → go2rtc → reader, then checks the camera comes online at a sane frame
+rate, that killing the publisher is *detected*, that it recovers on its own, and that the
+`CAMERA_HEALTH` payloads never contain the password. Exit code 0 means all checks passed,
+1 a failed check, 2 a missing binary.

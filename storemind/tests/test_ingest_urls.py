@@ -19,6 +19,7 @@ from storemind.ingest.urls import (
     CameraEndpoint,
     UnknownBrandError,
     brands,
+    candidate_urls,
     go2rtc_snapshot_url,
     go2rtc_stream_url,
     go2rtc_streams,
@@ -106,7 +107,7 @@ def test_redact_removes_credentials(url: str):
 
 
 def test_redact_leaves_a_clean_url_alone():
-    url = "rtsp://127.0.0.1:8554/entrance"
+    url = "rtsp://127.0.0.1:8564/entrance"
     assert redact(url) == url
 
 
@@ -243,3 +244,57 @@ def test_parse_source_round_trips_what_we_generate():
 def test_scan_ports_cover_the_documented_set():
     for port in (554, 80, 2020, 5543, 8000, 37777):
         assert port in SCAN_PORTS
+
+
+# --------------------------------------------------------------------------- #
+# Brands added for M2 ingest (uniview, reolink, mediamtx) and candidate_urls
+# --------------------------------------------------------------------------- #
+
+
+def test_uniview_numbers_streams_from_zero():
+    cam = CameraEndpoint(name="c", brand="uniview", ip=DOC_IP, channel=2)
+    assert cam.stream_url() == f"rtsp://{DOC_IP}:554/unicast/c2/s1/live"
+    assert CameraEndpoint(name="c", brand="uniview", ip=DOC_IP, channel=2,
+                          stream="main").stream_url().endswith("/unicast/c2/s0/live")
+
+
+def test_reolink_pads_the_channel_to_two_digits():
+    cam = CameraEndpoint(name="c", brand="reolink", ip=DOC_IP, channel=3)
+    assert cam.stream_url().endswith("/h264Preview_03_sub")
+    assert CameraEndpoint(name="c", brand="reolink", ip=DOC_IP, channel=3,
+                          stream="main").stream_url().endswith("/h264Preview_03_main")
+
+
+def test_mediamtx_defaults_to_the_fake_cctv_port():
+    # tools/fake_cctv.py serves on 8554, so a demo camera needs no extra config.
+    cam = CameraEndpoint(name="cam1", brand="mediamtx", ip="127.0.0.1", channel=1)
+    assert cam.stream_url() == "rtsp://127.0.0.1:8554/cam1"
+
+
+def test_mediamtx_has_no_separate_sub_stream():
+    main = CameraEndpoint(name="c", brand="mediamtx", ip="127.0.0.1", stream="main")
+    sub = CameraEndpoint(name="c", brand="mediamtx", ip="127.0.0.1", stream="sub")
+    assert main.stream_url() == sub.stream_url()
+
+
+def test_candidate_urls_are_unique_and_skip_fake_cctv():
+    urls = [url for _, _, url in candidate_urls(DOC_IP)]
+    assert len(urls) == len(set(urls))          # dahua and cpplus probed once
+    assert not any("/cam1" in url for url in urls)   # mediamtx excluded
+
+
+def test_candidate_urls_can_be_narrowed_to_one_brand():
+    got = candidate_urls(DOC_IP, brand="tapo")
+    assert {brand for brand, _, _ in got} == {"tapo"}
+    assert {stream for _, stream, _ in got} == {"main", "sub"}
+
+
+def test_candidate_urls_include_mediamtx_only_when_asked():
+    assert candidate_urls("127.0.0.1", brand="mediamtx")[0][2] == (
+        "rtsp://127.0.0.1:8554/cam1"
+    )
+
+
+def test_candidate_urls_carry_credentials_when_given():
+    urls = [url for _, _, url in candidate_urls(DOC_IP, username="u", password="p")]
+    assert all("u:p@" in url for url in urls)

@@ -78,3 +78,17 @@ TOUCH per 10 min idle; at least 9 of 10 camera knocks detected. Needs Ram's firm
    10 accidental bumps, 10 knocks on the camera bracket, and 10 min with nobody near. Keep a paper tally.
 4. Compare the tally with the `PICKUP` / `SHRINK_FLAG` events and alerts in the dashboard log; paste the counts
    into `logs/WORK_LOG_A.md`. Do not retune `noise_g` or `settle_timeout_s` on this run; run it a second time to tune.
+
+## M8 - detector speed and energy on the Raspberry Pi 5 (bucket S; decides the shipped detector)
+
+Needs: the Pi set up per `docs/SETUP_PI5.md` (Ram, M8-deploy), the official 27 W supply, active cooler, nothing else running.
+
+1. Copy the exported models to the Pi's `models/` folder: `yolo11n.onnx`, `yolo11n_int8.onnx`, `yolo11n_ncnn_model/`,
+   and the same three for yolo26n. The files are git-ignored: copy them with scp or a USB stick.
+2. `pip install ncnn` in the Pi venv (for the NCNN backend).
+3. From `storemind/`, run:
+   `python tools/bench_pi.py --models ultralytics:../models/yolo11n_ncnn_model onnx:../models/yolo11n_int8.onnx onnx:../models/yolo11n.onnx ultralytics:../models/yolo26n_ncnn_model onnx:../models/yolo26n_int8.onnx onnx:../models/yolo26n.onnx --frames 200`
+   Then repeat with `--imgsz 416` (entrance sub-streams are small; 416 may be enough).
+4. Commit the JSON files it writes to `storemind/storemind/eval/results/pi/`. RESULTS.md picks them up.
+5. Vinith then ships the fastest variant that holds **>= 8 FPS** with the least CAVIAR accuracy loss
+   (eval/results/model_export.md) in the Pi config.

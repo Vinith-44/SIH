@@ -365,3 +365,20 @@ def test_m4_queue_fields_are_optional_and_validate():
                                        "queue_parties": 2, "wait_littles_s": 95.0, "balks": 1,
                                        "reneges": 0, "tail_overflow": False}, node="pi5-01")
     assert event.data["queue_parties"] == 2
+
+
+def test_m6_pickup_action_units_and_config_fields():
+    from storemind.core.config import AlertsConfig, SlotConfig
+
+    old = ev(EventType.PICKUP, {"shelf": "shelf-a", "slot": "A1", "grams": 218, "evidence": "weight"},
+             node="pi5-01")
+    assert old.data["action"] == "pick" and old.data["units"] is None      # v1 producers unchanged
+    back = ev(EventType.PICKUP, {"shelf": "shelf-a", "slot": "A1", "grams": 436, "evidence": "mems+weight",
+                                 "action": "put_back", "units": 2}, node="pi5-01")
+    assert back.data["action"] == "put_back"
+    with pytest.raises(ValidationError):
+        ev(EventType.PICKUP, {"shelf": "s", "slot": "A1", "evidence": "x", "action": "steal"})
+    assert SlotConfig(name="A1", points=[(0, 0), (1, 0), (1, 1)], unit_grams=218).unit_grams == 218
+    assert AlertsConfig().open_hours == []
+    with pytest.raises(ValidationError):
+        AlertsConfig(open_hours=["25:00-26:00"])

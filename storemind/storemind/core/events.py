@@ -141,6 +141,9 @@ class PickupData(_Payload):
     slot: str
     grams: float | None = None
     evidence: str
+    # v2 (M6): what happened.  "touch" = handled with no weight change / no load cell.
+    action: Literal["pick", "put_back", "touch"] = "pick"
+    units: int | None = None           # |grams| / slot unit weight, when known
 
 
 class ShrinkFlagData(_Payload):

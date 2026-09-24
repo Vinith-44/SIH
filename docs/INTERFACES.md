@@ -271,3 +271,12 @@ Buckets: **A** public benchmark · **B** our own recording · **C** simulation (
 | `counters[].party_dist`, `party_join_window_s` | 0.06, 4 s | people who stay this close and joined together are one party |
 | `counters[].balk_min_s`, `littles_window_s` | 2 s, 600 s | balk = stopped in the lane, left without joining; Little's-law window |
 | `QUEUE_STATE.queue_parties`, `wait_littles_s`, `arrivals_per_min`, `balks`, `reneges`, `tail_overflow` | null | new optional payload fields (schema stays v2: additive) |
+
+**M6 additions (contract PR `a/m6-contract`, all optional):**
+
+| Key / field | Default | Meaning |
+|---|---|---|
+| `PICKUP.action` | `pick` | `pick` \| `put_back` \| `touch` (handled with no weight change, or no load cell) |
+| `PICKUP.units` | null | packs taken or returned = |grams| ÷ `slots[].unit_grams` |
+| `shelves[].slots[].unit_grams` | null | weight of one pack, entered at calibration |
+| `alerts.open_hours` | `[]` | e.g. `["09:00-13:30", "16:00-22:00"]`; `PRESENCE` (PIR) outside them → after-hours alert. Empty = rule off |

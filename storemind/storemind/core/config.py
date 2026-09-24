@@ -12,11 +12,12 @@ shape) or from environment variables, via `load_secrets`.
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 Point = tuple[float, float]
 
@@ -120,6 +121,7 @@ class SlotConfig(_Model):
     # --- shelf v2 (M3): load-cell fusion.  Channel mapping stays in sensors.cell_map. --- #
     full_grams: float | None = None   # weight when full; None = learnt at the "Restocked" press
     deep: bool = False                # deep shelf: the camera sees only the front row -> weight wins
+    unit_grams: float | None = None   # weight of one pack (M6: picks/put-backs in units)
 
 
 class ShelfConfig(_Model):
@@ -239,6 +241,17 @@ class AlertsConfig(_Model):
     voice_lang: str = "en"
     console: bool = True
     sound: bool = False
+    # M6: store opening hours, e.g. ["09:00-13:30", "16:00-22:00"].  PIR motion
+    # outside them is an after-hours alert.  Empty = the rule is off.
+    open_hours: list[str] = Field(default_factory=list)
+
+    @field_validator("open_hours")
+    @classmethod
+    def _hours_format(cls, value: list[str]) -> list[str]:
+        for span in value:
+            if not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d", span):
+                raise ValueError(f"open_hours entry {span!r} must look like '09:00-22:00'")
+        return value
 
 
 class StorageConfig(_Model):

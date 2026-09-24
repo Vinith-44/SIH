@@ -39,6 +39,7 @@ from .core.events import Event, EventType, Severity
 from .core.geometry import Line, Polygon
 from .fusion.beam import BeamCrossCheck
 from .fusion.forecast import Forecaster
+from .fusion.interaction import ShelfInteractionEngine, SlotInfo
 from .fusion.fusion import FusionEngine
 from .health.monitor import HealthMonitor, TamperDetector
 from .ingest.sources import Frame, FpsScheduler, FrameSource, open_source
@@ -73,6 +74,7 @@ class CameraPipeline:
 
     shelf_method: str = "reference"
     shelf_embed_threshold: float = 0.75
+    check_now: bool = False               # M6: a shelf was just touched - look now
     # Per-camera detector override.  Normally every camera shares one model (one
     # model in memory is the whole point on a Pi), but the scripted backend
     # replays a different detections file per clip, and a real deployment could
@@ -221,6 +223,10 @@ class Pipeline:
             self.forecaster.note_entry(self.clock.monotonic_s())
 
         self.bus.subscribe_types(EventType.ENTRY, on_entry)
+        # Shelf interaction fusion (M6): MEMS touch + load cell + shopper presence.
+        self.interaction = self._build_interaction()
+        self.bus.subscribe_types([EventType.SHELF_MOTION, EventType.WEIGHT, EventType.CAMERA_MOUNT,
+                                  EventType.PRESENCE, EventType.ZONE_VISIT], self._interaction_input)
         # Shelf v2 inputs (M3): light level, load cells, camera health, restock button.
         self.bus.subscribe_types([EventType.ENVIRONMENT, EventType.WEIGHT, EventType.CAMERA_HEALTH,
                                   EventType.SENSOR], self._shelf_inputs)
@@ -241,6 +247,49 @@ class Pipeline:
                                     Path(self.config.storage.db_path).with_name("reorder.db"))
         self.bus.subscribe_types(EventType.SLOT_STATE, self.reorder.on_event)
         self.bus.subscribe_types(EventType.SHRINK_FLAG, self._on_shrink)
+
+    def _build_interaction(self) -> ShelfInteractionEngine:
+        cell_map = self.config.sensors.cell_map
+        slots = [SlotInfo(shelf.name, slot.name, cell_map.get(f"{shelf.name}/{slot.name}"), slot.unit_grams)
+                 for cam in self.config.cameras for shelf in cam.shelves for slot in shelf.slots]
+        # Slots with a load cell but no camera shelf still get pick/put-back.
+        known = {f"{s.shelf}/{s.slot}" for s in slots}
+        slots += [SlotInfo(*key.split("/", 1), channel) for key, channel in cell_map.items()
+                  if key not in known and "/" in key]
+
+        def person_at_shelf(shelf: str) -> bool:
+            for camera in self.cameras:
+                if camera.zones is None:
+                    continue
+                for name, spec in camera.zones.zones.items():
+                    if spec.shelf == shelf and camera.zones.occupancy(name) > 0:
+                        return True
+            return False
+
+        return ShelfInteractionEngine(
+            slots, store=self.config.store, node=self.config.node,
+            mems_enabled=self.config.sensors.has("mems"),
+            open_hours=self.config.alerts.open_hours, person_at_shelf=person_at_shelf)
+
+    def _interaction_input(self, event: Event) -> None:
+        if event.type is EventType.ZONE_VISIT:
+            for camera in self.cameras:
+                spec = camera.zones.zones.get(event.data["zone"]) if camera.zones else None
+                if spec is not None and spec.shelf:
+                    self.interaction.note_zone_visit(spec.shelf, self.clock.monotonic_s())
+            return
+        self._emit_all(self.interaction.on_event(event, self.clock))
+        for shelf in self.interaction.drain_check_requests():
+            for camera in self.cameras:
+                if camera.shelf is not None and shelf in camera.shelf.shelves:
+                    camera.check_now = True
+
+    def _due(self, camera: CameraPipeline, frame: Frame) -> bool:
+        """The FPS budget decides - unless a shelf was just touched (M6)."""
+        if camera.check_now:
+            camera.check_now = False
+            return True
+        return camera.scheduler.should_process(frame.video_s)
 
     def _shelf_inputs(self, event: Event) -> None:
         data = event.data
@@ -344,6 +393,8 @@ class Pipeline:
             self.health.tamper[camera.config.name] = now_tampered
             if self.beam_check is not None and camera.config.name in self.beam_check.camera_ok:
                 self.beam_check.camera_ok[camera.config.name] = not now_tampered
+            if now_tampered and not was:
+                self.interaction.note_image_tamper(camera.config.name, self.clock.monotonic_s())
             if now_tampered and not was:
                 self._emit_all(self.alerts.raise_alert(
                     f"CAMERA_TAMPER:{camera.config.name}",
@@ -456,6 +507,9 @@ class Pipeline:
     # ------------------------------------------------------------------ #
     def _periodic(self) -> None:
         now = self.clock.monotonic_s()
+        self._emit_all(self.interaction.tick(self.clock))
+        for key, message, severity, evidence in self.interaction.drain_alerts():
+            self._emit_all(self.alerts.raise_alert(key, message, severity, self.clock, evidence))
         for key, message, evidence in (self.beam_check.alerts() if self.beam_check else []):
             self._emit_all(self.alerts.raise_alert(key, message, Severity.WARN, self.clock, evidence))
         mu = None
@@ -555,7 +609,7 @@ class Pipeline:
                 break
             assert isinstance(self.clock, VideoClock)
             self.clock.advance_to(frame.video_s)
-            if camera.scheduler.should_process(frame.video_s):
+            if self._due(camera, frame):
                 self.process_frame(camera, frame)
             self._periodic()
             camera.pending = camera.source.read()
@@ -584,7 +638,7 @@ class Pipeline:
                 idle = False
                 camera.decoded += 1
                 self.health.camera_ok[camera.config.name] = True
-                if camera.scheduler.should_process(frame.video_s):
+                if self._due(camera, frame):
                     self.process_frame(camera, frame)
             self._periodic()
             if self.show and cv2.waitKey(1) & 0xFF in (27, ord("q")):

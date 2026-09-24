@@ -147,3 +147,32 @@ Commands and results:
 - Synthetic queue video (bucket C) with dwell: 7/7 customers, queue MAE 0.06 (v1 0.00), wait err 1.1%.
 - Real canteen clip (bucket B): not recorded yet. Steps are in docs/HARDWARE_TODO.md.
 - Tests: 362 passed.
+
+## 2026-09-24 - M6-fusion (branch `a/m6-fusion`; contract PR #13 `a/m6-contract`)
+
+- Contract #13: PICKUP.action (pick | put_back | touch) + units; slots[].unit_grams; alerts.open_hours.
+- Code: `fusion/interaction.py` (ShelfInteractionEngine):
+  - MEMS-gated pick/put-back with units; a pending stable reading before SETTLED; a whole-pack check;
+  - debounced no-episode changes (weight-only fallback, shrink); touch engagement;
+  - KNOCK -> fallen-stock alert; TILT alert;
+  - camera-mount + image-tamper fusion; PIR after-hours alert.
+- Pipeline hooks: builds the engine from config (cell_map, unit_grams, mems in enabled_sensors, open_hours,
+  live zone occupancy); routes SHELF_MOTION / WEIGHT / CAMERA_MOUNT / PRESENCE / ZONE_VISIT; `_due()` processes a
+  shelf camera immediately after TOUCH -> SETTLED; image tamper -> engine; alerts and tick in `_periodic`.
+- Evals: `eval/sensor_sim.py` (bridge-event simulator with truth) and `eval/eval_fusion.py` (v1 vs weight-only
+  vs M6).
+
+Commands and results:
+- Tuning seeds 1-10 exposed three engine issues, each fixed:
+  - the new weight arrives before SETTLED (recall 0.50 -> 0.99);
+  - pushes flagged stable (put-back P 0.59 -> 0.67, then whole-pack check);
+  - no-episode debounce (put-back P -> 0.94).
+- The harness now feeds zone-visit ends the way the pipeline does (13 false shrinks came from that harness gap).
+- `python -m storemind.eval.eval_fusion --grid`: best noise_g 10, settle_timeout 2 s (grid spread ~0.01 F1).
+- `python -m storemind.eval.eval_fusion` (seeds 11-40), bucket C:
+  - M6: picks P/R/F1 0.98/0.98/0.98, units 99.7%; put-backs 0.90/0.96/0.93; shrinks 0; fallen 15/15;
+    touches 375/399.
+  - Weight-only: picks 0.66/0.66/0.66.
+  - v1: picks 0.05/1.00/0.09 with 243 false shrinks.
+- Hardware acceptance: not measured (needs Ram's board). Steps are in docs/HARDWARE_TODO.md "M6".
+- Tests: 374 passed.

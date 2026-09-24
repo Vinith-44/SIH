@@ -3,9 +3,9 @@
 Overwritten every session. Read `CLAUDE.md` first, then this.
 
 ## Open PRs (Ram approves)
-- **#11 Contract (M4 defaults)**: three default values for queue v2. Merge before the M4 PR.
-- **M4 PR** (`a/m4-queue-v2` -> master): queue v2 engine, simulator, eval, docs/QUEUE.md.
-- Merged so far: #1-#5 (PR-0, M1, M3 contracts), #7 (M3), #9 (names), #10 (M4 contract), plus Ram's #6/#8 (M2).
+- **#13 Contract (M6)**: PICKUP action/units, slot unit_grams, alerts open_hours. Merge before the M6 PR.
+- **M6 PR** (`a/m6-fusion` -> master): shelf interaction fusion, sensor simulator, eval, docs/MEMS.md §4-6.
+- Merged: #1-#5, #7, #9-#12 (PR-0, M1, M3, M4 and their contracts), plus Ram's #6/#8 (M2).
 
 ## M1 outcome (docs/COUNTING.md)
 - Code done: gate counter, 4 trackers, per-zone filters, staff zones + ArUco badges, IR-beam
@@ -38,9 +38,20 @@ Overwritten every session. Read `CLAUDE.md` first, then this.
 - For Ram's dashboard: QUEUE_STATE now carries `queue_parties`, `wait_littles_s`, `arrivals_per_min`, `balks`,
   `reneges`, `tail_overflow`; the new alert key is `QUEUE_OVERFLOW:<counter>`.
 
-## Next: M6-fusion (branch `a/m6-fusion`)
-Pick/put-back from MEMS SHELF_MOTION + WEIGHT gating, a TOUCH->SETTLED shelf-check trigger, camera tamper fusion
-(CAMERA_MOUNT + image tamper). Then M8 (model export + bench_pi.py), M9 (AI Hub), M10.
+## M6-fusion: done except hardware (docs/MEMS.md)
+- Simulated bridge events, held out (bucket C): M6 picks F1 0.98 (units 99.7%), put-backs F1 0.93,
+  0 false shrinks, 15/15 fallen packs caught. v1 picks F1 0.09.
+- Depends on Ram's M5/M6 firmware + bridge. Nothing has run on the board yet. The simulator encodes our assumptions
+  about the firmware (docs/MEMS.md §5).
+- For Ram:
+  - fill docs/MEMS.md §1-3;
+  - publish SHELF_MOTION/WEIGHT/CAMERA_MOUNT/PRESENCE as in the contract;
+  - the dashboard can show PICKUP.action;
+  - new alert keys: SHELF_TILT, FALLEN_STOCK, CAMERA_MOVED/BUMP/TILT, AFTER_HOURS.
+
+## Next: M8 models (branch `a/m8-models`)
+NCNN + LiteRT INT8 (+ ONNX) export of YOLO11n and YOLO26n; `tools/bench_pi.py` (median/p95 ms, FPS, temp, throttle,
+PMIC power -> mJ/frame); detector backend chosen in config. Then M9 (AI Hub), M10.
 
 ## Blocked / needs the team
 - Ram's approval of #1, then #2 and #3.

@@ -1,6 +1,6 @@
 # StoreMind - measured results
 
-Generated 2026-09-24 16:52 by `python -m storemind.eval.run_all`.
+Generated 2026-09-24 17:34 by `python -m storemind.eval.run_all`.
 
 Every number on this page came from a command printed beside it. Nothing here was typed by hand. If a measurement could not be made, the row says so.
 
@@ -28,7 +28,7 @@ This follows `research/09b_TEST_DATA_VALIDITY.md`. A simulation can only ever sh
 | cpu_threads | 16 |
 | ram_gb | 16.9 |
 | opencv | 5.0.0 |
-| git_commit | 4a7e5f4 |
+| git_commit | bd8f492 |
 
 ## Results
 
@@ -235,6 +235,33 @@ python -m storemind.eval.eval_shelf_lighting
 
 </details>
 
+### Pick / put-back from MEMS touch + load cell - simulated sensor events
+
+**Data bucket C** - simulation - logic validation only, NOT an accuracy measurement
+
+`eval/sensor_sim.py` generates the events the serial bridge will publish (TOUCH / SETTLED, unstable readings while a shelf is handled, 10% of them wrongly flagged stable, trolley knocks). The simulator encodes our assumptions about the firmware, so this checks the fusion logic against them. It is not a hardware result. Defaults were tuned on seeds 1-10; this table is seeds 11-40. Hardware acceptance (pick/put-back >= 90% on the real board) is in docs/HARDWARE_TODO.md.
+
+| metric | result | target |
+|---|---|---|
+| v1: pick P / R / F1 | 0.05 / 1.00 / 0.09 | >= 0.90 |
+| v1: put-back P / R / F1 | not measured yet / 0.00 / not measured yet | >= 0.90 |
+| v1: false shrink flags / fallen-stock alerts (true) | 243 / 0 (15) | 0 / all |
+| weight-only: pick P / R / F1 | 0.66 / 0.66 / 0.66 | >= 0.90 |
+| weight-only: put-back P / R / F1 | 0.54 / 0.61 / 0.57 | >= 0.90 |
+| weight-only: false shrink flags / fallen-stock alerts (true) | 0 / 0 (15) | 0 / all |
+| M6: pick P / R / F1 | 0.98 / 0.98 / 0.98 | >= 0.90 |
+| M6: put-back P / R / F1 | 0.90 / 0.96 / 0.93 | >= 0.90 |
+| M6: false shrink flags / fallen-stock alerts (true) | 0 / 15 (15) | 0 / all |
+
+<details><summary>commands</summary>
+
+```bash
+python -m storemind.eval.eval_fusion --grid   # tuning seeds only
+python -m storemind.eval.eval_fusion
+```
+
+</details>
+
 ### Door-to-counter queue forecast - simulated rush
 
 **Data bucket C** - simulation - logic validation only, NOT an accuracy measurement
@@ -315,11 +342,11 @@ These are laptop numbers and the Pi 5 must be measured on the Pi. They also move
 
 | metric | result | target |
 |---|---|---|
-| ultralytics yolo11n.pt @320 (CPU) | 32.78 ms/frame &middot; 30.1 FPS &middot; 4.34 detections/frame | - |
-| ultralytics yolo11n.pt @416 (CPU) | 51.64 ms/frame &middot; 19.2 FPS &middot; 4.44 detections/frame | - |
-| ultralytics yolo11n.pt @640 (CPU) | 116.44 ms/frame &middot; 8.55 FPS &middot; 4.73 detections/frame | - |
-| ultralytics yolo26n.pt @640 (CPU) | 104.53 ms/frame &middot; 9.52 FPS &middot; 4.73 detections/frame | - |
-| litert efficientdet_lite0_coco_legacy.tflite @320 (CPU) | 21.74 ms/frame &middot; 45.11 FPS &middot; 4.2 detections/frame | - |
+| ultralytics yolo11n.pt @320 (CPU) | 146.03 ms/frame &middot; 6.77 FPS &middot; 4.34 detections/frame | - |
+| ultralytics yolo11n.pt @416 (CPU) | 237.04 ms/frame &middot; 4.19 FPS &middot; 4.44 detections/frame | - |
+| ultralytics yolo11n.pt @640 (CPU) | 549.69 ms/frame &middot; 1.81 FPS &middot; 4.73 detections/frame | - |
+| ultralytics yolo26n.pt @640 (CPU) | 541.6 ms/frame &middot; 1.84 FPS &middot; 4.73 detections/frame | - |
+| litert efficientdet_lite0_coco_legacy.tflite @320 (CPU) | 107.28 ms/frame &middot; 9.18 FPS &middot; 4.2 detections/frame | - |
 
 <details><summary>commands</summary>
 

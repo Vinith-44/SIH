@@ -105,6 +105,7 @@ cameras:
         lane: [[0.45, 0.50], [0.66, 0.50], [0.66, 0.99], [0.45, 0.99]]
         billing: [[0.47, 0.27], [0.64, 0.27], [0.64, 0.44], [0.47, 0.44]]
         min_service_s: 3.0
+        membership: dwell      # queue v2 (M4): passers-by never join; parties; Little's law
         gap_tolerance_s: 2.0
         open: true
 

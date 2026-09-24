@@ -341,6 +341,39 @@ def shelf_lighting() -> Section | None:
     return section
 
 
+def queue_v2() -> Section | None:
+    """Bucket C: queue v1 vs v2 on simulated tracks with exact truth."""
+    path = RESULTS_DIR / "queue_v2.json"
+    if not path.is_file():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    first, last = data["seeds"]
+    section = Section(
+        "Queue v1 vs v2 - simulated tracks (passers-by, parties, balks, reneges, bent lane)", "C",
+        f"`eval/queue_sim.py` simulates an L-shaped queue as tracker output, with exact truth; "
+        f"'noisy' adds box jitter, 3% missed detections and 0.3 ID switches per person-minute. "
+        f"Defaults were tuned on seeds 1-10; this table is seeds {first}-{last}. It proves the "
+        "logic, not accuracy on a real queue (that needs our own canteen clip: "
+        "docs/HARDWARE_TODO.md).\n\n"
+        "**Not solved:** the balk / renege split. With the tuned 3 s join time, people who stop "
+        "3-6 s and leave count as reneges, so only their sum ('walked away unserved') is usable. "
+        "Tail overflow is barely exercised here (1 true sample), so it is covered by unit tests "
+        "only. The test seeds were scored twice: after a unit test found a balk-timing bias, the "
+        "rescore gave identical numbers.")
+    for name in ("v1", "v2", "v1 noisy", "v2 noisy"):
+        s = data["report"][name]
+        section.row(f"{name}: queue MAE / party MAE", f"{fmt(s['queue_mae'])} / {fmt(s['party_mae'])}",
+                    "queue MAE <= 1")
+        section.row(f"{name}: median-wait err / Little's-law W err",
+                    f"{pct(s['median_wait_err'])} / {pct(s['littles_err'])}", "<= 20%")
+        section.row(f"{name}: joins counted (truth) / walked away unserved (truth)",
+                    f"{s['joins_pred']} ({s['joins_true']}) / "
+                    f"{s['balks_pred'] + s['reneges_pred']} ({s['balks_true'] + s['reneges_true']})", "-")
+    section.commands.append("python -m storemind.eval.eval_queue_v2 --grid   # tuning seeds only")
+    section.commands.append("python -m storemind.eval.eval_queue_v2")
+    return section
+
+
 def platform_results(folder: Path = PLATFORM_DIR) -> list[Section]:
     """Person B's measured results, one section per file, never edited by A.
 
@@ -402,10 +435,11 @@ BUILDERS = {
     "caviar": caviar,
     "bakeoff": tracker_bakeoff,
     "shelf_lighting": shelf_lighting,
+    "queue_v2": queue_v2,
     "benchmark": benchmark,
 }
 
-ORDER = ["caviar", "bakeoff", "counting", "queue", "shelf", "shelf_lighting", "forecast",
+ORDER = ["caviar", "bakeoff", "counting", "queue", "queue_v2", "shelf", "shelf_lighting", "forecast",
          "before_after", "before_after_full", "benchmark"]
 
 

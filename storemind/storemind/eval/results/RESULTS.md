@@ -1,6 +1,6 @@
 # StoreMind - measured results
 
-Generated 2026-09-24 14:16 by `python -m storemind.eval.run_all`.
+Generated 2026-09-24 16:52 by `python -m storemind.eval.run_all`.
 
 Every number on this page came from a command printed beside it. Nothing here was typed by hand. If a measurement could not be made, the row says so.
 
@@ -28,7 +28,7 @@ This follows `research/09b_TEST_DATA_VALIDITY.md`. A simulation can only ever sh
 | cpu_threads | 16 |
 | ram_gb | 16.9 |
 | opencv | 5.0.0 |
-| git_commit | a2756b3 |
+| git_commit | 4a7e5f4 |
 
 ## Results
 
@@ -136,7 +136,7 @@ Perfect detections. Grades the gap-tolerant wait timer, the 3-second minimum bef
 |---|---|---|
 | customers detected | 7 of 7 | - |
 | service event precision / recall / F1 | 1.00 / 1.00 / 1.00 | - |
-| queue-length MAE | 0.00 people | <= 1 |
+| queue-length MAE | 0.06 people | <= 1 |
 | wait-time MAE | 0.39 s (1.1%) | <= 20% |
 | service-time MAE | 0.14 s (0.6%) | - |
 | median wait (ours vs truth) | 39.9 s vs 39.5 s | - |
@@ -145,6 +145,38 @@ Perfect detections. Grades the gap-tolerant wait timer, the 3-second minimum bef
 
 ```bash
 python -m storemind.run --config configs/demo.yaml --camera counter-1 --source C:\SIH\videos\queue\synthetic_queue.mp4 --backend scripted --model C:\SIH\videos\queue\synthetic_queue_detections.json --fps 25
+```
+
+</details>
+
+### Queue v1 vs v2 - simulated tracks (passers-by, parties, balks, reneges, bent lane)
+
+**Data bucket C** - simulation - logic validation only, NOT an accuracy measurement
+
+`eval/queue_sim.py` simulates an L-shaped queue as tracker output, with exact truth; 'noisy' adds box jitter, 3% missed detections and 0.3 ID switches per person-minute. Defaults were tuned on seeds 1-10; this table is seeds 11-40. It proves the logic, not accuracy on a real queue (that needs our own canteen clip: docs/HARDWARE_TODO.md).
+
+**Not solved:** the balk / renege split. With the tuned 3 s join time, people who stop 3-6 s and leave count as reneges, so only their sum ('walked away unserved') is usable. Tail overflow is barely exercised here (1 true sample), so it is covered by unit tests only. The test seeds were scored twice: after a unit test found a balk-timing bias, the rescore gave identical numbers.
+
+| metric | result | target |
+|---|---|---|
+| v1: queue MAE / party MAE | 0.38 / 0.85 | queue MAE <= 1 |
+| v1: median-wait err / Little's-law W err | 2.7% / 53.1% | <= 20% |
+| v1: joins counted (truth) / walked away unserved (truth) | 2598 (833) / 0 (95) | - |
+| v2: queue MAE / party MAE | 0.19 / 0.15 | queue MAE <= 1 |
+| v2: median-wait err / Little's-law W err | 2.8% / 20.4% | <= 20% |
+| v2: joins counted (truth) / walked away unserved (truth) | 825 (833) / 87 (95) | - |
+| v1 noisy: queue MAE / party MAE | 0.41 / 0.89 | queue MAE <= 1 |
+| v1 noisy: median-wait err / Little's-law W err | 52.5% / 61.2% | <= 20% |
+| v1 noisy: joins counted (truth) / walked away unserved (truth) | 3081 (833) / 0 (95) | - |
+| v2 noisy: queue MAE / party MAE | 0.21 / 0.18 | queue MAE <= 1 |
+| v2 noisy: median-wait err / Little's-law W err | 32.9% / 12.4% | <= 20% |
+| v2 noisy: joins counted (truth) / walked away unserved (truth) | 969 (833) / 118 (95) | - |
+
+<details><summary>commands</summary>
+
+```bash
+python -m storemind.eval.eval_queue_v2 --grid   # tuning seeds only
+python -m storemind.eval.eval_queue_v2
 ```
 
 </details>
@@ -283,11 +315,11 @@ These are laptop numbers and the Pi 5 must be measured on the Pi. They also move
 
 | metric | result | target |
 |---|---|---|
-| ultralytics yolo11n.pt @320 (CPU) | 147.77 ms/frame &middot; 6.7 FPS &middot; 4.34 detections/frame | - |
-| ultralytics yolo11n.pt @416 (CPU) | 257.73 ms/frame &middot; 3.86 FPS &middot; 4.44 detections/frame | - |
-| ultralytics yolo11n.pt @640 (CPU) | 526.03 ms/frame &middot; 1.9 FPS &middot; 4.73 detections/frame | - |
-| ultralytics yolo26n.pt @640 (CPU) | 493.99 ms/frame &middot; 2.02 FPS &middot; 4.73 detections/frame | - |
-| litert efficientdet_lite0_coco_legacy.tflite @320 (CPU) | 98.98 ms/frame &middot; 9.96 FPS &middot; 4.2 detections/frame | - |
+| ultralytics yolo11n.pt @320 (CPU) | 32.78 ms/frame &middot; 30.1 FPS &middot; 4.34 detections/frame | - |
+| ultralytics yolo11n.pt @416 (CPU) | 51.64 ms/frame &middot; 19.2 FPS &middot; 4.44 detections/frame | - |
+| ultralytics yolo11n.pt @640 (CPU) | 116.44 ms/frame &middot; 8.55 FPS &middot; 4.73 detections/frame | - |
+| ultralytics yolo26n.pt @640 (CPU) | 104.53 ms/frame &middot; 9.52 FPS &middot; 4.73 detections/frame | - |
+| litert efficientdet_lite0_coco_legacy.tflite @320 (CPU) | 21.74 ms/frame &middot; 45.11 FPS &middot; 4.2 detections/frame | - |
 
 <details><summary>commands</summary>
 

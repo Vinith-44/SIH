@@ -27,7 +27,7 @@ import cv2
 from .alerts.manager import AlertManager, build_alert_manager
 from .analytics.footfall import FootfallCounter, GateCounter, build_counter
 from .analytics.heatmap import FloorHeatmap
-from .analytics.queue import CounterSpec, QueueEngine
+from .analytics.queue import QueueEngine, counter_spec_from_config
 from .analytics.reorder import ReorderQueue
 from .analytics.shelf import ShelfEngine, SlotSpec
 from .analytics.staff import StaffFilter
@@ -116,16 +116,7 @@ class CameraPipeline:
             self.zones = ZoneEngine(specs, store=self.store, node=self.node, cam=cfg.name)
 
         if cfg.counters:
-            specs = [
-                CounterSpec(
-                    name=c.name,
-                    lane=Polygon(f"{c.name}-lane", [tuple(p) for p in c.lane], "lane").resolve(width, height),
-                    billing=Polygon(f"{c.name}-billing", [tuple(p) for p in c.billing], "billing").resolve(width, height),
-                    min_service_s=c.min_service_s, gap_tolerance_s=c.gap_tolerance_s,
-                    open=c.open, congestion_len=c.congestion_len,
-                )
-                for c in cfg.counters
-            ]
+            specs = [counter_spec_from_config(c, width, height) for c in cfg.counters]
             self.queue = QueueEngine(specs, store=self.store, node=self.node, cam=cfg.name)
 
         if cfg.shelves:
@@ -160,7 +151,8 @@ class CameraPipeline:
 
     # -- geometry accessors for the overlay ------------------------------- #
     def lane_polygons(self) -> list[Polygon]:
-        return [c.spec.lane for c in self.queue.counters.values()] if self.queue else []
+        return ([c.spec.lane for c in self.queue.counters.values() if c.spec.lane is not None]
+                if self.queue else [])
 
     def billing_polygons(self) -> list[Polygon]:
         return [c.spec.billing for c in self.queue.counters.values()] if self.queue else []
@@ -499,6 +491,13 @@ class Pipeline:
                         f"{name}: {state.queue_len_smooth:.0f} people waiting now",
                         Severity.WARN, self.clock,
                         {"counter": name, "queue_len": state.queue_len}))
+                if state.tail_overflow:
+                    self._emit_all(self.alerts.raise_alert(
+                        f"QUEUE_OVERFLOW:{name}",
+                        f"{name}: the queue has reached the end of its lane - open another counter",
+                        Severity.WARN, self.clock,
+                        {"counter": name, "queue_len": state.queue_len,
+                         "queue_parties": state.parties}))
 
         self._drain_fusion_findings()
         self._emit_all(self.alerts.tick(self.clock))

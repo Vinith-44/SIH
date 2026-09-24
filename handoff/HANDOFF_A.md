@@ -1,14 +1,11 @@
-# HANDOFF — Person A (Vinith) — 2026-09-24
+# HANDOFF — Person A (Vinith) — 2026-09-24 (evening)
 
 Overwritten every session. Read `CLAUDE.md` first, then this.
 
-## Open PRs (merge in this order)
-1. **#4 Contract (M1 follow-up)** (`a/m1-contract` -> `a/pr0-contracts`): the gate-default commit
-   `c454662`. PR #2 was merged into `a/pr0-contracts` *before* that commit was pushed, so the commit
-   was stranded. #4 carries it.
-2. **#1 PR-0 contracts** (`a/pr0-contracts` -> `master`). It now also contains #2 (merged) and, once
-   merged, #4. This is the PR that gets everything to master.
-3. **#3 M1** (`a/m1-counting-v2` -> `a/pr0-contracts`). Retarget it to `master` if #1 merges first.
+## Open PRs (Ram approves)
+- **#11 Contract (M4 defaults)**: three default values for queue v2. Merge before the M4 PR.
+- **M4 PR** (`a/m4-queue-v2` -> master): queue v2 engine, simulator, eval, docs/QUEUE.md.
+- Merged so far: #1-#5 (PR-0, M1, M3 contracts), #7 (M3), #9 (names), #10 (M4 contract), plus Ram's #6/#8 (M2).
 
 ## M1 outcome (docs/COUNTING.md)
 - Code done: gate counter, 4 trackers, per-zone filters, staff zones + ArUco badges, IR-beam
@@ -31,11 +28,22 @@ Overwritten every session. Read `CLAUDE.md` first, then this.
   - the dashboard can show `pipeline.reorder.whatsapp_text()` and the new slot `reason` strings;
   - the bridge publishes `$R` as `SENSOR {sensor: "restock", channel: <shelf>}`.
 
-## Next: M4 queue v2 (branch `a/m4-queue-v2`)
-Membership by speed + dwell, party merge, polyline lane, Little's law, balk/renege, per-counter mu, optional LD2450.
+## M4 queue v2: done except the bucket-B clip (docs/QUEUE.md)
+- Simulated tracks, held out, v2 vs v1:
+  - joins 825 vs 2598 (truth 833); passers-by no longer inflate lambda;
+  - queue MAE 0.19 vs 0.38; party MAE 0.15;
+  - Little's-law W err 12% under ID switches; per-person wait err 33% under ID switches (target 20%: not met).
+- **Balk/renege split does not work** (0/65 balks); only "walked away unserved" is usable.
+- **Real canteen clip not recorded**: docs/HARDWARE_TODO.md "M4 - canteen queue clip".
+- For Ram's dashboard: QUEUE_STATE now carries `queue_parties`, `wait_littles_s`, `arrivals_per_min`, `balks`,
+  `reneges`, `tail_overflow`; the new alert key is `QUEUE_OVERFLOW:<counter>`.
+
+## Next: M6-fusion (branch `a/m6-fusion`)
+Pick/put-back from MEMS SHELF_MOTION + WEIGHT gating, a TOUCH->SETTLED shelf-check trigger, camera tamper fusion
+(CAMERA_MOUNT + image tamper). Then M8 (model export + bench_pi.py), M9 (AI Hub), M10.
 
 ## Blocked / needs the team
-- Person B's approval of #1, then #2 and #3.
+- Ram's approval of #1, then #2 and #3.
 - Our own recordings (bucket B): shelf photos across a day, a canteen queue clip, and 30 walked
   door crossings with the IR beam (docs/HARDWARE_TODO.md).
 - Qualcomm AI Hub token (`qai-hub configure`, never in the repo).

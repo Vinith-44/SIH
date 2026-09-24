@@ -49,3 +49,19 @@ M3 accepts on **EMPTY F1 >= 0.85 in day and evening light on our own shelf**. No
    (~5 s per photo; mark lighting 1-4).
 6. Score: `python -m storemind.eval.eval_shelf_photos --photos ../videos/shelf_real/day1 --config configs/myshelf.yaml --camera shelf-cam`
    and paste the two lines (v1, v2) into `logs/WORK_LOG_A.md`. Do not tune on this day; capture a second day to tune.
+
+## M4 - canteen queue clip (bucket B, the real queue acceptance test)
+
+M4 accepts on **queue MAE <= 1 and wait error <= 20% on our own clip**. Nothing is measured until this is done.
+
+1. Get written permission (canteen manager) and put up the DPDP notice. Frames are processed in RAM, but this
+   clip is a recording, so keep it on the laptop only (`videos/` is git-ignored) and delete it after labelling.
+2. Record 15-20 min of a busy billing counter from above/behind (sub-stream is fine: 640x360, 8-10 FPS),
+   including a rush. Save as `../videos/queue/canteen_01.mp4`.
+3. Calibrate: `python tools/calibrate.py` -> lane (or `lane_polyline` if the queue bends) + billing spot, with
+   `membership: dwell`.
+4. Label with `python tools/label_ground_truth.py` (queue length every 10 s; for 20+ customers: joined,
+   service start, service end). Mark families as parties in a note.
+5. Score: `python -m storemind.eval.eval_queue --config configs/canteen.yaml --camera counter-1
+   --source ../videos/queue/canteen_01.mp4`. Run it with `membership: polygon` and with `membership: dwell`,
+   and paste both into `logs/WORK_LOG_A.md`. Do not tune on this clip; record a second one to tune.

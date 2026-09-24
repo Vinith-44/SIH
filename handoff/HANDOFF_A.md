@@ -2,13 +2,13 @@
 
 Overwritten every session. Read `CLAUDE.md` first, then this.
 
-## Open PRs (stacked, merge in this order)
-1. **#1 PR-0 contracts** (`a/pr0-contracts` → `master`). Waiting for Person B.
-2. **#2 Contract (M1)** (`a/m1-contract`, base `a/pr0-contracts`). It has two commits: the config
-   keys, and the gate defaults from the bake-off (`c454662`). **After #1 merges, #2 must target
-   `master`.** GitHub does this automatically if #1's branch is deleted on merge; otherwise run
-   `gh pr edit 2 --base master`. Check that #2's commit list shows both commits before merging.
-3. **#3 M1** (`a/m1-counting-v2`, base `a/m1-contract`): retarget to `master` the same way after #2.
+## Open PRs (merge in this order)
+1. **#4 Contract (M1 follow-up)** (`a/m1-contract` -> `a/pr0-contracts`): the gate-default commit
+   `c454662`. PR #2 was merged into `a/pr0-contracts` *before* that commit was pushed, so the commit
+   was stranded. #4 carries it.
+2. **#1 PR-0 contracts** (`a/pr0-contracts` -> `master`). It now also contains #2 (merged) and, once
+   merged, #4. This is the PR that gets everything to master.
+3. **#3 M1** (`a/m1-counting-v2` -> `a/pr0-contracts`). Retarget it to `master` if #1 merges first.
 
 ## M1 outcome (docs/COUNTING.md)
 - Code done: gate counter, 4 trackers, per-zone filters, staff zones + ArUco badges, IR-beam

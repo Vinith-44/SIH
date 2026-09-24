@@ -31,3 +31,21 @@ Laptop CPU estimates (bucket S, not Pi numbers): YOLO11n@640 10.0 FPS, YOLO26n@6
 YOLO11s@640 3.75 FPS. On the Pi, run `tools/bench_pi.py` (M8) for all three at 640 and 416,
 PyTorch and NCNN, and paste the JSON into `logs/WORK_LOG_A.md`. Ship the fastest model that holds
 8 FPS on the entrance camera.
+
+## M3 - shelf photos for the real acceptance test (bucket B)
+
+M3 accepts on **EMPTY F1 >= 0.85 in day and evening light on our own shelf**. Nothing is measured until this is done.
+
+1. Pick a real rack (hostel store, canteen, lab) with 4-8 products side by side. Mount a camera (webcam/Pi cam/
+   phone on RTSP) so it sees the rack with **no people in frame**.
+2. Draw the slots: `python tools/calibrate.py` on a snapshot, save to `configs/myshelf.yaml` (camera name
+   `shelf-cam`). Type SKU names.
+3. Start capturing, ideally with the STM32 + BH1750 connected for lux:
+   `python tools/shelf_capture.py --source 0 --out ../videos/shelf_real/day1 --every 120 --serial COM5`
+4. Leave it from morning to night, **including evening light and lights off**. Every 20-30 min change something:
+   remove all packets of one product (EMPTY), leave one (LOW), swap in a different product (WRONG_ITEM), then
+   restock everything (all FULL).
+5. Label: `python tools/shelf_label.py --photos ../videos/shelf_real/day1 --config configs/myshelf.yaml --camera shelf-cam`
+   (~5 s per photo; mark lighting 1-4).
+6. Score: `python -m storemind.eval.eval_shelf_photos --photos ../videos/shelf_real/day1 --config configs/myshelf.yaml --camera shelf-cam`
+   and paste the two lines (v1, v2) into `logs/WORK_LOG_A.md`. Do not tune on this day; capture a second day to tune.

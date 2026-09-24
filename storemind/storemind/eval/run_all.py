@@ -305,6 +305,42 @@ def tracker_bakeoff() -> Section | None:
     return section
 
 
+def shelf_lighting() -> Section | None:
+    """Bucket C: shelf v1 vs v2 on synthetic timelines with changing light."""
+    path = RESULTS_DIR / "shelf_lighting.json"
+    if not path.is_file():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    first, last = data["seeds"]
+    section = Section(
+        "Shelf engine under changing light - synthetic timelines", "C",
+        f"Synthetic shelves (`tools/shelf_synth.py`) under day, evening, tube light, dim, dark "
+        f"and glare, with exact slot truth and a simulated BH1750. Thresholds were tuned on "
+        f"seeds 1-10 only; this table is seeds {first}-{last}. It proves the lighting logic, "
+        "not accuracy on a real shelf (that needs our own photos: docs/HARDWARE_TODO.md).\n\n"
+        "**Disclosures:** (1) The test seeds were scored twice. The second run came after a "
+        "unit test exposed a confidence bug that stopped the reference bank learning. EMPTY F1 "
+        "was 0.93 before the fix and 0.92 after. (2) The lux sensor shows no benefit here: "
+        "the synthetic light is uniform, so frame brightness predicts it perfectly. A real "
+        "shelf is where the BH1750 has to prove itself.")
+    for name, label in (("v1", "v1 (before M3)"), ("v2", "v2 with lux"), ("v2-no-lux", "v2 without lux")):
+        s = data["report"][name]
+        e = s["EMPTY"]
+        section.row(f"{label}: slot-state accuracy (lit)", pct(s["accuracy"]), "-")
+        section.row(f"{label}: EMPTY P / R / F1", f"{fmt(e['precision'])} / {fmt(e['recall'])} / "
+                                                  f"{fmt(e['f1'])}", "F1 >= 0.85")
+        by_light = s["empty_f1_by_lighting"]
+        section.row(f"{label}: EMPTY F1 day / evening / dim",
+                    f"{fmt(by_light.get('day'))} / {fmt(by_light.get('evening'))} / "
+                    f"{fmt(by_light.get('dim'))}", ">= 0.85")
+        section.row(f"{label}: dark slot-steps -> UNKNOWN / false EMPTY",
+                    f"{s['dark']['unknown']} / {s['dark']['false_empty']} of {s['dark']['slot_steps']}",
+                    "all UNKNOWN, 0 EMPTY")
+    section.commands.append("python -m storemind.eval.eval_shelf_lighting --grid   # tuning seeds only")
+    section.commands.append("python -m storemind.eval.eval_shelf_lighting")
+    return section
+
+
 def platform_results(folder: Path = PLATFORM_DIR) -> list[Section]:
     """Person B's measured results, one section per file, never edited by A.
 
@@ -365,10 +401,11 @@ BUILDERS = {
     "before_after_full": before_after_full_stack,
     "caviar": caviar,
     "bakeoff": tracker_bakeoff,
+    "shelf_lighting": shelf_lighting,
     "benchmark": benchmark,
 }
 
-ORDER = ["caviar", "bakeoff", "counting", "queue", "shelf", "forecast",
+ORDER = ["caviar", "bakeoff", "counting", "queue", "shelf", "shelf_lighting", "forecast",
          "before_after", "before_after_full", "benchmark"]
 
 

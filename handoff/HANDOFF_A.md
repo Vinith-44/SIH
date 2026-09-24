@@ -21,19 +21,18 @@ Overwritten every session. Read `CLAUDE.md` first, then this.
   Pi candidate for M8.
 - The venv has CUDA torch (cu130). Speed numbers in RESULTS.md are forced to CPU.
 
-## Next: M3 shelf v2 (branch `a/m3-shelf-v2`, config keys in a small `a/m3-contract`)
-Already started (untracked on disk, not in the M1 commit):
-- `storemind/tools/shelf_synth.py`: synthetic shelf timelines under day/evening/tube/dim/dark/glare
-  with exact truth and simulated lux.
-- `storemind/storemind/eval/eval_shelf_lighting.py`: v1 vs v2 vs v2-without-lux. Tune on seeds
-  1-10, report on seeds 11-40.
+## M3 shelf v2: done except the bucket-B photo set
+- PR #5 (`a/m3-contract`): shelf config keys and the v2 threshold defaults. PR #6 (`a/m3-shelf-v2`): the engine,
+  tools and evals.
+- Synthetic test seeds: EMPTY F1 0.92 (v1 0.74), evening 0.93 (v1 0.15), dark → UNKNOWN. This is bucket C.
+- **Real acceptance (our own shelf, EMPTY F1 ≥ 0.85 day+evening) is not measured.** The team needs to capture one:
+  docs/HARDWARE_TODO.md "M3 - shelf photos".
+- For Person B:
+  - the dashboard can show `pipeline.reorder.whatsapp_text()` and the new slot `reason` strings;
+  - the bridge publishes `$R` as `SENSOR {sensor: "restock", channel: <shelf>}`.
 
-Design (from reading `analytics/shelf.py`):
-- Texture measured as gain-normalised gradient density, so it does not depend on brightness.
-- Gray-world white balance, CLAHE, glare mask.
-- Reference bank chosen by lux (or frame brightness); dark → UNKNOWN; lux jump → skip one cycle.
-- Drift update, 4-point rectification, weight fusion.
-- Tools: `shelf_capture` / `shelf_label`; reorder drafts.
+## Next: M4 queue v2 (branch `a/m4-queue-v2`)
+Membership by speed + dwell, party merge, polyline lane, Little's law, balk/renege, per-counter mu, optional LD2450.
 
 ## Blocked / needs the team
 - Person B's approval of #1, then #2 and #3.

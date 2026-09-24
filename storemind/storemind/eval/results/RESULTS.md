@@ -1,6 +1,6 @@
 # StoreMind - measured results
 
-Generated 2026-09-24 13:25 by `python -m storemind.eval.run_all`.
+Generated 2026-09-24 14:16 by `python -m storemind.eval.run_all`.
 
 Every number on this page came from a command printed beside it. Nothing here was typed by hand. If a measurement could not be made, the row says so.
 
@@ -28,7 +28,7 @@ This follows `research/09b_TEST_DATA_VALIDITY.md`. A simulation can only ever sh
 | cpu_threads | 16 |
 | ram_gb | 16.9 |
 | opencv | 5.0.0 |
-| git_commit | c454662 |
+| git_commit | a2756b3 |
 
 ## Results
 
@@ -171,6 +171,38 @@ python -m storemind.run --config configs/demo.yaml --camera shelf-a --source C:\
 
 </details>
 
+### Shelf engine under changing light - synthetic timelines
+
+**Data bucket C** - simulation - logic validation only, NOT an accuracy measurement
+
+Synthetic shelves (`tools/shelf_synth.py`) under day, evening, tube light, dim, dark and glare, with exact slot truth and a simulated BH1750. Thresholds were tuned on seeds 1-10 only; this table is seeds 11-40. It proves the lighting logic, not accuracy on a real shelf (that needs our own photos: docs/HARDWARE_TODO.md).
+
+**Disclosures:** (1) The test seeds were scored twice. The second run came after a unit test exposed a confidence bug that stopped the reference bank learning. EMPTY F1 was 0.93 before the fix and 0.92 after. (2) The lux sensor shows no benefit here: the synthetic light is uniform, so frame brightness predicts it perfectly. A real shelf is where the BH1750 has to prove itself.
+
+| metric | result | target |
+|---|---|---|
+| v1 (before M3): slot-state accuracy (lit) | 54.7% | - |
+| v1 (before M3): EMPTY P / R / F1 | 0.98 / 0.59 / 0.74 | F1 >= 0.85 |
+| v1 (before M3): EMPTY F1 day / evening / dim | 0.91 / 0.15 / 0.33 | >= 0.85 |
+| v1 (before M3): dark slot-steps -> UNKNOWN / false EMPTY | 0 / 0 of 714 | all UNKNOWN, 0 EMPTY |
+| v2 with lux: slot-state accuracy (lit) | 91.7% | - |
+| v2 with lux: EMPTY P / R / F1 | 0.97 / 0.88 / 0.92 | F1 >= 0.85 |
+| v2 with lux: EMPTY F1 day / evening / dim | 0.91 / 0.93 / 0.89 | >= 0.85 |
+| v2 with lux: dark slot-steps -> UNKNOWN / false EMPTY | 714 / 0 of 714 | all UNKNOWN, 0 EMPTY |
+| v2 without lux: slot-state accuracy (lit) | 91.7% | - |
+| v2 without lux: EMPTY P / R / F1 | 0.97 / 0.89 / 0.93 | F1 >= 0.85 |
+| v2 without lux: EMPTY F1 day / evening / dim | 0.91 / 0.95 / 0.89 | >= 0.85 |
+| v2 without lux: dark slot-steps -> UNKNOWN / false EMPTY | 714 / 0 of 714 | all UNKNOWN, 0 EMPTY |
+
+<details><summary>commands</summary>
+
+```bash
+python -m storemind.eval.eval_shelf_lighting --grid   # tuning seeds only
+python -m storemind.eval.eval_shelf_lighting
+```
+
+</details>
+
 ### Door-to-counter queue forecast - simulated rush
 
 **Data bucket C** - simulation - logic validation only, NOT an accuracy measurement
@@ -251,11 +283,11 @@ These are laptop numbers and the Pi 5 must be measured on the Pi. They also move
 
 | metric | result | target |
 |---|---|---|
-| ultralytics yolo11n.pt @320 (CPU) | 31.93 ms/frame &middot; 30.89 FPS &middot; 4.34 detections/frame | - |
-| ultralytics yolo11n.pt @416 (CPU) | 52.37 ms/frame &middot; 18.94 FPS &middot; 4.44 detections/frame | - |
-| ultralytics yolo11n.pt @640 (CPU) | 106.81 ms/frame &middot; 9.33 FPS &middot; 4.73 detections/frame | - |
-| ultralytics yolo26n.pt @640 (CPU) | 144.29 ms/frame &middot; 6.9 FPS &middot; 4.73 detections/frame | - |
-| litert efficientdet_lite0_coco_legacy.tflite @320 (CPU) | 96.37 ms/frame &middot; 10.22 FPS &middot; 4.2 detections/frame | - |
+| ultralytics yolo11n.pt @320 (CPU) | 147.77 ms/frame &middot; 6.7 FPS &middot; 4.34 detections/frame | - |
+| ultralytics yolo11n.pt @416 (CPU) | 257.73 ms/frame &middot; 3.86 FPS &middot; 4.44 detections/frame | - |
+| ultralytics yolo11n.pt @640 (CPU) | 526.03 ms/frame &middot; 1.9 FPS &middot; 4.73 detections/frame | - |
+| ultralytics yolo26n.pt @640 (CPU) | 493.99 ms/frame &middot; 2.02 FPS &middot; 4.73 detections/frame | - |
+| litert efficientdet_lite0_coco_legacy.tflite @320 (CPU) | 98.98 ms/frame &middot; 9.96 FPS &middot; 4.2 detections/frame | - |
 
 <details><summary>commands</summary>
 

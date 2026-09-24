@@ -28,6 +28,7 @@ from .alerts.manager import AlertManager, build_alert_manager
 from .analytics.footfall import FootfallCounter, GateCounter, build_counter
 from .analytics.heatmap import FloorHeatmap
 from .analytics.queue import CounterSpec, QueueEngine
+from .analytics.reorder import ReorderQueue
 from .analytics.shelf import ShelfEngine, SlotSpec
 from .analytics.staff import StaffFilter
 from .analytics.zones import ZoneEngine, ZoneSpec
@@ -71,6 +72,7 @@ class CameraPipeline:
     tamper: TamperDetector | None = None
 
     shelf_method: str = "reference"
+    shelf_embed_threshold: float = 0.75
     # Per-camera detector override.  Normally every camera shares one model (one
     # model in memory is the whole point on a Pi), but the scripted backend
     # replays a different detections file per clip, and a real deployment could
@@ -133,14 +135,15 @@ class CameraPipeline:
                         s.name,
                         [SlotSpec(polygon=Polygon(slot.name, [tuple(p) for p in slot.points], "slot").resolve(width, height),
                                   sku=slot.sku, price=slot.price,
-                                  reference_facings=slot.reference_facings)
+                                  reference_facings=slot.reference_facings,
+                                  full_grams=slot.full_grams, deep=slot.deep)
                          for slot in s.slots],
                         s,
                     )
                     for s in cfg.shelves
                 ],
                 store=self.store, node=self.node, cam=cfg.name,
-                method=self.shelf_method,
+                method=self.shelf_method, embed_threshold=self.shelf_embed_threshold,
                 reference_dir=next((s.reference_dir for s in cfg.shelves if s.reference_dir), None),
             )
 
@@ -226,6 +229,9 @@ class Pipeline:
             self.forecaster.note_entry(self.clock.monotonic_s())
 
         self.bus.subscribe_types(EventType.ENTRY, on_entry)
+        # Shelf v2 inputs (M3): light level, load cells, camera health, restock button.
+        self.bus.subscribe_types([EventType.ENVIRONMENT, EventType.WEIGHT, EventType.CAMERA_HEALTH,
+                                  EventType.SENSOR], self._shelf_inputs)
 
         doors = {c.line.beam_door: c.name for c in self.config.cameras
                  if c.line is not None and c.line.beam_door}
@@ -238,7 +244,35 @@ class Pipeline:
         self.bus.subscribe_types([EventType.SLOT_STATE, EventType.SENSOR, EventType.ZONE_VISIT],
                                  self._fusion_input)
         self.bus.subscribe_types(EventType.SLOT_STATE, self._on_slot_state)
+        # Reorder drafts (M3): a file next to the event DB when live, memory in replays.
+        self.reorder = ReorderQueue(":memory:" if self.replay else
+                                    Path(self.config.storage.db_path).with_name("reorder.db"))
+        self.bus.subscribe_types(EventType.SLOT_STATE, self.reorder.on_event)
         self.bus.subscribe_types(EventType.SHRINK_FLAG, self._on_shrink)
+
+    def _shelf_inputs(self, event: Event) -> None:
+        data = event.data
+        shelves = [c for c in self.cameras if c.shelf is not None]
+        if event.type is EventType.ENVIRONMENT:
+            for camera in shelves:
+                camera.shelf.observe_lux(data.get("lux"), data.get("node"))
+        elif event.type is EventType.WEIGHT:
+            # WEIGHT.slot is the load-cell channel; sensors.cell_map says which slot it is under.
+            channel_to_slot = {v: k for k, v in self.config.sensors.cell_map.items()}
+            target = channel_to_slot.get(str(data["slot"]), "")
+            if "/" in target:
+                shelf, slot = target.split("/", 1)
+                for camera in shelves:
+                    camera.shelf.observe_weight(shelf, slot, data["grams"], data["stable"])
+        elif event.type is EventType.CAMERA_HEALTH:
+            for camera in shelves:
+                if camera.config.name == data["cam"]:
+                    camera.shelf.set_camera_ok(data["state"] == "ok")
+        elif data.get("sensor") == "restock":       # `$R` restock button -> SENSOR
+            shelf = str(data.get("channel"))
+            for camera in shelves:
+                if shelf in camera.shelf.shelves:
+                    self.restock(camera.config.name, shelf)
 
     def _on_slot_state(self, event: Event) -> None:
         state = event.data["state"]
@@ -277,6 +311,7 @@ class Pipeline:
                 config=cam, source=source, tracker=build_tracker(tracker_config),
                 scheduler=FpsScheduler(fps), store=self.config.store, node=self.config.node,
                 shelf_method=self.config.shelf.method,
+                shelf_embed_threshold=self.config.shelf.embed_threshold,
                 detector=self._per_camera_detector(cam)))
             self.health.camera_ok[cam.name] = True
 

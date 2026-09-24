@@ -85,3 +85,36 @@ Commands and results:
 
 Decisions (user, 24 Sep): do not tune further on CAVIAR. Ship YOLO11n@640 + ByteTrack + gate
 counter defaults (gate 10 px, direction off, age 0, confirm 0.5 s).
+
+## 2026-09-24 - M3 shelf v2 (branch `a/m3-shelf-v2`; config keys in PR #5 `a/m3-contract`)
+
+Code: `analytics/shelf.py`:
+- gray-world white balance on non-slot pixels;
+- gain-normalised gradient texture, CLAHE, glare mask, gradient SSIM;
+- reference bank chosen by lux/brightness, with learning and drift;
+- dark → UNKNOWN; a lux jump skips one cycle;
+- 4-point rectification, weight fusion with "CHECK SHELF", camera fault / long occlusion → UNKNOWN.
+
+Also: `analytics/reorder.py` (SQLite drafts + WhatsApp text), and pipeline hooks (ENVIRONMENT/WEIGHT/CAMERA_HEALTH/
+SENSOR restock → shelf; SLOT_STATE → reorder). Tools: `tools/shelf_synth.py`, `shelf_capture.py`, `shelf_label.py`.
+Evals: `eval/eval_shelf_lighting.py`, `eval/eval_shelf_photos.py`.
+
+Commands and results:
+- `python -m storemind.eval.eval_shelf_lighting --grid` (tuning seeds 1-10, 48 settings, 8 workers, ~5 min).
+  Best: empty 0.28, low 0.5, dark_lux 15, blur 5, texture threshold 0.5 -> EMPTY F1 0.92, acc 0.92.
+- `python -m storemind.eval.eval_shelf_lighting` (test seeds 11-40): v1 acc 54.7%, EMPTY F1 0.74 (evening 0.15);
+  v2 acc 91.7%, EMPTY F1 0.92 (day 0.91 / evening 0.93 / dim 0.89), dark: 714/714 UNKNOWN, 0 false EMPTY.
+  Bucket C.
+- Disclosures:
+  - The generator was changed (light in runs, and the restock-index bug fixed) before any test seed was scored.
+  - The test seeds were scored twice: 0.93 before and 0.92 after the confidence-clipping fix found by
+    `test_the_bank_learns_new_lighting...`.
+  - No measurable lux benefit in simulation.
+- Synthetic shelf clip (bucket C, demo.yaml now on the v2 defaults): unchanged at 95.8% acc, EMPTY F1 1.00.
+- Photo scorer smoke test on synthetic frames with generated labels: v1 EMPTY F1 0.82, v2 0.89. This is a
+  tool check only, not a result.
+- M3 acceptance on our own shelf (bucket B): **not measured yet**. Steps are in docs/HARDWARE_TODO.md.
+- Tests: 249 passed.
+
+Note: the files `ANTIGRAVITY_HANDOVER.md`, `antigravity/` and `.agents/` appeared in C:\SIH during this
+session. They are not Person A's and are left untracked.

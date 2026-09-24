@@ -265,9 +265,9 @@ Buckets: **A** public benchmark · **B** our own recording · **C** simulation (
 | Key / field | Default | Meaning |
 |---|---|---|
 | `counters[].lane` | now optional | a lane polygon, **or** `lane_polyline` + `lane_width` (one of the two is required) |
-| `counters[].membership` | `polygon` | `dwell` = queue v2: a person joins only after `join_dwell_s` in the lane at ≤ `max_join_speed` (frame heights/s over `speed_window_s`); passers-by never join |
+| `counters[].membership` | `polygon` | `dwell` = queue v2: a person joins only after `join_dwell_s` (default 3 s) in the lane at ≤ `max_join_speed` (default 0.10 frame heights/s over `speed_window_s`); passers-by never join. Defaults tuned on simulated seeds 1-10 (eval/eval_queue_v2.py --grid) |
 | `counters[].lane_polyline`, `lane_width` | `[]`, 0.12 | centre line of a bent queue, billing end first; width as a fraction of frame height |
 | `counters[].tail_zone` | `[]` | polygon where the queue spills out → `tail_overflow` |
-| `counters[].party_dist`, `party_join_window_s` | 0.08, 4 s | people who stay this close and joined together are one party |
+| `counters[].party_dist`, `party_join_window_s` | 0.06, 4 s | people who stay this close and joined together are one party |
 | `counters[].balk_min_s`, `littles_window_s` | 2 s, 600 s | balk = stopped in the lane, left without joining; Little's-law window |
 | `QUEUE_STATE.queue_parties`, `wait_littles_s`, `arrivals_per_min`, `balks`, `reneges`, `tail_overflow` | null | new optional payload fields (schema stays v2: additive) |

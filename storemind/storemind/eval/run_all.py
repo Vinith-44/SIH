@@ -402,6 +402,55 @@ def shelf_fusion() -> Section | None:
     return section
 
 
+def ask_store() -> Section | None:
+    """Bucket C: "Ask your store" on a simulated two-day event database (M10)."""
+    path = RESULTS_DIR / "ask.json"
+    if not path.is_file():
+        return None
+
+    def load(*names: str) -> list[dict]:
+        return [json.loads((RESULTS_DIR / n).read_text(encoding="utf-8"))
+                for n in names if (RESULTS_DIR / n).is_file()]
+
+    section = Section(
+        "Ask your store - questions answered from the event database (simulated store)", "C",
+        "Questions in plain English -> one read-only SQL query over whitelisted views -> an answer that cites its "
+        "rows. The expected answers are computed in Python from the simulated events, not with SQL. "
+        "**Invented numbers** = numbers in an answer that appear in none of the cited rows (target 0). "
+        "**Wrong** = a real, cited result for the wrong query (or a seconds value called minutes); the dashboard "
+        "must show the query. **Set C, first run** is the held-out number: those 20 questions were written after "
+        "every change they could have influenced, and are re-graded here with the stricter unit check added "
+        "later. **Run 4** is the current code on the same questions, no longer held out. History: docs/ASK.md "
+        "section 3. LLM latency is on the laptop GPU, not the Pi.")
+    first = {}
+    for data in load("ask_run3_c_first_run.json", "ask_run3_c_first_run_3b.json"):
+        for r in data["report"]:
+            first.setdefault(r["label"], r["C_final"].get("regraded", r["C_final"]))
+    seen = set()
+    for data in load("ask.json", "ask_3b.json"):
+        for r in data["report"]:
+            if r["label"] in seen:
+                continue
+            seen.add(r["label"])
+            c = r["C_final"]
+            if r["label"] in first:
+                f = first[r["label"]]
+                section.row(f"{r['label']}: set C first run (held out), correct / wrong / refused",
+                            f"{f['correct']} / {f['wrong']} / {f['refused']} of 20")
+            section.row(f"{r['label']}: set C run 4 (current code, seen), correct / wrong / refused",
+                        f"{c['correct']} / {c['wrong']} / {c['refused']} of {c['n']}")
+            section.row(f"{r['label']}: invented numbers, run 4 (sets A+B+C, {3 * c['n']} questions)",
+                        str(sum(r[k]["invented_numbers"] for k in ("A_dev", "B_heldout_run2", "C_final"))), "0")
+            if r["label"] != "rules":
+                section.row(f"{r['label']}: median seconds per question", fmt(c["median_s"]))
+            o = r["other_languages"]
+            section.row(f"{r['label']}: Hindi / Telugu visitor question (4 phrasings)", f"{o['correct']} / {o['n']}")
+    section.commands.append("python -m storemind.eval.eval_ask")
+    section.commands.append("python -m storemind.eval.eval_ask --model qwen2.5-coder:3b --no-rules "
+                            "--out storemind/storemind/eval/results/ask_3b.json")
+    return section
+
+
 def model_exports() -> list[Section]:
     """M8: exported detectors - fidelity + laptop CPU speed (S), CAVIAR counting per format (A)."""
     path = RESULTS_DIR / "model_export.json"
@@ -545,10 +594,11 @@ BUILDERS = {
     "shelf_lighting": shelf_lighting,
     "queue_v2": queue_v2,
     "shelf_fusion": shelf_fusion,
+    "ask": ask_store,
     "benchmark": benchmark,
 }
 
-ORDER = ["caviar", "bakeoff", "counting", "queue", "queue_v2", "shelf", "shelf_lighting", "shelf_fusion", "forecast",
+ORDER = ["caviar", "bakeoff", "counting", "queue", "queue_v2", "shelf", "shelf_lighting", "shelf_fusion", "ask", "forecast",
          "before_after", "before_after_full", "benchmark"]
 
 
@@ -626,7 +676,7 @@ def main(argv: list[str] | None = None) -> int:
         "dataset covers either (see `research/09b`), which is exactly why our own footage "
         "matters and why the reference-based shelf method exists.",
         "* Raspberry Pi 5 numbers: every speed figure here is from a laptop.",
-        "* Qualcomm AI Hub latency: needs a Qualcomm ID and API token.",
+        "* Qualcomm: only AI Hub hosted devices (bucket Q); no Qualcomm board of our own yet.",
         "",
     ]
 

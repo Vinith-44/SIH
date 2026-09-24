@@ -17,6 +17,7 @@ If you want to … read …
 | pick or export the detector, benchmark it on the Pi | [MODELS.md](MODELS.md) |
 | know where a number came from | [EVALUATION.md](EVALUATION.md) and `storemind/storemind/eval/results/RESULTS.md` |
 | run on Qualcomm silicon | [QUALCOMM.md](QUALCOMM.md) |
+| ask the store a question, or get the daily summary (en/te/hi) | [ASK.md](ASK.md) |
 | answer a privacy question | [PRIVACY_DPDP.md](PRIVACY_DPDP.md) |
 | keep a box running | [OPERATIONS.md](OPERATIONS.md) · [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |
 | give the demo | [DEMO_RUNBOOK.md](DEMO_RUNBOOK.md) |

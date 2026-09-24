@@ -3,9 +3,8 @@
 Overwritten every session. Read `CLAUDE.md` first, then this.
 
 ## Open PRs (Ram approves)
-- **#13 Contract (M6)**: PICKUP action/units, slot unit_grams, alerts open_hours. Merge before the M6 PR.
-- **M6 PR** (`a/m6-fusion` -> master): shelf interaction fusion, sensor simulator, eval, docs/MEMS.md §4-6.
-- Merged: #1-#5, #7, #9-#12 (PR-0, M1, M3, M4 and their contracts), plus Ram's #6/#8 (M2).
+- **M8 PR** (`a/m8-models` -> master): exports, eval_export, tools/bench_pi.py, docs/MODELS.md. No contract changes.
+- Merged: everything through M6 (#1-#5, #7, #9-#14) plus Ram's M2 (#6, #8).
 
 ## M1 outcome (docs/COUNTING.md)
 - Code done: gate counter, 4 trackers, per-zone filters, staff zones + ArUco badges, IR-beam
@@ -49,12 +48,24 @@ Overwritten every session. Read `CLAUDE.md` first, then this.
   - the dashboard can show PICKUP.action;
   - new alert keys: SHELF_TILT, FALLEN_STOCK, CAMERA_MOVED/BUMP/TILT, AFTER_HOURS.
 
-## Next: M8 models (branch `a/m8-models`)
-NCNN + LiteRT INT8 (+ ONNX) export of YOLO11n and YOLO26n; `tools/bench_pi.py` (median/p95 ms, FPS, temp, throttle,
-PMIC power -> mJ/frame); detector backend chosen in config. Then M9 (AI Hub), M10.
+## M8 models: done except the Pi run (docs/MODELS.md)
+- ONNX FP32 / ONNX INT8 / NCNN exported for YOLO11n + YOLO26n. The FP32 exports count identically to PyTorch on
+  CAVIAR; INT8 moves 2-4 crossings.
+- **Pi speed is not measured**: whoever has the Pi runs `tools/bench_pi.py` (docs/HARDWARE_TODO.md "M8") and
+  commits the JSON. Ship rule: the most accurate variant that holds >= 8 FPS.
+- **LiteRT INT8 is blocked on Windows.** Options: `wsl --install` (Vinith's call: admin + reboot), or AI Hub
+  compiling the ONNX model to TFLite in M9.
+
+## Next: M9 Qualcomm AI Hub (branch `a/m9-aihub`)
+`tools/aihub_profile.py`: compile + profile yolo11n.onnx on the hosted "QCS6490 (Proxy)", plus an inference job
+compared with the laptop outputs, results in eval/results/qualcomm_aihub.json (bucket Q). Needs the AI Hub token:
+Vinith runs `qai-hub configure --api_token ...` (never in the repo). Also: litert_qnn / ort_qnn backends,
+deploy/qualcomm guide, docs/QUALCOMM.md table.
 
 ## Blocked / needs the team
 - Ram's approval of #1, then #2 and #3.
 - Our own recordings (bucket B): shelf photos across a day, a canteen queue clip, and 30 walked
   door crossings with the IR beam (docs/HARDWARE_TODO.md).
-- Qualcomm AI Hub token (`qai-hub configure`, never in the repo).
+- Qualcomm AI Hub token (`qai-hub configure`, never in the repo) - needed for M9.
+- Pi 5 run of tools/bench_pi.py (M8).
+- WSL (or Linux x86) for the LiteRT INT8 export.

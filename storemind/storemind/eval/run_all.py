@@ -402,6 +402,58 @@ def shelf_fusion() -> Section | None:
     return section
 
 
+def model_exports() -> list[Section]:
+    """M8: exported detectors - fidelity + laptop CPU speed (S), CAVIAR counting per format (A)."""
+    path = RESULTS_DIR / "model_export.json"
+    if not path.is_file():
+        return []
+    data = json.loads(path.read_text(encoding="utf-8"))
+    speed = Section("Exported detectors - fidelity to FP32 and laptop-CPU speed", "S",
+                    "Each export's person boxes vs the FP32 PyTorch model's on vtest.avi (frames used for "
+                    "INT8 calibration skipped). This measures agreement with the reference model, not accuracy, "
+                    "and laptop CPU speed (4 threads), not Pi speed. Full table: `eval/results/model_export.md`.")
+    for r in data["fidelity"]:
+        speed.row(f"{r['model']} {r['format']} ({r['size_mb']} MB)",
+                  f"recall/precision vs FP32 {pct(r['recall_vs_fp32'])} / {pct(r['precision_vs_fp32'])}"
+                  f" &middot; {r['cpu_ms_median']} ms median", "-")
+    speed.commands.append("python -m storemind.eval.eval_export --caviar")
+    sections = [speed]
+    if data.get("caviar"):
+        count = Section("Exported detectors - counting on CAVIAR per format", "A",
+                        "All 16 CAVIAR clips through the shipped counter (ByteTrack + gate) with each export. "
+                        "The settings are the shipped ones, which were tuned on these clips, so compare formats "
+                        "with each other. The accuracy claim is the cross-validated one above.")
+        for r in data["caviar"]:
+            count.row(f"{r['model']} {r['format']}: entries / exits (truth 30 / 21)",
+                      f"{r['entries']} / {r['exits']} &middot; F1 {fmt(r['entry_f1'])} / {fmt(r['exit_f1'])}", "-")
+        count.commands.append("python -m storemind.eval.eval_export --caviar")
+        sections.append(count)
+    return sections
+
+
+def pi_benchmarks() -> list[Section]:
+    """M8: `tools/bench_pi.py` JSON files, run on the Pi and committed."""
+    sections = []
+    for path in sorted((RESULTS_DIR / "pi").glob("*.json")):
+        data = json.loads(path.read_text(encoding="utf-8"))
+        section = Section(f"Detector speed and energy on {data['device']}", "S",
+                          f"Measured on the device by `tools/bench_pi.py` ({data['date']}). Power = PMIC "
+                          f"reading corrected as {data['power_correction']}; idle "
+                          f"{fmt(data.get('power_w_idle'), 2, ' W')}. Source: `eval/results/pi/{path.name}`.")
+        for r in data["results"]:
+            if "error" in r:
+                section.row(f"{r['backend']} {r['model']}", f"failed: {r['error'][:80]}", "-")
+                continue
+            section.row(f"{r['backend']} {Path(r['model']).name} @{r['imgsz']}",
+                        f"{r['ms_median']} ms median / {r['ms_p95']} p95 &middot; {r['fps']} FPS &middot; "
+                        f"{fmt(r['power_w_busy'], 2, ' W')} &middot; {fmt(r['mj_per_frame'], 0, ' mJ/frame')} "
+                        f"&middot; max {fmt(r['temp_c_max'], 1, ' C')} &middot; throttled: "
+                        f"{', '.join(r['throttled']) or 'no'}", ">= 8 FPS (entrance)")
+        section.commands.append(data["command"])
+        sections.append(section)
+    return sections
+
+
 def platform_results(folder: Path = PLATFORM_DIR) -> list[Section]:
     """Person B's measured results, one section per file, never edited by A.
 
@@ -498,7 +550,8 @@ def main(argv: list[str] | None = None) -> int:
             sections.append(failed)
 
     if "platform" not in args.skip:
-        print("--- platform ---", flush=True)
+        print("--- models / pi / platform ---", flush=True)
+        sections += model_exports() + pi_benchmarks()
         sections += platform_results()
 
     specs = machine_specs()

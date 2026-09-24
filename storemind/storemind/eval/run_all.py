@@ -9,6 +9,12 @@ bucket its data came from.**
   answer. It is **not** an accuracy measurement and must never be presented as
   one.
 * **S** - real footage with no ground truth: speed only, never accuracy.
+* **Q** - Qualcomm AI Hub hosted/proxy device, never "our board".
+* **P** - published third-party figure, cited.
+
+Person B's measured platform results (stream density, soak, HIL, Pi install)
+live in `eval/results/platform/*.json|md` and are included verbatim
+(research/26 section 2 rule 5; format in docs/INTERFACES.md section 5).
 
 A row with no ground truth prints the system's output and says "not measured
 yet" for accuracy, rather than quietly disappearing.
@@ -21,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import traceback
 from datetime import datetime
 from pathlib import Path
@@ -30,6 +37,7 @@ from .common import BUCKETS, Section, fmt, machine_specs, pct
 REPO = Path(__file__).resolve().parents[2]
 VIDEOS = REPO.parent / "videos"
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
+PLATFORM_DIR = RESULTS_DIR / "platform"
 
 # --------------------------------------------------------------------------- #
 
@@ -245,6 +253,55 @@ def caviar() -> Section | None:
     return run_all_clips(cache=REPO / "data" / "caviar_full.json")
 
 
+def platform_results(folder: Path = PLATFORM_DIR) -> list[Section]:
+    """Person B's measured results, one section per file, never edited by A.
+
+    `*.json`: {"title", "bucket", "note"?, "device"?, "rows": [{"metric",
+    "value", "target"?}], "commands": [...]}.  `*.md`: must contain a line
+    `<!-- bucket: X -->`; the rest is included as the section note.  A file
+    without a valid bucket is shown as "did not run" rather than dropped, so a
+    number can never reach RESULTS.md without saying what produced it.
+    """
+    sections: list[Section] = []
+    if not folder.is_dir():
+        return sections
+    for path in sorted(folder.iterdir()):
+        if path.suffix not in (".json", ".md") or path.name.startswith("_"):
+            continue
+        label = f"Platform - {path.stem}"
+        try:
+            if path.suffix == ".json":
+                data = json.loads(path.read_text(encoding="utf-8"))
+                bucket = str(data.get("bucket", ""))
+                if bucket not in BUCKETS:
+                    raise ValueError(f"bucket {bucket!r} is not one of {sorted(BUCKETS)}")
+                note = data.get("note", "")
+                if data.get("device"):
+                    note = f"Device: **{data['device']}**. {note}".strip()
+                section = Section(data.get("title", label), bucket, note)
+                for row in data.get("rows", []):
+                    section.row(str(row["metric"]), str(row["value"]), str(row.get("target", "-")))
+                section.commands += [str(c) for c in data.get("commands", [])]
+            else:
+                text = path.read_text(encoding="utf-8")
+                found = re.search(r"<!--\s*bucket:\s*([A-Z])\s*-->", text)
+                if not found or found.group(1) not in BUCKETS:
+                    raise ValueError("missing or unknown `<!-- bucket: X -->` line")
+                body = re.sub(r"<!--\s*bucket:.*?-->\n?", "", text).strip()
+                title = label
+                if body.startswith("# "):
+                    title, _, body = body.partition("\n")
+                    title = title[2:].strip()
+                section = Section(title, found.group(1), body.strip())
+        except Exception as error:  # show the problem instead of hiding the file
+            section = Section(label, "C")
+            section.failed = f"{path.name}: {type(error).__name__}: {error}"
+        section.note = (section.note + f"\n\n*Source: `eval/results/platform/{path.name}` "
+                        "(Person B).*").strip()
+        sections.append(section)
+    return sections
+
+
 # --------------------------------------------------------------------------- #
 
 BUILDERS = {
@@ -265,7 +322,7 @@ ORDER = ["caviar", "counting", "queue", "shelf", "forecast",
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--skip", action="append", default=[], choices=list(BUILDERS))
+    parser.add_argument("--skip", action="append", default=[], choices=[*BUILDERS, "platform"])
     parser.add_argument("--only", action="append", default=[], choices=list(BUILDERS))
     parser.add_argument("--out", default=str(RESULTS_DIR / "RESULTS.md"))
     args = parser.parse_args(argv)
@@ -287,6 +344,10 @@ def main(argv: list[str] | None = None) -> int:
             failed.failed = f"{type(error).__name__}: {error}"
             sections.append(failed)
 
+    if "platform" not in args.skip:
+        print("--- platform ---", flush=True)
+        sections += platform_results()
+
     specs = machine_specs()
     out = [
         "# StoreMind - measured results",
@@ -306,6 +367,8 @@ def main(argv: list[str] | None = None) -> int:
         "| **C** | simulation with known ground truth | proving the logic is correct - "
         "**never** an accuracy claim |",
         "| **S** | real footage, no ground truth | speed only - **never** an accuracy claim |",
+        "| **Q** | Qualcomm AI Hub hosted/proxy device | Qualcomm latency - **never** \"our board\" |",
+        "| **P** | published third-party figure, cited | context only - not our measurement |",
         "",
         "This follows `research/09b_TEST_DATA_VALIDITY.md`. A simulation can only ever show "
         "that the arithmetic is right; it cannot show that the system works in a shop.",

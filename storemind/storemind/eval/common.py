@@ -313,6 +313,8 @@ BUCKETS = {
     "B": "our own field recording, hand-labelled",
     "C": "simulation - logic validation only, NOT an accuracy measurement",
     "S": "no ground truth - speed measurement only, never an accuracy claim",
+    "Q": "Qualcomm AI Hub hosted/proxy device - not our own board",
+    "P": "published third-party figure (cited) - not measured by us",
 }
 
 

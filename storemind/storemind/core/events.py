@@ -14,6 +14,11 @@ Design notes
     a 10-minute video produces a 10-minute event timeline no matter how fast the
     machine is.
 *   Every event gets a UUID so HQ sync can be idempotent (07 section 4 rule 3).
+
+Schema v2 (research/26 section 3.1) adds the sensor-node and camera-health
+types.  It is *additive*: every v1 type and field is unchanged and v1 events
+still validate.  A producer may later gain an optional field; renaming or
+removing a field needs a contract PR.  `docs/INTERFACES.md` is the reference.
 """
 
 from __future__ import annotations
@@ -21,11 +26,11 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class EventType(str, Enum):
@@ -42,6 +47,16 @@ class EventType(str, Enum):
     FORECAST = "FORECAST"
     ALERT = "ALERT"
     HEALTH = "HEALTH"
+    # --- schema v2: STM32 sensor node (via the serial bridge) ------------- #
+    SHELF_MOTION = "SHELF_MOTION"
+    CAMERA_MOUNT = "CAMERA_MOUNT"
+    BEAM_CROSS = "BEAM_CROSS"
+    PRESENCE = "PRESENCE"
+    ENVIRONMENT = "ENVIRONMENT"
+    WEIGHT = "WEIGHT"
+    NODE_HEALTH = "NODE_HEALTH"
+    # --- schema v2: camera ingest ------------------------------------------ #
+    CAMERA_HEALTH = "CAMERA_HEALTH"
 
 
 class SlotState(str, Enum):
@@ -167,6 +182,97 @@ class HealthData(_Payload):
     tamper: dict[str, bool] = Field(default_factory=dict)
     uptime_s: float | None = None
     video_bytes_stored: int = 0
+    # v2: hardware panel (research/23 section 4.5).  Pi 5 power is the PMIC
+    # reading with the published correction applied; None when not measured.
+    power_w: float | None = None
+    mj_per_frame: float | None = None
+    throttled: bool | None = None
+
+
+# --------------------------------------------------------------------------- #
+# Schema v2 payloads.  `node` inside a payload is the physical sensor node the
+# reading came from (the MCU id, or for `$M` the MEMS node id on that MCU);
+# the envelope `node` is whoever published it.  Integers on the wire are
+# scaled back to real units by the bridge (docs/PROTOCOL.md).
+# --------------------------------------------------------------------------- #
+
+ShelfMotionKind = Literal["TOUCH", "SETTLED", "TILT", "KNOCK"]
+
+
+class ShelfMotionData(_Payload):
+    """MEMS accelerometer under a shelf: someone touched / bumped it."""
+
+    node: str
+    shelf: str
+    slot: str | None = None
+    kind: ShelfMotionKind
+    peak_mg: float
+    rms_mg: float
+    dur_ms: int
+
+
+class CameraMountData(_Payload):
+    """MEMS accelerometer on a camera bracket: the camera was knocked or tilted."""
+
+    node: str
+    cam: str
+    kind: Literal["KNOCK", "TILT"]
+    peak_mg: float
+    tilt_deg: float | None = None
+
+
+class BeamCrossData(_Payload):
+    """Two IR beams at a door; direction is decided on the MCU (µs timing)."""
+
+    node: str
+    door: str
+    direction: Literal["in", "out"]
+    t_ms_mcu: int
+
+
+class PresenceData(_Payload):
+    """PIR motion in a zone (camera wake-up, after-hours intrusion)."""
+
+    node: str
+    zone: str
+    active: bool
+
+
+class EnvironmentData(_Payload):
+    node: str
+    lux: float | None = None
+    temp_c: float | None = None
+    rh_pct: float | None = None
+    pressure_hpa: float | None = None
+
+
+class WeightData(_Payload):
+    """HX711 load cell.  `stable` is False while the shelf is being handled."""
+
+    node: str
+    slot: str
+    grams: float
+    stable: bool
+
+
+class NodeHealthData(_Payload):
+    node: str
+    uptime_s: int
+    free_heap: int
+    min_stack_words: int
+    i2c_err: int = 0
+    uart_err: int = 0
+    crc_err: int = 0
+    reset_cause: str = "unknown"
+    link: Literal["up", "down"] = "up"
+
+
+class CameraHealthData(_Payload):
+    cam: str
+    state: Literal["ok", "stale", "reconnecting", "tampered", "dark"]
+    fps: float
+    lag_ms: float | None = None
+    reconnects: int = 0
 
 
 PAYLOADS: dict[EventType, type[_Payload]] = {
@@ -183,6 +289,14 @@ PAYLOADS: dict[EventType, type[_Payload]] = {
     EventType.FORECAST: ForecastData,
     EventType.ALERT: AlertData,
     EventType.HEALTH: HealthData,
+    EventType.SHELF_MOTION: ShelfMotionData,
+    EventType.CAMERA_MOUNT: CameraMountData,
+    EventType.BEAM_CROSS: BeamCrossData,
+    EventType.PRESENCE: PresenceData,
+    EventType.ENVIRONMENT: EnvironmentData,
+    EventType.WEIGHT: WeightData,
+    EventType.NODE_HEALTH: NodeHealthData,
+    EventType.CAMERA_HEALTH: CameraHealthData,
 }
 
 

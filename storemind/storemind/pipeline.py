@@ -177,7 +177,9 @@ class Pipeline:
         self.replay = replay
         self.clock: Clock = VideoClock(start=start_time) if replay else WallClock()
         self.bus = bus or (MqttBus(config.mqtt.host, config.mqtt.port,
-                                   config.mqtt.username, config.mqtt.password)
+                                   config.mqtt.username, config.mqtt.password,
+                                   store=config.store, node=config.node,
+                                   listen=config.mqtt.listen)
                            if config.mqtt.enabled else EventBus())
         self.store = store if store is not None else EventStore(
             config.storage.db_path, store=config.store, retention_days=config.storage.retention_days)

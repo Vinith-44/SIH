@@ -42,7 +42,7 @@ StoreMind = offline edge-AI retail platform: shopper analytics + shelf/inventory
 - No face recognition, no appearance re-ID, session-random track IDs.
 
 ## Honesty rules
-- Never invent accuracy/FPS numbers. Every number in docs/PPT must come from a script in `storemind/eval/` with the command recorded in `WORK_LOG.md`.
+- Never invent accuracy/FPS numbers. Every number in docs/PPT must come from a script in `storemind/eval/` with the command recorded in your `logs/WORK_LOG_<A|B>.md`.
 - If there is no ground truth yet, say "not measured yet".
 - Cite sources (URLs) for every external fact in research files. If you can't verify something, say so.
-- If something is blocked (missing video, missing hardware, download fails), log it in `HANDOFF_FOR_CLAUDE.md` under "Blocked / needs team" and move on to the next task.
+- If something is blocked (missing video, missing hardware, download fails), log it in your `handoff/HANDOFF_<A|B>.md` under "Blocked / needs team" (hardware steps also in `docs/HARDWARE_TODO.md`) and move on to the next task.

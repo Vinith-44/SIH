@@ -3,15 +3,20 @@
 One file per deployment describes cameras, what each camera is for, and the
 geometry the calibration tool (`tools/calibrate.py`) drew on a snapshot.  Nothing
 in the pipeline reads magic numbers from code.
+
+Secrets (camera and MQTT passwords) never live in these files: they come from
+`configs/secrets.yaml` (git-ignored; `configs/secrets.example.yaml` shows the
+shape) or from environment variables, via `load_secrets`.
 """
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 Point = tuple[float, float]
 
@@ -162,13 +167,57 @@ class ApiConfig(_Model):
     port: int = 8000
 
 
+SensorName = Literal["hx711", "mems", "ir_beam", "pir", "bh1750", "bme280",
+                     "buzzer", "led", "servo", "restock_button", "ld2450"]
+
+# What a fresh node has fitted (CLAUDE_CODE_PROMPT_V2 section 0): the servo is
+# demo-only and the LD2450 radar was not bought, so both are off by default.
+DEFAULT_SENSORS: list[str] = ["hx711", "mems", "ir_beam", "pir", "bh1750", "bme280",
+                              "buzzer", "led", "restock_button"]
+
+
+class SensorNodeConfig(_Model):
+    """One STM32 node.  A sensor that is not listed simply does not exist."""
+
+    id: str = "stm32-01"
+    enabled_sensors: list[SensorName] = Field(default_factory=lambda: list(DEFAULT_SENSORS))
+    protocol_mode: Literal["txt", "bin"] = "txt"   # docs/PROTOCOL.md: demo text / COBS+CRC16
+    time_sync_s: float = 60.0                      # `$S` period
+    cmd_timeout_ms: int = 200                      # retry a command if no `$K` in time
+    cmd_retries: int = 3
+
+
+class MemsNodeConfig(_Model):
+    """Where a MEMS accelerometer is mounted: under a shelf or on a camera bracket."""
+
+    id: str
+    role: Literal["shelf", "camera_mount"]
+    shelf: str | None = None
+    slot: str | None = None
+    cam: str | None = None
+
+    @model_validator(mode="after")
+    def _role_needs_target(self) -> MemsNodeConfig:
+        if self.role == "shelf" and not self.shelf:
+            raise ValueError(f"MEMS node {self.id!r} has role 'shelf' but no 'shelf:'")
+        if self.role == "camera_mount" and not self.cam:
+            raise ValueError(f"MEMS node {self.id!r} has role 'camera_mount' but no 'cam:'")
+        return self
+
+
 class SensorConfig(_Model):
     enabled: bool = False
     port: str = "COM5"
     baud: int = 115200
-    tcp: str | None = None  # "host:port" to talk to tools/stm32_simulator.py
+    tcp: str | None = None  # "host:port" to talk to the sensor simulator
     # slot -> load cell channel mapping for fusion
     cell_map: dict[str, str] = Field(default_factory=dict)
+    # v2 (research/26 section 3.4)
+    node: SensorNodeConfig = Field(default_factory=SensorNodeConfig)
+    mems_nodes: list[MemsNodeConfig] = Field(default_factory=list)
+
+    def has(self, sensor: str) -> bool:
+        return self.enabled and sensor in self.node.enabled_sensors
 
 
 class MqttConfig(_Model):
@@ -177,6 +226,8 @@ class MqttConfig(_Model):
     port: int = 1883
     username: str | None = None
     password: str | None = None
+    # Also receive events published by other processes (serial bridge, ingest).
+    listen: bool = False
 
 
 class StoreMindConfig(_Model):
@@ -200,12 +251,70 @@ class StoreMindConfig(_Model):
         raise KeyError(name)
 
 
-def load_config(path: str | Path) -> StoreMindConfig:
+def _readable(error: ValidationError, path: Path) -> str:
+    lines = [f"invalid config {path}:"]
+    for item in error.errors():
+        where = ".".join(str(part) for part in item["loc"]) or "(top level)"
+        lines.append(f"  - {where}: {item['msg']}")
+    return "\n".join(lines)
+
+
+def load_config(path: str | Path, secrets: str | Path | None = None) -> StoreMindConfig:
+    """Load and validate a config.  Errors name the exact key, e.g.
+    `cameras.0.fps: Input should be a valid number`.
+
+    If `secrets` (or `configs/secrets.yaml` beside the config) exists, MQTT
+    credentials missing from the config are filled from it.
+    """
     path = Path(path)
     if not path.is_file():
         raise SystemExit(f"config not found: {path}")
-    raw: dict[str, Any] = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    return StoreMindConfig(**raw)
+    try:
+        raw: dict[str, Any] = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as error:
+        raise SystemExit(f"config {path} is not valid YAML: {error}") from error
+    if not isinstance(raw, dict):
+        raise SystemExit(f"config {path} must be a mapping at the top level")
+    try:
+        config = StoreMindConfig(**raw)
+    except ValidationError as error:
+        raise SystemExit(_readable(error, path)) from error
+
+    found = load_secrets(secrets if secrets is not None else path.parent / "secrets.yaml")
+    mqtt = found.get("mqtt") or {}
+    if config.mqtt.username is None and mqtt.get("username"):
+        config.mqtt.username = mqtt["username"]
+    if config.mqtt.password is None and mqtt.get("password"):
+        config.mqtt.password = mqtt["password"]
+    return config
+
+
+def load_secrets(path: str | Path | None = None) -> dict[str, Any]:
+    """Secrets from a git-ignored YAML file, overridden by environment variables.
+
+    Environment variables: `STOREMIND_MQTT_USERNAME`, `STOREMIND_MQTT_PASSWORD`,
+    `STOREMIND_CAM_<NAME>_USERNAME` / `_PASSWORD` (camera name upper-cased,
+    `-` -> `_`).  The Qualcomm AI Hub token is *not* handled here: `qai-hub
+    configure` or `QAI_HUB_API_TOKEN` only.
+    """
+    data: dict[str, Any] = {}
+    if path is not None and Path(path).is_file():
+        data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+    mqtt = dict(data.get("mqtt") or {})
+    for key in ("username", "password"):
+        value = os.environ.get(f"STOREMIND_MQTT_{key.upper()}")
+        if value:
+            mqtt[key] = value
+    data["mqtt"] = mqtt
+    cameras = {name: dict(creds or {}) for name, creds in (data.get("cameras") or {}).items()}
+    for name, creds in cameras.items():
+        env = name.upper().replace("-", "_")
+        for key in ("username", "password"):
+            value = os.environ.get(f"STOREMIND_CAM_{env}_{key.upper()}")
+            if value:
+                creds[key] = value
+    data["cameras"] = cameras
+    return data
 
 
 def save_config(config: StoreMindConfig, path: str | Path) -> None:

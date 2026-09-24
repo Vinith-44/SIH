@@ -30,6 +30,7 @@ Jinja2==3.1.6
 # --- storage, hardware, alerts ------------------------------------------- #
 pyserial==3.5               # STM32 sensor node over UART/RS-485
 psutil==7.2.2               # health service
+paho-mqtt>=2,<3             # MQTT bus; 2.x needs CallbackAPIVersion.VERSION2 (core/bus.py)
 pyttsx3==2.99               # offline English TTS (Hindi/Telugu use recorded clips)
 
 # --- analysis + tests ---------------------------------------------------- #
@@ -39,6 +40,5 @@ pytest==9.1.1
 
 # --- optional, install only when used ------------------------------------ #
 # ai-edge-litert            # TFLite backend (replaces the deprecated tf.lite)
-# paho-mqtt                 # real MQTT broker instead of the in-process bus
 # qai-hub                   # Qualcomm AI Hub compile/profile (tools/qai_hub_profile.py)
 # picamera2                 # Raspberry Pi CSI camera (apt, not pip)

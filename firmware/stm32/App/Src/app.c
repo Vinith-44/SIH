@@ -101,6 +101,7 @@ void app_start(void)
     g_actq = xQueueCreate(4, sizeof(act_req_t));
     g_edgeq = xQueueCreate(16, sizeof(edge_t));
     g_weight_mutex = xSemaphoreCreateMutex();
+    i2c_bus_init();                             /* I2C1 mutex (MEMS + Environment tasks) */
     configASSERT(g_evq && g_txq && g_actq && g_edgeq && g_weight_mutex);
 
     for (unsigned s = 0; s < NODE_SLOTS; s++) {

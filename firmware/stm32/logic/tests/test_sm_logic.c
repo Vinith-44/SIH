@@ -179,8 +179,72 @@ static void test_debounce(void)
     CHECK(!sm_deb_update(&d, true, 2000));
 }
 
+/* A fake bus: a slave that holds SDA low until it has seen `hold_clocks`
+ * falling SCL edges (the "stuck mid-byte" case), and records a STOP. */
+typedef struct {
+    bool scl, sda_master;
+    int hold_clocks;
+    bool scl_stuck;
+    int falls;
+    bool stop_seen;
+} fake_bus_t;
+
+static bool fake_sda_line(fake_bus_t *b)
+{
+    return b->sda_master && b->falls >= b->hold_clocks;
+}
+
+static void fake_scl(void *ctx, bool high)
+{
+    fake_bus_t *b = ctx;
+    if (b->scl && !high) {
+        b->falls++;
+    }
+    b->scl = high && !b->scl_stuck;
+}
+
+static void fake_sda(void *ctx, bool high)
+{
+    fake_bus_t *b = ctx;
+    bool before = fake_sda_line(b);
+    b->sda_master = high;
+    if (!before && fake_sda_line(b) && b->scl) {
+        b->stop_seen = true;                   /* SDA rose while SCL high */
+    }
+}
+
+static bool fake_read_sda(void *ctx) { return fake_sda_line(ctx); }
+static bool fake_read_scl(void *ctx) { return ((fake_bus_t *)ctx)->scl; }
+static void fake_delay(void *ctx) { (void)ctx; }
+
+static void test_i2c_recovery(void)
+{
+    uint8_t clocks = 99;
+    fake_bus_t bus = {0};
+    sm_i2c_pins_t pins = {fake_scl, fake_sda, fake_read_sda, fake_read_scl, fake_delay, &bus};
+
+    bus.hold_clocks = 3;                        /* slave lets go after 3 clocks */
+    CHECK(sm_i2c_recover(&pins, &clocks) == SM_I2C_RECOVERED);
+    CHECK(clocks == 3 && bus.stop_seen);
+
+    memset(&bus, 0, sizeof bus);
+    bus.hold_clocks = 0;                        /* nothing wrong: just a STOP */
+    CHECK(sm_i2c_recover(&pins, &clocks) == SM_I2C_ALREADY_FREE);
+    CHECK(clocks == 0 && bus.stop_seen);
+
+    memset(&bus, 0, sizeof bus);
+    bus.hold_clocks = 50;                       /* shorted SDA: give up after 9 */
+    CHECK(sm_i2c_recover(&pins, &clocks) == SM_I2C_SDA_STUCK);
+    CHECK(clocks == 9);
+
+    memset(&bus, 0, sizeof bus);
+    bus.scl_stuck = true;                       /* SCL shorted to ground */
+    CHECK(sm_i2c_recover(&pins, &clocks) == SM_I2C_SCL_STUCK);
+}
+
 int main(void)
 {
+    test_i2c_recovery();
     test_patterns();
     test_beams();
     test_weight();

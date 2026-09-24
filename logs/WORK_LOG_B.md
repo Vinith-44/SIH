@@ -74,3 +74,24 @@ Measured:
   (xPack arm-none-eabi-gcc 15.2.1): 0 warnings; `arm-none-eabi-size`: text 28228, data 24, bss 12352
   → flash 28,252 B (44% of 63 KB), RAM 12,376 B (60% of 20 KB; 9 KB of it is the FreeRTOS heap).
 - Not measured: anything on a real board (no Blue Pill here). Bring-up + HIL steps are M5d.
+
+## 2026-09-25 — M5d: I2C1 mutex + bus recovery, HIL test (`b/m5d-i2c-hil`)
+
+Roadmap step 6. Docs: FIRMWARE.md §5-6, HARDWARE_TODO.md "M5" (board bring-up, 8 steps).
+
+- `App/Src/i2c_bus.c`: one FreeRTOS mutex for I2C1 (MEMS + Environment tasks); after a failed
+  transfer or a BUSY flag stuck before a transfer: pins to GPIO, `sm_i2c_recover()` (9 SCL clocks +
+  STOP), SWRST, re-init, one retry. `$H.i2c_err` counts failures + recoveries.
+- `logic/`: `sm_i2c_recover()` portable, tested with a fake bus (released after 3 clocks, already free,
+  SDA shorted -> gives up after 9, SCL shorted).
+- `storemind/tools/hil_test.py`: heartbeat, every command's $K (incl. corrupted line -> ERR 1), RTT,
+  sensor phase, framing soak; writes `eval/results/platform/hil_<label>.json`; `--simulate` / `--port`.
+  Bridge keeps the last 64 $K in `bridge.acks` for it.
+
+Measured:
+- logic host tests (zig cc, -Werror -Wconversion): `75 checks, 0 failures`.
+- firmware build: flash 29,240 B (45%), RAM 12,376 B (60%), 0 warnings.
+- `python tools/hil_test.py --simulate --minutes 0.5 --rtt-rounds 20 --sensor-seconds 5 --no-write`
+  → PASS; command RTT p50 27.3 ms, p95 42.1 ms over TCP to the simulator (bucket C: this is the
+  laptop's loopback + Python, not the UART).
+- Board: **not measured** (no Blue Pill here). Steps in HARDWARE_TODO.md "M5".

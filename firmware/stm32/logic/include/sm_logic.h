@@ -107,6 +107,31 @@ void sm_deb_init(sm_deb_t *d, bool initial, uint32_t hold_ms);
 /* Returns true when the debounced state changes. */
 bool sm_deb_update(sm_deb_t *d, bool level, uint32_t now_ms);
 
+/* ------------------------------------------------------------------------- */
+/* I2C bus recovery (the STM32F1 I2C can lock with BUSY stuck after a glitch, */
+/* e.g. a slave holding SDA low mid-byte).  Standard fix (NXP UM10204 3.1.16): */
+/* clock SCL up to 9 times until the slave lets go of SDA, then send a STOP.  */
+/* Pins are passed in as functions so the sequence is testable on the PC.    */
+/* ------------------------------------------------------------------------- */
+
+typedef struct {
+    void (*scl)(void *ctx, bool high);
+    void (*sda)(void *ctx, bool high);
+    bool (*read_sda)(void *ctx);
+    bool (*read_scl)(void *ctx);
+    void (*delay_half_bit)(void *ctx);   /* ~5 us at 100 kHz */
+    void *ctx;
+} sm_i2c_pins_t;
+
+typedef enum {
+    SM_I2C_RECOVERED = 0,     /* SDA released, STOP sent */
+    SM_I2C_ALREADY_FREE,      /* SDA was high: only a STOP was sent */
+    SM_I2C_SCL_STUCK,         /* SCL held low by someone: cannot clock (hardware fault) */
+    SM_I2C_SDA_STUCK          /* still low after 9 clocks (hardware fault) */
+} sm_i2c_recover_t;
+
+sm_i2c_recover_t sm_i2c_recover(const sm_i2c_pins_t *pins, uint8_t *clocks_used);
+
 #ifdef __cplusplus
 }
 #endif

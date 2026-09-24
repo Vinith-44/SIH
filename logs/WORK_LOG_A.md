@@ -118,3 +118,32 @@ Commands and results:
 
 Note: the files `ANTIGRAVITY_HANDOVER.md`, `antigravity/` and `.agents/` appeared in C:\SIH during this
 session. They are not Person A's and are left untracked.
+
+## 2026-09-24 - Names contract + M4 queue v2 (branch `a/m4-queue-v2`)
+
+- Names: PR #9 (merged) records Vinith = Person A, Ram = Person B in CLAUDE.md.
+- Contracts: PR #10 (merged) adds the queue v2 config keys and QUEUE_STATE fields. PR #11 (open) sets the tuned
+  defaults (join_dwell_s 3, max_join_speed 0.10, party_dist 0.06).
+- Code: `analytics/queue.py` gets:
+  - dwell membership, a lane polyline (LanePath), parties (pairwise closeness + union-find);
+  - track stitching (4 s, 0.1 frame heights), balk/renege, tail overflow with a 5 s hold, Little's law;
+  - `counter_spec_from_config()`, which is now shared by the pipeline and the eval.
+- Pipeline: builds specs with `counter_spec_from_config()`; adds a QUEUE_OVERFLOW alert.
+- demo.yaml: counter-1 uses `membership: dwell`.
+- Evals: `eval/queue_sim.py` (track simulator with exact truth) and `eval/eval_queue_v2.py` (v1 vs v2, clean and
+  noisy; tune on 1-10, report on 11-40).
+
+Commands and results:
+- `python -m storemind.eval.eval_queue_v2 --grid` (tuning seeds, 27 settings, ~70 s). Best: dwell 3 s,
+  speed 0.10, party 0.06. Queue MAE 0.20, party MAE 0.15, wait err 18% (clean and noisy pooled).
+- `python -m storemind.eval.eval_queue_v2` (test seeds 11-40). Bucket C, clean / noisy:
+  - v1: queue MAE 0.38 / 0.41, joins 2598 / 3081 (truth 833), Little's W err 53% / 61%.
+  - v2: queue MAE 0.19 / 0.21, party MAE 0.15 / 0.18, joins 825 / 969, Little's W err 20% / 12%,
+    median-wait err 2.8% / 33%.
+  - Balks found 0 of 65; reneges 87 vs 30; walked away unserved 87 vs 95. Tail overflow: 1 true sample only.
+- Disclosures:
+  - The tail truth definition was aligned to the engine's on the tuning seeds (it was one position off).
+  - The balk-timing fix came after the first test scoring; the rescore was identical.
+- Synthetic queue video (bucket C) with dwell: 7/7 customers, queue MAE 0.06 (v1 0.00), wait err 1.1%.
+- Real canteen clip (bucket B): not recorded yet. Steps are in docs/HARDWARE_TODO.md.
+- Tests: 362 passed.

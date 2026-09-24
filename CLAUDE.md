@@ -3,7 +3,20 @@
 This file is read automatically every session. Follow it exactly.
 
 ## Project in one line
-StoreMind = offline edge-AI retail platform: shopper analytics + shelf/inventory monitoring + queue intelligence, running on Raspberry Pi 5 now (Qualcomm Dragonwing QCS6490 later), with an STM32 FreeRTOS sensor node (HX711 weight, ToF, IR beam, tower light). Team TechGladiators, BVRIT. We are through the college internal round → competition is intense, quality and honesty matter.
+StoreMind = offline edge-AI retail platform: shopper analytics + shelf/inventory monitoring + queue intelligence, running on Raspberry Pi 5 now (Qualcomm Dragonwing QCS6490 later), with an STM32 Blue Pill FreeRTOS sensor node (HX711 load cell, MEMS accelerometer/IMU — NOT ToF, IR break-beam, PIR, BH1750 light, BME280 environment, buzzer + LED, optional servo; LD2450 radar optional/disabled; NO microphone). Team TechGladiators, BVRIT. We are through the college internal round → competition is intense, quality and honesty matter.
+
+## CURRENT PLAN (24 Sep 2026) — read these first, they override older research where they differ
+- `CLAUDE_CODE_PROMPT_V2.md` = the build plan (milestones M0–M11, ground rules).
+- `research/26_TEAM_SPLIT_AND_INTEGRATION.md` = who owns what + the interface contract (event schema v2, MQTT topics, serial protocol).
+- `research/23_PIPELINE_DEEP_RESEARCH.md` and `research/24_CCTV_INTEGRATION.md` = the research behind it.
+
+## Two people work in parallel (two laptops, two Claude Codes, one GitHub repo)
+- **Person A = Vinith** (RTX 4050): vision & intelligence. **Person B = friend** (CPU laptop): platform & hardware integration. Ownership table: research/26 §1. The user tells you which person you are at session start; if not, ask.
+- Only edit paths your person owns. Shared contract files (`core/events.py`, `core/bus.py`, `core/config.py`, config schema, `pipeline.py`, `run.py`, `requirements.txt`, `CLAUDE.md`, `docs/INTERFACES.md`, `docs/PROTOCOL.md`) change only in a small separate PR approved by the other person.
+- Never work on `master`. Branch per milestone (`a/...` or `b/...`), PR, the other person approves. Start every session with `git switch master && git pull`, then merge master into your branch.
+- Logs are per person: `logs/WORK_LOG_A.md` / `logs/WORK_LOG_B.md` (append-only) and `handoff/HANDOFF_A.md` / `handoff/HANDOFF_B.md` (overwrite each session). The root `WORK_LOG.md` and `HANDOFF_FOR_CLAUDE.md` are frozen history/index files.
+- `RESULTS.md` is regenerated only by Person A; Person B writes measured platform results to `storemind/storemind/eval/results/platform/`.
+- Secrets never go in git: `configs/secrets.yaml`, `.env`, the Qualcomm AI Hub token (read via `qai-hub configure` / env `QAI_HUB_API_TOKEN`).
 
 ## Read before doing anything
 1. `research/00_START_HERE.md` then all of `research/01…09` and `research/RESEARCH_LOG.md`.
@@ -14,7 +27,7 @@ StoreMind = offline edge-AI retail platform: shopper analytics + shelf/inventory
 - NEVER modify or delete: `sihfinal.pptx`, the three ZIPs, the PDF, the problem-statement txt, `the solution.txt`, anything in `research/`, anything in `videos/`.
 - New code lives in `storemind/` (git repo). Legacy extracted code in `legacy/`. Generated results in `storemind/eval/results/`.
 - New research write-ups go in `research/10_*.md`, `research/11_*.md`, … (do not edit 00–09; add corrections in a new file).
-- Keep `WORK_LOG.md` (append-only, dated entries) and `HANDOFF_FOR_CLAUDE.md` (overwrite each session: status summary for the team's other Claude chat) in `C:\SIH`.
+- Keep your person's log and handoff (see "Two people" above); do not edit the other person's files.
 
 ## Engineering rules
 - Python 3.11/3.12, venv at `storemind/.venv`. Must run on Windows laptop now AND Raspberry Pi 5 (Linux, headless) later: no Windows-only APIs in core code; `--headless` flag everywhere; paths via `pathlib`.

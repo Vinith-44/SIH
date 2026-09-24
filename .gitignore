@@ -65,3 +65,10 @@ models/
 storemind/data/
 storemind/runs/
 snapshots/
+
+# Office lock files, local binaries, secrets (added 24 Sep for the two-person setup)
+~$*
+tools/bin/
+storemind/tools/bin/
+configs/secrets.yaml
+storemind/configs/secrets.yaml

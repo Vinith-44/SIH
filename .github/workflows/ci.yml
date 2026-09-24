@@ -65,6 +65,8 @@ jobs:
         # From the repo root: storemind/tests is a package, so pytest puts
         # storemind/ on sys.path itself and `import storemind.x` resolves.
         run: pip install pytest && pytest -q
+      - name: sensor e2e (STM32 simulator -> bridge -> SQLite)
+        run: python tools/e2e_sensors.py
 
   firmware-host:
     name: firmware (host C tests)

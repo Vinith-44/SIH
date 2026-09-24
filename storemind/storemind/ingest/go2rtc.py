@@ -103,8 +103,12 @@ class Go2rtc:
         conf = write_config(
             build_config(self.cameras, self.credentials, self.api_port, self.rtsp_port),
             self.workdir / "go2rtc.yaml",
+        ).resolve()
+        # Run from the config's own folder, so anything go2rtc writes beside its
+        # config lands in the git-ignored runtime/ rather than the repo root.
+        self.proc = subprocess.Popen(
+            [exe, "-config", str(conf)], stdin=subprocess.DEVNULL, cwd=str(conf.parent),
         )
-        self.proc = subprocess.Popen([exe, "-config", str(conf)], stdin=subprocess.DEVNULL)
         deadline = time.monotonic() + ready_timeout_s
         while time.monotonic() < deadline:
             if self.proc.poll() is not None:

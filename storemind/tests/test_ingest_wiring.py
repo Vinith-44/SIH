@@ -135,9 +135,11 @@ def test_watchdog_health_feeds_the_mapping_unchanged():
     # Guards the field names the watchdog and the mapping agree on.
     clock = Clock()
     watchdog = StreamWatchdog("entrance", stale_after_s=5, clock=clock)
-    watchdog.on_frame()
-    clock.t += 0.1
-    watchdog.on_frame()
+    # Enough wall clock for a rate to exist: below the watchdog's minimum span
+    # it reports 0.0 on purpose, so a burst cannot be published as a frame rate.
+    for _ in range(15):
+        watchdog.on_frame()
+        clock.t += 1 / 15
     payload = health_to_contract(watchdog.health())
     assert payload.cam == "entrance"
     assert payload.state == "ok"

@@ -94,7 +94,14 @@ class FakeCCTV:
     def start(self) -> list[str]:
         conf = Path(self._tmp.name) / "mediamtx.yml"
         conf.write_text(MEDIAMTX_CONFIG.format(port=self.port), encoding="utf-8")
-        self.mediamtx = subprocess.Popen([find_binary("mediamtx", self.bin_dir), str(conf)])
+        # Run MediaMTX from the temporary config folder.  Its MoQ module
+        # generates a self-signed auto.crt/auto.key in the working directory on
+        # first start, and with the inherited cwd that dropped an EC *private
+        # key* into the repo root - one `git add .` from being committed.  In
+        # the temp folder it is thrown away with everything else.
+        self.mediamtx = subprocess.Popen(
+            [find_binary("mediamtx", self.bin_dir), str(conf)], cwd=self._tmp.name,
+        )
         wait_for_port("127.0.0.1", self.port)
         for i in range(1, len(self.videos) + 1):
             self.start_camera(i)

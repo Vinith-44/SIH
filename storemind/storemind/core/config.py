@@ -33,6 +33,38 @@ class LineConfig(_Model):
     # Which sign of the crossing counts as entering the store.
     entry_direction: Literal["pos", "neg"] = "pos"
     cooldown_s: float = 3.0
+    # --- counting v2 (M1, docs/COUNTING.md).  mode "single" = v1 behaviour. --- #
+    mode: Literal["single", "gate"] = "single"
+    gate_px: float = 10.0            # width of the A->B band centred on the line (~3% of frame height)
+    min_track_age_s: float = 0.0     # a track younger than this cannot count
+    min_displacement_px: float = 0.0  # net movement across the line in the window
+    direction_mode: Literal["off", "balanced", "strict"] = "off"
+    direction_window_s: float = 1.0
+    confirm_s: float = 0.5           # stay on the far side this long before counting
+    beam_door: str | None = None     # IR break-beam door that watches this line
+
+
+class DetectionFilterConfig(_Model):
+    """Frigate-style per-zone filter applied before tracking.  A detection whose
+    foot point is inside `points` (or anywhere, if `points` is empty) must pass
+    every set threshold."""
+
+    points: list[Point] = Field(default_factory=list)
+    min_score: float | None = None
+    min_area_px: float = 0.0
+    max_area_frac: float = 1.0       # of the frame area: drops "whole-frame" boxes
+    classes: list[int] | None = None
+
+
+class StaffConfig(_Model):
+    """Staff exclusion: never identified, only excluded from customer counts."""
+
+    zones: list[list[Point]] = Field(default_factory=list)  # cashier / back door
+    zone_dwell_s: float = 2.0        # this long inside a staff zone = staff
+    badge: bool = False              # printed ArUco badge
+    aruco_dict: str = "DICT_4X4_50"
+    badge_ids: list[int] = Field(default_factory=list)  # empty = any marker id
+    badge_every_n: int = 2           # look for badges every N processed frames
 
 
 class ZoneConfig(_Model):
@@ -66,6 +98,9 @@ class SlotConfig(_Model):
     price: float | None = None
     # Facings visible when the slot is freshly restocked; used for fill ratio.
     reference_facings: int | None = None
+    # --- shelf v2 (M3): load-cell fusion.  Channel mapping stays in sensors.cell_map. --- #
+    full_grams: float | None = None   # weight when full; None = learnt at the "Restocked" press
+    deep: bool = False                # deep shelf: the camera sees only the front row -> weight wins
 
 
 class ShelfConfig(_Model):
@@ -83,6 +118,30 @@ class ShelfConfig(_Model):
     auto_reference_s: float | None = 0.0
     # Where reference crops are kept between runs.
     reference_dir: str | None = None
+    # --- shelf v2 (M3, docs/SHELF.md).  The values in the comments reproduce v1. --- #
+    white_balance: bool = True        # gray-world on the frame (v1: false)
+    clahe: bool = True                # CLAHE on luminance before every measure (v1: false)
+    texture: Literal["gradient", "canny"] = "gradient"  # gain-normalised gradients (v1: canny)
+    canny: Literal["auto", "fixed"] = "auto"            # median-based thresholds (v1: fixed)
+    canny_low: int = 60
+    canny_high: int = 160
+    use_ssim: bool = True             # gradient SSIM joins the fill estimate (v1: false)
+    ssim_weight: float = 0.3
+    glare_mask: bool = True           # ignore specular pixels (v1: false)
+    glare_v: int = 245
+    glare_s: int = 40
+    reference_bank: int = 4           # references per slot, one per lighting (v1: 1)
+    bank_lux_ratio: float = 1.8       # lux within this ratio = "same lighting"
+    dark_lux: float | None = 15.0     # BH1750 below this -> UNKNOWN "too dark", never EMPTY (v1: null)
+    dark_brightness: float | None = 0.12  # same rule from frame brightness when no light sensor
+    lux_jump_ratio: float | None = 2.5    # sudden change -> skip one cycle (v1: null)
+    drift_alpha: float = 0.05         # slow reference update while confidently FULL (v1: 0)
+    rectify: bool = True              # 4-point slots warped to a rectangle (v1: false)
+    rectify_size: tuple[int, int] = (96, 128)   # width, height after warping
+    occluded_unknown_cycles: int = 10  # occluded this many cycles in a row -> UNKNOWN
+    lux_node: str | None = None       # ENVIRONMENT.node whose lux applies here; null = any
+    weight_mode: Literal["camera", "fuse"] = "fuse"
+    disagree_fill: float = 0.4        # camera vs weight fill gap that asks for a "check shelf"
 
 
 class FloorPlanConfig(_Model):
@@ -109,6 +168,8 @@ class CameraConfig(_Model):
     floor_plan: FloorPlanConfig | None = None
     reference_frame: str | None = None  # for camera-tamper detection
     shelf_period_s: float = 30.0  # shelf cameras: one frame every N seconds
+    filters: list[DetectionFilterConfig] = Field(default_factory=list)
+    staff: StaffConfig | None = None
 
 
 class DetectorConfig(_Model):
@@ -126,6 +187,10 @@ class TrackerConfig(_Model):
     lost_track_buffer: int = 30
     minimum_matching_threshold: float = 0.8
     frame_rate: int = 8
+    # M1 tracker bake-off: bytetrack | ocsort | botsort (no ReID) | sort | simple
+    type: Literal["bytetrack", "ocsort", "botsort", "sort", "simple"] = "bytetrack"
+    high_conf_det_threshold: float | None = None   # None = the library default
+    minimum_consecutive_frames: int = 1
 
 
 class ForecastConfig(_Model):

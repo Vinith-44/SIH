@@ -304,3 +304,48 @@ def test_platform_results_are_included_with_their_bucket(tmp_path):
     assert "ASUS Vivobook 15" in density.markdown()
     assert sections["24 h soak"].bucket == "B" and "RSS flat." in sections["24 h soak"].note
     assert sections["Platform - no_bucket"].failed
+
+
+# --------------------------------------------------------------------------- #
+# Config additions for M1 (counting v2, tracker choice, filters, staff)
+# --------------------------------------------------------------------------- #
+
+def test_m1_config_defaults_keep_v1_behaviour():
+    from storemind.core.config import LineConfig
+
+    line = LineConfig(a=(0, 0.5), b=(1, 0.5))
+    assert line.mode == "single" and line.beam_door is None
+    config = StoreMindConfig()
+    assert config.tracker.type == "bytetrack"
+    assert config.tracker.minimum_consecutive_frames == 1
+
+
+def test_m1_config_fields_validate():
+    config = StoreMindConfig(
+        tracker={"type": "ocsort"},
+        cameras=[{"name": "entrance", "source": "0", "role": "entrance",
+                  "line": {"a": [0, 0.5], "b": [1, 0.5], "mode": "gate", "gate_px": 20,
+                           "direction_mode": "strict", "beam_door": "door1"},
+                  "filters": [{"points": [[0, 0], [0.2, 0], [0.2, 1]], "min_score": 0.6}],
+                  "staff": {"zones": [[[0, 0], [0.3, 0], [0.3, 0.5]]], "badge": True}}])
+    camera = config.camera("entrance")
+    assert camera.line.mode == "gate" and camera.staff.badge
+    with pytest.raises(ValidationError):
+        StoreMindConfig(tracker={"type": "deepsort"})       # ReID trackers are not allowed
+    with pytest.raises(ValidationError):
+        StoreMindConfig(cameras=[{"name": "e", "source": "0",
+                                  "line": {"a": [0, 0], "b": [1, 0], "direction_mode": "loose"}}])
+
+
+def test_m3_shelf_config_fields_validate_and_v1_values_are_expressible():
+    from storemind.core.config import ShelfConfig, SlotConfig
+
+    shelf = ShelfConfig(name="s")
+    assert shelf.reference_bank == 4 and shelf.dark_lux == 15.0 and shelf.texture == "gradient"
+    v1 = ShelfConfig(name="s", white_balance=False, clahe=False, texture="canny", canny="fixed",
+                     use_ssim=False, glare_mask=False, reference_bank=1, dark_lux=None,
+                     dark_brightness=None, lux_jump_ratio=None, drift_alpha=0.0, rectify=False)
+    assert v1.reference_bank == 1
+    assert SlotConfig(name="A1", points=[(0, 0), (1, 0), (1, 1)], full_grams=1800, deep=True).deep
+    with pytest.raises(ValidationError):
+        ShelfConfig(name="s", texture="sift")

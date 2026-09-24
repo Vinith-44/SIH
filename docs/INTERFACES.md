@@ -211,6 +211,19 @@ restock_button, ld2450`. **A sensor that is not listed does not exist** — code
 
 `mqtt:` gains `listen: false`.
 
+**M1 additions (contract PR `a/m1-contract`, all optional, defaults = old behaviour):**
+
+| Key | Default | Meaning |
+|---|---|---|
+| `tracker.type` | `bytetrack` | `bytetrack` \| `ocsort` \| `botsort` (no ReID, no CMC) \| `sort` \| `simple`. ReID trackers are deliberately not allowed (privacy). |
+| `tracker.high_conf_det_threshold` | library default | score split for two-stage association |
+| `tracker.minimum_consecutive_frames` | `1` | frames before a track is confirmed |
+| `cameras[].line.mode` | `single` | `single` = v1 counter; `gate` = counting v2 (docs/COUNTING.md) |
+| `cameras[].line.gate_px`, `min_track_age_s`, `min_displacement_px`, `direction_mode` (`off`/`balanced`/`strict`), `direction_window_s`, `confirm_s` | 10, 0, 0, off, 1.0, 0.5 (set from the M1 CAVIAR bake-off) | gate counter parameters (pixels of the processed frame) |
+| `cameras[].line.beam_door` | null | IR-beam door id (`BEAM_CROSS.door`) watching this line → cross-check + fallback |
+| `cameras[].filters[]` | `[]` | `{points?, min_score?, min_area_px, max_area_frac, classes?}` per-zone detection filter |
+| `cameras[].staff` | null | `{zones, zone_dwell_s, badge, aruco_dict, badge_ids, badge_every_n}` staff exclusion |
+
 ## 5. Result files (Person B → `RESULTS.md`)
 
 Person A owns `RESULTS.md`. Person B writes measured platform results to
@@ -230,3 +243,17 @@ Markdown: a line `<!-- bucket: B -->`, then `# Title`, then free text.
 
 Buckets: **A** public benchmark · **B** our own recording · **C** simulation (logic only) ·
 **S** speed only · **Q** Qualcomm AI Hub hosted/proxy device · **P** published third-party figure (cite).
+
+**M3 additions (contract PR `a/m3-contract`, all optional):**
+
+| Key | Default (v1 value) | Meaning |
+|---|---|---|
+| `shelves[].white_balance`, `clahe`, `glare_mask`, `use_ssim`, `rectify` | true (false) | shelf v2 lighting robustness, see docs/SHELF.md |
+| `shelves[].texture` | `gradient` (`canny`) | fill measure: gain-normalised gradient density, or v1 Canny edges |
+| `shelves[].canny`, `canny_low`, `canny_high` | `auto` (`fixed`), 60, 160 | Canny thresholds when `texture: canny` |
+| `shelves[].reference_bank`, `bank_lux_ratio` | 4 (1), 1.8 | references per slot, one per lighting condition |
+| `shelves[].dark_lux`, `dark_brightness`, `lux_jump_ratio` | 15, 0.12, 2.5 (null) | too dark → UNKNOWN; sudden light change → skip one cycle |
+| `shelves[].drift_alpha` | 0.05 (0) | slow reference update while confidently FULL |
+| `shelves[].rectify_size`, `occluded_unknown_cycles`, `lux_node` | (96,128), 10, null | warp size; UNKNOWN after long occlusion; which ENVIRONMENT node's lux applies |
+| `shelves[].weight_mode`, `disagree_fill` | `fuse`, 0.4 | load-cell fusion; camera/weight disagreement → "check shelf" |
+| `shelves[].slots[].full_grams`, `deep` | null, false | weight when full (null = learnt at restock); deep shelf → weight wins |

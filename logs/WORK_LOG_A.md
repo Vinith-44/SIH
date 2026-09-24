@@ -196,3 +196,29 @@ Commands and results:
 - `tools/bench_pi.py`: latency median/p95, FPS, temperature, throttle flags, PMIC power (x1.1451 + 0.5879) and
   mJ/frame. Parsers are unit-tested with real vcgencmd formats. **Not run on a Pi yet**: docs/HARDWARE_TODO.md "M8".
 - Tests: all pass (see commit).
+## 2026-09-24 - M9 Qualcomm AI Hub (branch `a/m9-aihub`; contract PR #16 `a/m9-contract`)
+
+- The AI Hub token was already configured by Vinith (`~/.qai_hub/client.ini`; never read, never in the repo).
+- `qai-hub` 0.55 installed in the main venv (optional dependency).
+- Devices: the hosted **Dragonwing RB3 Gen 2 Vision Kit (QCS6490)** plus the QCS8550 (Proxy).
+- `tools/aihub_profile.py`: ONNX clean-up + head split -> AI Hub quantize (w8a8, 20 calibration frames) -> compile
+  TFLite -> profile -> inference job (6 vtest frames) compared with local ONNX FP32. Compiled .tflite files are
+  downloaded to models/.
+- Issues hit, each fixed:
+  - AI Hub rejected value_info duplicating the outputs (onnxslim artifact);
+  - qai-hub's progress printer crashes on a cp1252 console (set PYTHONIOENCODING=utf-8);
+  - **run 1 INT8 detected nothing**: one shared output scale zeroed every score (verified locally: max score 0.0).
+    Fixed by splitting boxes/scores into two outputs. Run 1 is kept as `qualcomm_aihub_run1_single_output.json`.
+- Run 2 (`PYTHONIOENCODING=utf-8 python tools/aihub_profile.py --models yolo11n.onnx yolo26n.onnx yolo11s.onnx
+  --devices "Dragonwing RB3 Gen 2 Vision Kit" "QCS8550 (Proxy)" --calib <calib>`), bucket Q, on RB3 Gen 2:
+  - YOLO11n: FP32 150.9 ms (5% NPU layers); **INT8 12.8 ms, 100% NPU, 17 MB**, 29/29 boxes found, +2 extra.
+  - YOLO26n: INT8 13.9 ms.
+  - **YOLO11s: INT8 11.0 ms** (FP32 239 ms), 30/30 found, +5 extra.
+  - QCS8550 proxy: INT8 2.7-3.5 ms.
+- Backends `litert_qnn` and `ort_qnn` with an honest CPU fallback (`accelerator` field, `require_accelerator`);
+  channels-first TFLite input; `merge_yolo_outputs()` (a unit test caught an axis bug when scores come first; fixed;
+  the AI Hub results were unaffected because the tool passes boxes first).
+- Verified locally: the AI Hub INT8 TFLite runs via `backend: litert` (3.92 vs 3.95 boxes/frame; 25 ms laptop CPU).
+- Docs: docs/QUALCOMM.md (Q table + P comparison, kept separate) and deploy/qualcomm/README.md (port guide,
+  "prepared, not run on hardware").
+- Tests: 379 passed.

@@ -1,6 +1,6 @@
 # StoreMind - measured results
 
-Generated 2026-09-24 18:41 by `python -m storemind.eval.run_all`.
+Generated 2026-09-24 23:00 by `python -m storemind.eval.run_all`.
 
 Every number on this page came from a command printed beside it. Nothing here was typed by hand. If a measurement could not be made, the row says so.
 
@@ -28,7 +28,7 @@ This follows `research/09b_TEST_DATA_VALIDITY.md`. A simulation can only ever sh
 | cpu_threads | 16 |
 | ram_gb | 16.9 |
 | opencv | 5.0.0 |
-| git_commit | 3e5888d |
+| git_commit | 274e61d |
 
 ## Results
 
@@ -342,11 +342,11 @@ These are laptop numbers and the Pi 5 must be measured on the Pi. They also move
 
 | metric | result | target |
 |---|---|---|
-| ultralytics yolo11n.pt @320 (CPU) | 28.44 ms/frame &middot; 34.69 FPS &middot; 4.34 detections/frame | - |
-| ultralytics yolo11n.pt @416 (CPU) | 43.59 ms/frame &middot; 22.75 FPS &middot; 4.44 detections/frame | - |
-| ultralytics yolo11n.pt @640 (CPU) | 98.76 ms/frame &middot; 10.09 FPS &middot; 4.73 detections/frame | - |
-| ultralytics yolo26n.pt @640 (CPU) | 90.41 ms/frame &middot; 11.01 FPS &middot; 4.73 detections/frame | - |
-| litert efficientdet_lite0_coco_legacy.tflite @320 (CPU) | 18.68 ms/frame &middot; 52.43 FPS &middot; 4.2 detections/frame | - |
+| ultralytics yolo11n.pt @320 (CPU) | 27.99 ms/frame &middot; 35.24 FPS &middot; 4.34 detections/frame | - |
+| ultralytics yolo11n.pt @416 (CPU) | 43.18 ms/frame &middot; 22.96 FPS &middot; 4.44 detections/frame | - |
+| ultralytics yolo11n.pt @640 (CPU) | 97.59 ms/frame &middot; 10.21 FPS &middot; 4.73 detections/frame | - |
+| ultralytics yolo26n.pt @640 (CPU) | 89.25 ms/frame &middot; 11.16 FPS &middot; 4.73 detections/frame | - |
+| litert efficientdet_lite0_coco_legacy.tflite @320 (CPU) | 18.52 ms/frame &middot; 52.89 FPS &middot; 4.2 detections/frame | - |
 
 <details><summary>commands</summary>
 
@@ -402,6 +402,35 @@ All 16 CAVIAR clips through the shipped counter (ByteTrack + gate) with each exp
 
 ```bash
 python -m storemind.eval.eval_export --caviar
+```
+
+</details>
+
+### Detector on Qualcomm silicon - AI Hub hosted devices
+
+**Data bucket Q** - Qualcomm AI Hub hosted/proxy device - not our own board
+
+Compiled to TFLite and profiled by Qualcomm AI Hub on devices it hosts (Dragonwing RB3 Gen 2 Vision Kit, QCS8550 (Proxy)). **These are not our boards.** INT8 = AI Hub w8a8 quantization with our calibration frames. 'NPU layers' is the share of network layers the profile placed on the Hexagon NPU. Output agreement compares the device's detections with our local ONNX FP32 model on vtest frames. Job links are in `eval/results/qualcomm_aihub.json`.
+
+| metric | result | target |
+|---|---|---|
+| yolo11n fp32 on Dragonwing RB3 Gen 2 Vision Kit | 150.893 ms &middot; 66.1 MB peak &middot; NPU layers 5.3% &middot; boxes vs local FP32: recall 100.0%, precision 100.0% | - |
+| yolo11n fp32 on QCS8550 (Proxy) | 5.966 ms &middot; 100.7 MB peak &middot; NPU layers 100.0% | - |
+| yolo11n w8a8 on Dragonwing RB3 Gen 2 Vision Kit | 12.792 ms &middot; 16.7 MB peak &middot; NPU layers 100.0% &middot; boxes vs local FP32: recall 100.0%, precision 93.5% | - |
+| yolo11n w8a8 on QCS8550 (Proxy) | 2.695 ms &middot; 118.9 MB peak &middot; NPU layers 100.0% | - |
+| yolo26n fp32 on Dragonwing RB3 Gen 2 Vision Kit | 138.049 ms &middot; 64.2 MB peak &middot; NPU layers 5.4% &middot; boxes vs local FP32: recall 100.0%, precision 100.0% | - |
+| yolo26n fp32 on QCS8550 (Proxy) | 5.775 ms &middot; 125.3 MB peak &middot; NPU layers 100.0% | - |
+| yolo26n w8a8 on Dragonwing RB3 Gen 2 Vision Kit | 13.883 ms &middot; 18.9 MB peak &middot; NPU layers 100.0% &middot; boxes vs local FP32: recall 100.0%, precision 93.5% | - |
+| yolo26n w8a8 on QCS8550 (Proxy) | 2.904 ms &middot; 115.8 MB peak &middot; NPU layers 100.0% | - |
+| yolo11s fp32 on Dragonwing RB3 Gen 2 Vision Kit | 239.254 ms &middot; 107.9 MB peak &middot; NPU layers 5.3% &middot; boxes vs local FP32: recall 100.0%, precision 100.0% | - |
+| yolo11s fp32 on QCS8550 (Proxy) | 7.033 ms &middot; 116.7 MB peak &middot; NPU layers 100.0% | - |
+| yolo11s w8a8 on Dragonwing RB3 Gen 2 Vision Kit | 10.986 ms &middot; 26.2 MB peak &middot; NPU layers 100.0% &middot; boxes vs local FP32: recall 100.0%, precision 85.7% | - |
+| yolo11s w8a8 on QCS8550 (Proxy) | 3.53 ms &middot; 147.7 MB peak &middot; NPU layers 100.0% | - |
+
+<details><summary>commands</summary>
+
+```bash
+python tools/aihub_profile.py --models ../models/yolo11n.onnx ../models/yolo26n.onnx ../models/yolo11s.onnx --devices Dragonwing RB3 Gen 2 Vision Kit QCS8550 (Proxy) --calib C:/Users/VANJAN~1/AppData/Local/Temp/claude/C--Users-VANJANGI-VINITH/ae698255-07c8-4a12-afc5-065bc75017dc/scratchpad/calib/images/val
 ```
 
 </details>

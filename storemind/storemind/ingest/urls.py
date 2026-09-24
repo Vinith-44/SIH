@@ -41,9 +41,14 @@ DEFAULT_RTSP_PORT = 554
 DEFAULT_HTTP_PORT = 80
 
 # The go2rtc gateway, as configured in section 6.  1984 is go2rtc's own API
-# port; 8554 is the RTSP it republishes on.
+# port.
+#
+# go2rtc's RTSP server defaults to 8554 - and so does MediaMTX, which
+# tools/fake_cctv.py uses to serve the demo cameras (research/24 section 9).
+# Running the demo would then be go2rtc against a port MediaMTX already holds,
+# so go2rtc is moved to 8564 and the default is left to the fake CCTV.
 GO2RTC_HOST = "127.0.0.1"
-GO2RTC_RTSP_PORT = 8554
+GO2RTC_RTSP_PORT = 8564
 GO2RTC_API_PORT = 1984
 
 
@@ -90,6 +95,25 @@ BRANDS: dict[str, BrandTemplate] = {
         stream_path="/stream{stream_index}",
         snapshot_path=None,  # no HTTP snapshot; go2rtc's frame API instead
         note="needs a Camera Account in the Tapo app; ONVIF on 2020",
+    ),
+    "uniview": BrandTemplate(
+        stream_path="/unicast/c{channel}/s{stream_index0}/live",
+        snapshot_path=None,
+        note="s0 = main, s1 = sub",
+    ),
+    "reolink": BrandTemplate(
+        stream_path="/h264Preview_{channel_padded}_{quality}",
+        snapshot_path=None,
+        note="channel is zero-padded to two digits",
+    ),
+    # Not a real brand: the fake CCTV that tools/fake_cctv.py serves from
+    # MediaMTX.  It lives here so a demo camera is configured exactly like a
+    # real one and exercises the same code path (research/24 section 9).
+    "mediamtx": BrandTemplate(
+        stream_path="/cam{channel}",
+        snapshot_path=None,
+        rtsp_port=8554,
+        note="fake CCTV from tools/fake_cctv.py; one path, no sub-stream",
     ),
 }
 
@@ -171,6 +195,10 @@ class CameraEndpoint:
             "quality": "sub" if sub else "main",
             # Tapo numbers its streams from 1, high quality first.
             "stream_index": 2 if sub else 1,
+            # Uniview numbers from 0 instead.
+            "stream_index0": 1 if sub else 0,
+            # Reolink wants a two-digit channel.
+            "channel_padded": f"{self.channel:02d}",
             **self.extra,
         }
 
@@ -282,6 +310,31 @@ def go2rtc_streams(cameras: list[CameraEndpoint],
         entry = creds.get(cam.name) or {}
         streams[cam.name] = cam.stream_url(entry.get("username"), entry.get("password"))
     return streams
+
+
+def candidate_urls(ip: str, *, channel: int = 1, port: int | None = None,
+                   brand: str | None = None, username: str | None = None,
+                   password: str | None = None) -> list[tuple[str, str, str]]:
+    """`(brand, stream, url)` to try when the brand is not known yet.
+
+    Onboarding step 4 when discovery could not name a brand: try each template
+    in turn and keep whichever answers.  `mediamtx` is excluded unless asked for
+    by name - it is fake CCTV, and offering it while probing a real shop would
+    be noise.  Duplicate URLs are dropped, so Dahua and CP Plus (identical
+    paths) are probed once rather than twice.
+    """
+    names = [brand] if brand else [b for b in BRANDS if b != "mediamtx"]
+    out: list[tuple[str, str, str]] = []
+    seen: set[str] = set()
+    for name in names:
+        for stream in ("main", "sub"):
+            endpoint = CameraEndpoint(name="probe", brand=name, ip=ip, channel=channel,
+                                      stream=stream, port=port)
+            url = endpoint.stream_url(username, password)
+            if url not in seen:
+                seen.add(url)
+                out.append((name, stream, url))
+    return out
 
 
 def parse_source(source: str) -> CameraEndpoint | None:

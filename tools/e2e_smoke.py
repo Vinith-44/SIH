@@ -54,6 +54,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--video", type=Path, default=None, help="video file (default: test pattern)")
     ap.add_argument("--bin-dir", type=Path, default=REPO_ROOT / "tools" / "bin")
     ap.add_argument("--min-fps", type=float, default=5.0)
+    ap.add_argument("--max-fps", type=float, default=60.0,
+                    help="no camera we configure exceeds this; a higher reported rate "
+                         "means the measurement is wrong, not the camera")
     ap.add_argument("--password", default="smoke-secret-123",
                     help="dummy password put in the camera URL to test masking")
     args = ap.parse_args(argv)
@@ -104,14 +107,25 @@ def main(argv: list[str] | None = None) -> int:
         check("outage detected", down, f"state={wd.state}")
 
         cctv.start_camera(1)
-        back = wait_until(lambda: wd.state == "online", 45)
+        wait_until(lambda: wd.state == "online", 45)
         time.sleep(3)
-        check("auto recovery", back and wd.fps() > 0,
-              f"state={wd.state} fps={wd.fps()} reconnects={wd.reconnects}")
+        # The state *now*, not "was online at some point": an earlier version of
+        # this check used the wait_until result and reported PASS on a run that
+        # ended stale, which is the one outcome it exists to catch.
+        recovered_fps = wd.fps()
+        check("auto recovery", wd.state == "online" and recovered_fps > 0,
+              f"state={wd.state} fps={recovered_fps} reconnects={wd.reconnects}")
 
         states = {h["state"] for h in health}
         check("CAMERA_HEALTH produced", {"online"} <= states and len(health) >= 3,
               f"{len(health)} payloads, states={sorted(states)}")
+        # A reconnect used to publish the buffered-frame burst as the rate -
+        # 1532 FPS on a 15 FPS stream - straight onto the health panel.
+        reported = [h["fps"] for h in health]
+        worst = max(reported, default=0.0)
+        check("fps stays plausible", worst <= args.max_fps,
+              f"highest reported {worst} fps (ceiling {args.max_fps})")
+
         blob = json.dumps(health)
         check("no password in health", args.password not in blob)
     finally:

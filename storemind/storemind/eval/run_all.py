@@ -374,6 +374,34 @@ def queue_v2() -> Section | None:
     return section
 
 
+def shelf_fusion() -> Section | None:
+    """Bucket C: pick / put-back fusion on simulated MEMS + load-cell events."""
+    path = RESULTS_DIR / "fusion.json"
+    if not path.is_file():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    first, last = data["seeds"]
+    section = Section(
+        "Pick / put-back from MEMS touch + load cell - simulated sensor events", "C",
+        "`eval/sensor_sim.py` generates the events the serial bridge will publish (TOUCH / SETTLED, "
+        "unstable readings while a shelf is handled, 10% of them wrongly flagged stable, trolley "
+        "knocks). The simulator encodes our assumptions about the firmware, so this checks the "
+        "fusion logic against them. It is not a hardware result. Defaults were tuned on seeds 1-10; "
+        f"this table is seeds {first}-{last}. Hardware acceptance (pick/put-back >= 90% on the real "
+        "board) is in docs/HARDWARE_TODO.md.")
+    for name, s in data["report"].items():
+        pick, back = s["pick"], s["put_back"]
+        section.row(f"{name}: pick P / R / F1", f"{fmt(pick['precision'])} / {fmt(pick['recall'])} / "
+                                                f"{fmt(pick['f1'])}", ">= 0.90")
+        section.row(f"{name}: put-back P / R / F1", f"{fmt(back['precision'])} / {fmt(back['recall'])} / "
+                                                    f"{fmt(back['f1'])}", ">= 0.90")
+        section.row(f"{name}: false shrink flags / fallen-stock alerts (true)",
+                    f"{s['shrink_flags']} / {s['fallen_alerts']} ({s['fallen_true']})", "0 / all")
+    section.commands.append("python -m storemind.eval.eval_fusion --grid   # tuning seeds only")
+    section.commands.append("python -m storemind.eval.eval_fusion")
+    return section
+
+
 def platform_results(folder: Path = PLATFORM_DIR) -> list[Section]:
     """Person B's measured results, one section per file, never edited by A.
 
@@ -436,10 +464,11 @@ BUILDERS = {
     "bakeoff": tracker_bakeoff,
     "shelf_lighting": shelf_lighting,
     "queue_v2": queue_v2,
+    "shelf_fusion": shelf_fusion,
     "benchmark": benchmark,
 }
 
-ORDER = ["caviar", "bakeoff", "counting", "queue", "queue_v2", "shelf", "shelf_lighting", "forecast",
+ORDER = ["caviar", "bakeoff", "counting", "queue", "queue_v2", "shelf", "shelf_lighting", "shelf_fusion", "forecast",
          "before_after", "before_after_full", "benchmark"]
 
 

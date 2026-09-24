@@ -65,3 +65,16 @@ M4 accepts on **queue MAE <= 1 and wait error <= 20% on our own clip**. Nothing 
 5. Score: `python -m storemind.eval.eval_queue --config configs/canteen.yaml --camera counter-1
    --source ../videos/queue/canteen_01.mp4`. Run it with `membership: polygon` and with `membership: dwell`,
    and paste both into `logs/WORK_LOG_A.md`. Do not tune on this clip; record a second one to tune.
+
+## M6 - MEMS + load cell on the real shelf (Vinith's fusion, Ram's board)
+
+Acceptance (CLAUDE_CODE_PROMPT_V2 M6): picks and put-backs detected >= 90% with weight gating; fewer than 1 false
+TOUCH per 10 min idle; at least 9 of 10 camera knocks detected. Needs Ram's firmware (`$M`, `$W`) and bridge.
+
+1. MEMS node glued flat under the shelf; load cells under 2 slots (`sensors.cell_map`). Enter the pack weight
+   of each slot as `slots[].unit_grams`.
+2. Run the pipeline with the bridge and a camera on the shelf front (so `person_at_shelf` works).
+3. Follow `tools/mems_test.py` (Ram, M6): 30 picks (1-2 packs), 10 put-backs, 10 touches without taking anything,
+   10 accidental bumps, 10 knocks on the camera bracket, and 10 min with nobody near. Keep a paper tally.
+4. Compare the tally with the `PICKUP` / `SHRINK_FLAG` events and alerts in the dashboard log; paste the counts
+   into `logs/WORK_LOG_A.md`. Do not retune `noise_g` or `settle_timeout_s` on this run; run it a second time to tune.

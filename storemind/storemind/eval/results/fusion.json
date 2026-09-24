@@ -1,0 +1,83 @@
+{
+  "seeds": [
+    11,
+    40
+  ],
+  "report": {
+    "v1": {
+      "pick": {
+        "precision": 0.045454545454545456,
+        "recall": 1.0,
+        "f1": 0.08695652173913045,
+        "tp": 639,
+        "fp": 13419,
+        "fn": 0,
+        "units_accuracy": 0.0
+      },
+      "put_back": {
+        "precision": null,
+        "recall": 0.0,
+        "f1": null,
+        "tp": 0,
+        "fp": 0,
+        "fn": 108,
+        "units_accuracy": null
+      },
+      "touch_predicted": 0,
+      "touch_true": 399,
+      "shrink_flags": 243,
+      "fallen_true": 15,
+      "fallen_alerts": 0
+    },
+    "weight-only": {
+      "pick": {
+        "precision": 0.6614664586583463,
+        "recall": 0.6635367762128326,
+        "f1": 0.6625,
+        "tp": 424,
+        "fp": 217,
+        "fn": 215,
+        "units_accuracy": 0.9221698113207547
+      },
+      "put_back": {
+        "precision": 0.5365853658536586,
+        "recall": 0.6111111111111112,
+        "f1": 0.5714285714285715,
+        "tp": 66,
+        "fp": 57,
+        "fn": 42,
+        "units_accuracy": 0.9393939393939394
+      },
+      "touch_predicted": 0,
+      "touch_true": 399,
+      "shrink_flags": 0,
+      "fallen_true": 15,
+      "fallen_alerts": 0
+    },
+    "M6": {
+      "pick": {
+        "precision": 0.9780564263322884,
+        "recall": 0.9765258215962441,
+        "f1": 0.9772905246671887,
+        "tp": 624,
+        "fp": 14,
+        "fn": 15,
+        "units_accuracy": 0.9967948717948718
+      },
+      "put_back": {
+        "precision": 0.896551724137931,
+        "recall": 0.9629629629629629,
+        "f1": 0.9285714285714286,
+        "tp": 104,
+        "fp": 12,
+        "fn": 4,
+        "units_accuracy": 1.0
+      },
+      "touch_predicted": 375,
+      "touch_true": 399,
+      "shrink_flags": 0,
+      "fallen_true": 15,
+      "fallen_alerts": 15
+    }
+  }
+}

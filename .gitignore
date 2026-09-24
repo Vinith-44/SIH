@@ -72,3 +72,6 @@ tools/bin/
 storemind/tools/bin/
 configs/secrets.yaml
 storemind/configs/secrets.yaml
+
+# Separate venvs (e.g. the TensorFlow model-export venv, M8)
+.venv-*/

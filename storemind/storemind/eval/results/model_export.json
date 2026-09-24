@@ -1,0 +1,190 @@
+{
+  "fidelity": [
+    {
+      "model": "yolo11n",
+      "format": "pytorch fp32",
+      "path": "C:\\SIH\\models\\yolo11n.pt",
+      "size_mb": 5.61,
+      "recall_vs_fp32": 1.0,
+      "precision_vs_fp32": 1.0,
+      "cpu_ms_median": 99.7,
+      "cpu_ms_p95": 535.5,
+      "boxes_per_frame": 4.96
+    },
+    {
+      "model": "yolo11n",
+      "format": "onnx fp32",
+      "path": "C:\\SIH\\models\\yolo11n.onnx",
+      "size_mb": 10.74,
+      "recall_vs_fp32": 1.0,
+      "precision_vs_fp32": 1.0,
+      "cpu_ms_median": 29.8,
+      "cpu_ms_p95": 34.0,
+      "boxes_per_frame": 4.96
+    },
+    {
+      "model": "yolo11n",
+      "format": "onnx int8",
+      "path": "C:\\SIH\\models\\yolo11n_int8.onnx",
+      "size_mb": 3.21,
+      "recall_vs_fp32": 0.9758064516129032,
+      "precision_vs_fp32": 1.0,
+      "cpu_ms_median": 32.9,
+      "cpu_ms_p95": 35.8,
+      "boxes_per_frame": 4.84
+    },
+    {
+      "model": "yolo11n",
+      "format": "ncnn fp32",
+      "path": "C:\\SIH\\models\\yolo11n_ncnn_model",
+      "size_mb": 10.66,
+      "recall_vs_fp32": 1.0,
+      "precision_vs_fp32": 1.0,
+      "cpu_ms_median": 52.3,
+      "cpu_ms_p95": 58.1,
+      "boxes_per_frame": 4.96
+    },
+    {
+      "model": "yolo26n",
+      "format": "pytorch fp32",
+      "path": "C:\\SIH\\models\\yolo26n.pt",
+      "size_mb": 5.54,
+      "recall_vs_fp32": 1.0,
+      "precision_vs_fp32": 1.0,
+      "cpu_ms_median": 41.1,
+      "cpu_ms_p95": 43.8,
+      "boxes_per_frame": 4.88
+    },
+    {
+      "model": "yolo26n",
+      "format": "onnx fp32",
+      "path": "C:\\SIH\\models\\yolo26n.onnx",
+      "size_mb": 9.93,
+      "recall_vs_fp32": 1.0,
+      "precision_vs_fp32": 1.0,
+      "cpu_ms_median": 24.3,
+      "cpu_ms_p95": 25.4,
+      "boxes_per_frame": 4.88
+    },
+    {
+      "model": "yolo26n",
+      "format": "onnx int8",
+      "path": "C:\\SIH\\models\\yolo26n_int8.onnx",
+      "size_mb": 3.06,
+      "recall_vs_fp32": 0.9959016393442623,
+      "precision_vs_fp32": 0.9898167006109979,
+      "cpu_ms_median": 29.7,
+      "cpu_ms_p95": 31.6,
+      "boxes_per_frame": 4.91
+    },
+    {
+      "model": "yolo26n",
+      "format": "ncnn fp32",
+      "path": "C:\\SIH\\models\\yolo26n_ncnn_model",
+      "size_mb": 9.85,
+      "recall_vs_fp32": 1.0,
+      "precision_vs_fp32": 1.0,
+      "cpu_ms_median": 138.3,
+      "cpu_ms_p95": 153.4,
+      "boxes_per_frame": 4.88
+    }
+  ],
+  "caviar": [
+    {
+      "model": "yolo11n",
+      "format": "pytorch fp32",
+      "entries": 28,
+      "exits": 21,
+      "gt_entries": 30,
+      "gt_exits": 21,
+      "entry_acc": 0.9333333333333333,
+      "exit_acc": 1.0,
+      "entry_f1": 0.9310344827586207,
+      "exit_f1": 0.8571428571428571
+    },
+    {
+      "model": "yolo11n",
+      "format": "onnx fp32",
+      "entries": 28,
+      "exits": 21,
+      "gt_entries": 30,
+      "gt_exits": 21,
+      "entry_acc": 0.9333333333333333,
+      "exit_acc": 1.0,
+      "entry_f1": 0.9310344827586207,
+      "exit_f1": 0.8571428571428571
+    },
+    {
+      "model": "yolo11n",
+      "format": "onnx int8",
+      "entries": 28,
+      "exits": 19,
+      "gt_entries": 30,
+      "gt_exits": 21,
+      "entry_acc": 0.9333333333333333,
+      "exit_acc": 0.9047619047619048,
+      "entry_f1": 0.9310344827586207,
+      "exit_f1": 0.9
+    },
+    {
+      "model": "yolo11n",
+      "format": "ncnn fp32",
+      "entries": 28,
+      "exits": 21,
+      "gt_entries": 30,
+      "gt_exits": 21,
+      "entry_acc": 0.9333333333333333,
+      "exit_acc": 1.0,
+      "entry_f1": 0.9310344827586207,
+      "exit_f1": 0.8571428571428571
+    },
+    {
+      "model": "yolo26n",
+      "format": "pytorch fp32",
+      "entries": 27,
+      "exits": 16,
+      "gt_entries": 30,
+      "gt_exits": 21,
+      "entry_acc": 0.9,
+      "exit_acc": 0.7619047619047619,
+      "entry_f1": 0.8771929824561403,
+      "exit_f1": 0.8108108108108109
+    },
+    {
+      "model": "yolo26n",
+      "format": "onnx fp32",
+      "entries": 27,
+      "exits": 16,
+      "gt_entries": 30,
+      "gt_exits": 21,
+      "entry_acc": 0.9,
+      "exit_acc": 0.7619047619047619,
+      "entry_f1": 0.8771929824561403,
+      "exit_f1": 0.8108108108108109
+    },
+    {
+      "model": "yolo26n",
+      "format": "onnx int8",
+      "entries": 25,
+      "exits": 14,
+      "gt_entries": 30,
+      "gt_exits": 21,
+      "entry_acc": 0.8333333333333334,
+      "exit_acc": 0.6666666666666667,
+      "entry_f1": 0.9090909090909091,
+      "exit_f1": 0.8
+    },
+    {
+      "model": "yolo26n",
+      "format": "ncnn fp32",
+      "entries": 27,
+      "exits": 16,
+      "gt_entries": 30,
+      "gt_exits": 21,
+      "entry_acc": 0.9,
+      "exit_acc": 0.7619047619047619,
+      "entry_f1": 0.8771929824561403,
+      "exit_f1": 0.8108108108108109
+    }
+  ]
+}

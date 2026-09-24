@@ -176,3 +176,23 @@ Commands and results:
   - v1: picks 0.05/1.00/0.09 with 243 false shrinks.
 - Hardware acceptance: not measured (needs Ram's board). Steps are in docs/HARDWARE_TODO.md "M6".
 - Tests: 374 passed.
+
+## 2026-09-24 - M8 models: exports, fidelity, CAVIAR per format, bench_pi.py (branch `a/m8-models`)
+
+- `storemind/inference/export.py`: exports ONNX FP32, ONNX INT8 (ORT static QDQ, Conv only), NCNN and LiteRT INT8
+  (via a separate TensorFlow venv `.venv-export`, git-ignored).
+- Calibration: 198 frames from CAVIAR, vtest and the synthetic scenes (scratchpad only).
+- Exported for YOLO11n and YOLO26n @640: ONNX FP32, ONNX INT8 and NCNN are done.
+- **LiteRT INT8 is blocked**: Ultralytics 8.4.160 refuses the TFLite export on Windows ("LiteRT export only
+  supported on Linux x86 and macOS"), and WSL is not installed (installing it needs admin rights and a reboot).
+- Environment note: Ultralytics auto-installed onnx, onnxslim, ncnn and pnnx into the main venv (export-time only,
+  not in requirements.txt). Pinned runtime packages were checked unchanged, and all tests pass.
+- `python -m storemind.eval.eval_export --caviar --calib <calib>`:
+  - Fidelity vs FP32 on vtest (S): INT8 recall 97.6% (11n) / 99.6% (26n).
+  - Laptop CPU ms median: ONNX FP32 29.8 / 24.3; INT8 32.9 / 29.7; NCNN 52.3 / 138.3; PyTorch 99.7 / 41.1. On x86,
+    INT8 is not faster and NCNN is slower; the Pi decides.
+  - CAVIAR per format (A, in-sample settings): FP32 exports identical to PyTorch (11n 28/21, 26n 27/16).
+    INT8: 11n 28/19, 26n 25/14.
+- `tools/bench_pi.py`: latency median/p95, FPS, temperature, throttle flags, PMIC power (x1.1451 + 0.5879) and
+  mJ/frame. Parsers are unit-tested with real vcgencmd formats. **Not run on a Pi yet**: docs/HARDWARE_TODO.md "M8".
+- Tests: all pass (see commit).

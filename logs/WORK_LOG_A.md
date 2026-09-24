@@ -52,3 +52,36 @@ Throwaway `amqtt` broker in a scratch venv, two `MqttBus` instances (bridge node
 `listen=True`) and a raw watcher: the vision process received the bridge's `BEAM_CROSS` exactly
 once; closing the bridge's socket without DISCONNECT made the broker publish the retained Will
 `offline` on `storemind/smoke/stm32-01/status`. Mosquitto itself not tested yet (not installed).
+
+## 2026-09-24 - M1 counting v2 + tracker bake-off + IR-beam cross-check (branch `a/m1-counting-v2`)
+
+Config keys: contract PR #2 (`a/m1-contract`). Code: `analytics/footfall.py` (GateCounter,
+build_counter), `tracking/tracker.py` (ByteTrack / OC-SORT / BoT-SORT / SORT via `trackers`),
+`inference/filters.py`, `analytics/staff.py` (zones + ArUco), `fusion/beam.py` (cross-check +
+fallback), `inference/cached.py` + `eval/detcache.py` (detection cache + timeline replay),
+`eval/bakeoff.py`, device auto-select in `inference/detector.py`. The pipeline gets small hooks
+(build_counter, filters, staff, beam check, tamper -> beam).
+
+Environment: the venv now has torch 2.14.0+cu130 (`pip install --force-reinstall --no-deps
+torch==2.14.0 torchvision==0.29.0 --index-url https://download.pytorch.org/whl/cu130`), RTX 4050.
+
+Commands and results:
+- `python -m storemind.eval.detcache` (+ `--model ../models/yolo26n.pt`, `--model ../models/yolo11n.pt --imgsz 960`,
+  `--model ../models/yolo11s.pt`): 64 caches in `data/detcache/`. Timeline replay was checked
+  identical to video-decode replay on EnterExitCrossingPaths2cor, and it is about 10x faster.
+- `python -m storemind.eval.bakeoff` -> `eval/results/tracker_bakeoff.md` (protocol v2,
+  2-fold CV over views, 2,336 combos). Held out: entries 31 (30) 96.7%, **exits 16 (21) 76.2%**,
+  entry/exit F1 0.82/0.76. Baseline YOLO11n+ByteTrack+v1 on the same cache: 33/24, 90.0%/85.7%,
+  F1 0.89/0.76. **M1 exit target (>=90% held out) not met.**
+- Run 1 (protocol v1, `tracker_bakeoff_run1.md`) picked SORT on a 0.002 IDF1 margin. The protocol
+  was revised after seeing it; both are published.
+- Synthetic entrance (bucket C) with the gate counter in demo.yaml: 14/14 in, 6/6 out, F1 1.00.
+- CPU-only speed (`STOREMIND_DEVICE=cpu`, vtest.avi, 100 frames, 640 px): YOLO11n 99.4 ms (10.0 FPS),
+  YOLO26n 91.9 ms (10.8 FPS), YOLO11s 266.5 ms (3.75 FPS). YOLO11s cannot reach 8 FPS on a Pi 5,
+  so it does not ship. It is recorded as the Qualcomm NPU option (docs/QUALCOMM.md).
+- RESULTS.md regenerated. The speed section is now explicitly CPU-only: the first regeneration
+  after the device change had silently timed on the GPU, so that was fixed before commit.
+- Tests: 235 passed.
+
+Decisions (user, 24 Sep): do not tune further on CAVIAR. Ship YOLO11n@640 + ByteTrack + gate
+counter defaults (gate 10 px, direction off, age 0, confirm 0.5 s).

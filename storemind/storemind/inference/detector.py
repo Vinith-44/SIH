@@ -130,6 +130,23 @@ class StubDetector(Detector):
         return out
 
 
+def resolve_device(device: str = "auto") -> str:
+    """`auto` = CUDA when a CUDA build of torch sees a GPU (Person A's laptop),
+    otherwise CPU (the Pi).  `STOREMIND_DEVICE=cpu` forces CPU, e.g. for speed
+    numbers that must describe CPU inference."""
+    import os
+
+    device = os.environ.get("STOREMIND_DEVICE", device)
+    if device != "auto":
+        return device
+    try:
+        import torch
+
+        return "cuda:0" if torch.cuda.is_available() else "cpu"
+    except ImportError:
+        return "cpu"
+
+
 class UltralyticsDetector(Detector):
     """YOLO11n / YOLO26n and Ultralytics' exported formats.
 
@@ -150,10 +167,11 @@ class UltralyticsDetector(Detector):
     name = "ultralytics"
 
     def __init__(self, model: str = "yolo11n.pt", conf: float = 0.35, iou: float = 0.5,
-                 imgsz: int = 640, person_class: int = 0) -> None:
+                 imgsz: int = 640, person_class: int = 0, device: str = "auto") -> None:
         from ultralytics import YOLO  # heavy import, kept lazy
 
         self.model = YOLO(model)
+        self.device = resolve_device(device)
         self.conf = conf
         self.iou = iou
         self.input_size = imgsz
@@ -173,7 +191,7 @@ class UltralyticsDetector(Detector):
                     from ultralytics.utils.ops import non_max_suppression
 
                 self.model.fuse()
-                self.model.model.eval()
+                self.model.model.to(self.device).eval()
                 self._torch = torch
                 self._nms = non_max_suppression
                 self.fast = True
@@ -191,7 +209,8 @@ class UltralyticsDetector(Detector):
         height, width = image.shape[:2]
         padded, info = letterbox(image, self.input_size)
         rgb = np.ascontiguousarray(padded[:, :, ::-1])
-        tensor = torch.from_numpy(rgb).permute(2, 0, 1).float().div_(255.0).unsqueeze(0)
+        tensor = torch.from_numpy(rgb).to(self.device).permute(2, 0, 1).float().div_(255.0)
+        tensor = tensor.unsqueeze(0)
         with torch.inference_mode():
             raw = self.model.model(tensor)
         if isinstance(raw, (list, tuple)):
@@ -208,7 +227,7 @@ class UltralyticsDetector(Detector):
     def _detect_predict(self, image: np.ndarray) -> list[Detection]:
         results = self.model.predict(
             image, imgsz=self.input_size, conf=self.conf, iou=self.iou,
-            classes=[self.person_class], verbose=False,
+            classes=[self.person_class], verbose=False, device=self.device,
         )
         out: list[Detection] = []
         for result in results:

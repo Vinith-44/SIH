@@ -2,24 +2,41 @@
 
 Overwritten every session. Read `CLAUDE.md` first, then this.
 
-## Where I stopped
-- **PR-0 "contracts"** (branch `a/pr0-contracts`) is pushed and open for Person B's approval.
-  It is the base for everything else: schema v2, paho 2.x bus + Last Will, config v2 +
-  secrets, `docs/INTERFACES.md`, `docs/PROTOCOL.md` + `sensors/protocol.py`, per-person logs,
-  `run_all` platform hook, docs skeleton. 212 tests pass.
-- Note: `origin/master` was still at the initial commit, so this PR also carries the three
-  earlier local commits (CAVIAR results, dashboard, calibration) and the research/plan docs
-  commit. After it merges, master = everything.
+## Open PRs (stacked, merge in this order)
+1. **#1 PR-0 contracts** (`a/pr0-contracts` → `master`). Waiting for Person B.
+2. **#2 Contract (M1)** (`a/m1-contract`, base `a/pr0-contracts`). It has two commits: the config
+   keys, and the gate defaults from the bake-off (`c454662`). **After #1 merges, #2 must target
+   `master`.** GitHub does this automatically if #1's branch is deleted on merge; otherwise run
+   `gh pr edit 2 --base master`. Check that #2's commit list shows both commits before merging.
+3. **#3 M1** (`a/m1-counting-v2`, base `a/m1-contract`): retarget to `master` the same way after #2.
 
-## Next (in order, each on its own `a/…` branch from master after PR-0 merges)
-1. `a/m1-counting-v2` — two-line gate / zone sequence, direction check, min displacement +
-   track age, per-zone filters; tracker bake-off (ByteTrack / OC-SORT / BoT-SORT, same cached
-   detections); IR-beam cross-check logic consuming `BEAM_CROSS`. Tune on CAVIAR corridor,
-   report on front. Accept: exit accuracy ≥ 90 % on the held-out view.
-2. `a/m3-shelf-v2` → 3. `a/m4-queue-v2` → 4. `a/m6-fusion` → 5. `a/m8-models` → 6. `a/m9-aihub` → 7. `a/m10-ask`.
+## M1 outcome (docs/COUNTING.md)
+- Code done: gate counter, 4 trackers, per-zone filters, staff zones + ArUco badges, IR-beam
+  cross-check + fallback, detection cache, cross-validated bake-off. 235 tests pass.
+- **Held-out CAVIAR: exit accuracy 76.2% (target ≥ 90%: not met)**, entry 96.7%, F1 0.82/0.76.
+  Today's default scores 85.7% exits, F1 0.89/0.76. Settings do not transfer between the two
+  views. Per the user, **no more CAVIAR tuning**. The IR beam is the per-site calibration path.
+- Shipped: YOLO11n@640 + ByteTrack + gate defaults. YOLO11s runs at 3.75 FPS on the laptop CPU,
+  so it cannot hit 8 FPS on a Pi. It is recorded as the Qualcomm NPU option (M9). YOLO26n is the
+  Pi candidate for M8.
+- The venv has CUDA torch (cu130). Speed numbers in RESULTS.md are forced to CPU.
+
+## Next: M3 shelf v2 (branch `a/m3-shelf-v2`, config keys in a small `a/m3-contract`)
+Already started (untracked on disk, not in the M1 commit):
+- `storemind/tools/shelf_synth.py`: synthetic shelf timelines under day/evening/tube/dim/dark/glare
+  with exact truth and simulated lux.
+- `storemind/storemind/eval/eval_shelf_lighting.py`: v1 vs v2 vs v2-without-lux. Tune on seeds
+  1-10, report on seeds 11-40.
+
+Design (from reading `analytics/shelf.py`):
+- Texture measured as gain-normalised gradient density, so it does not depend on brightness.
+- Gray-world white balance, CLAHE, glare mask.
+- Reference bank chosen by lux (or frame brightness); dark → UNKNOWN; lux jump → skip one cycle.
+- Drift update, 4-point rectification, weight fusion.
+- Tools: `shelf_capture` / `shelf_label`; reorder drafts.
 
 ## Blocked / needs the team
-- **PR-0 needs Person B's approval** before dependent work merges.
-- Our own recordings (bucket B) for queue and shelf — still none.
-- Qualcomm AI Hub token: team runs `qai-hub configure --api_token …` themselves (never in the repo).
-- Git history still contains ~200 MB of video blobs from the initial commit (already pushed).
+- Person B's approval of #1, then #2 and #3.
+- Our own recordings (bucket B): shelf photos across a day, a canteen queue clip, and 30 walked
+  door crossings with the IR beam (docs/HARDWARE_TODO.md).
+- Qualcomm AI Hub token (`qai-hub configure`, never in the repo).

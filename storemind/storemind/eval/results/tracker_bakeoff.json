@@ -1,0 +1,2543 @@
+{
+  "protocol": "M1 tracker bake-off and counter tuning on CAVIAR (bucket A).\n\nProtocol (version 2 - see \"history\" below for why it changed):\n\n1.  Every variant replays the **same cached detections** (`eval/detcache.py`,\n    YOLO11n @640, conf 0.25 at replay), so only the tracker or counter changes.\n2.  Each tracker runs **once per clip** through the real pipeline; its tracks\n    are logged, and every counter setting replays that log (exact: the counter\n    sees only tracks and times).\n3.  **2-fold cross-validation over the two camera views.**  Fold 1 tunes on the\n    corridor view and tests on the front view; fold 2 the reverse.  Within a\n    fold, the (tracker, counter setting) pair is chosen on the tuning view by\n    the **mean of entry and exit event F1** (3 s tolerance); ties -> higher\n    total count accuracy -> higher tracker IDF1 -> the least restrictive\n    setting, with the current default (ByteTrack) first.\n4.  **The number to quote is the pooled held-out result**: every one of the\n    51 ground-truth crossings is scored by a setting chosen without it.\n5.  The configuration that ships is then chosen the same way on all 16 clips.\n    Its score on those clips is in-sample and is labelled so; it is not an\n    accuracy claim.\n\nHistory: run 1 (`results/tracker_bakeoff_run1.md`) followed a rule fixed before\nany result: tracker by corridor IDF1, then counter on the corridor, report the\nfront.  The four trackers' corridor IDF1 spanned 0.749-0.765 and SORT won by\n0.002 - noise - while having the most ID switches.  The front view also has\nonly 18 crossings, so one crossing moves its exit accuracy by 12.5 points.\nThe protocol was therefore revised to the cross-validated one above *after*\nrun 1 had been seen; both runs are published.\n\n    python -m storemind.eval.detcache            # once, GPU recommended\n    python -m storemind.eval.bakeoff             # writes results/tracker_bakeoff.{json,md}\n",
+  "detectors": {
+    "yolo11n@640 c0.25": [
+      "../models/yolo11n.pt",
+      640,
+      0.25
+    ],
+    "yolo11n@640 c0.15": [
+      "../models/yolo11n.pt",
+      640,
+      0.15
+    ],
+    "yolo26n@640 c0.25": [
+      "../models/yolo26n.pt",
+      640,
+      0.25
+    ],
+    "yolo26n@640 c0.15": [
+      "../models/yolo26n.pt",
+      640,
+      0.15
+    ],
+    "yolo11n@960 c0.25": [
+      "../models/yolo11n.pt",
+      960,
+      0.25
+    ],
+    "yolo11n@960 c0.15": [
+      "../models/yolo11n.pt",
+      960,
+      0.15
+    ],
+    "yolo11s@640 c0.25": [
+      "../models/yolo11s.pt",
+      640,
+      0.25
+    ],
+    "yolo11s@640 c0.15": [
+      "../models/yolo11s.pt",
+      640,
+      0.15
+    ]
+  },
+  "scenarios": [
+    "EnterExitCrossingPaths1",
+    "EnterExitCrossingPaths2",
+    "OneShopOneWait1",
+    "OneShopOneWait2",
+    "OneStopEnter1",
+    "OneStopEnter2",
+    "ThreePastShop1",
+    "WalkByShop1"
+  ],
+  "grid_size": 2336,
+  "stage1": [
+    {
+      "detector": "yolo11n@640 c0.25",
+      "tracker": "bytetrack",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 23,
+          "exits": 16,
+          "entry_acc": 0.85,
+          "exit_acc": 0.7692307692307692,
+          "total_acc": 0.8181818181818181,
+          "entry_event": {
+            "precision": 0.8260869565217391,
+            "recall": 0.95,
+            "f1": 0.8837209302325583,
+            "tp": 19,
+            "fp": 4,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.75,
+            "recall": 0.9230769230769231,
+            "f1": 0.8275862068965517,
+            "tp": 12,
+            "fp": 4,
+            "fn": 1
+          },
+          "event_f1_mean": 0.855653568564555,
+          "rejected": {},
+          "IDF1": 0.749298075450508,
+          "IDSW": 24,
+          "MOTA": 0.7344632768361582
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 10,
+          "exits": 8,
+          "entry_acc": 1.0,
+          "exit_acc": 1.0,
+          "total_acc": 1.0,
+          "entry_event": {
+            "precision": 0.9,
+            "recall": 0.9,
+            "f1": 0.9,
+            "tp": 9,
+            "fp": 1,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.625,
+            "recall": 0.625,
+            "f1": 0.625,
+            "tp": 5,
+            "fp": 3,
+            "fn": 3
+          },
+          "event_f1_mean": 0.7625,
+          "rejected": {},
+          "IDF1": 0.4679245283018868,
+          "IDSW": 22,
+          "MOTA": 0.10616229408175717
+        }
+      }
+    },
+    {
+      "detector": "yolo11n@640 c0.25",
+      "tracker": "ocsort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 21,
+          "exits": 13,
+          "entry_acc": 0.95,
+          "exit_acc": 1.0,
+          "total_acc": 0.9696969696969697,
+          "entry_event": {
+            "precision": 0.9047619047619048,
+            "recall": 0.95,
+            "f1": 0.9268292682926829,
+            "tp": 19,
+            "fp": 2,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.9230769230769231,
+            "recall": 0.9230769230769231,
+            "f1": 0.9230769230769231,
+            "tp": 12,
+            "fp": 1,
+            "fn": 1
+          },
+          "event_f1_mean": 0.924953095684803,
+          "rejected": {},
+          "IDF1": 0.7543722847276373,
+          "IDSW": 28,
+          "MOTA": 0.6851479459925309
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 7,
+          "exits": 5,
+          "entry_acc": 0.7,
+          "exit_acc": 0.625,
+          "total_acc": 0.6666666666666667,
+          "entry_event": {
+            "precision": 1.0,
+            "recall": 0.7,
+            "f1": 0.8235294117647058,
+            "tp": 7,
+            "fp": 0,
+            "fn": 3
+          },
+          "exit_event": {
+            "precision": 1.0,
+            "recall": 0.625,
+            "f1": 0.7692307692307693,
+            "tp": 5,
+            "fp": 0,
+            "fn": 3
+          },
+          "event_f1_mean": 0.7963800904977376,
+          "rejected": {},
+          "IDF1": 0.5237683664649957,
+          "IDSW": 17,
+          "MOTA": 0.3981086028065894
+        }
+      }
+    },
+    {
+      "detector": "yolo11n@640 c0.25",
+      "tracker": "botsort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 22,
+          "exits": 16,
+          "entry_acc": 0.9,
+          "exit_acc": 0.7692307692307692,
+          "total_acc": 0.8484848484848485,
+          "entry_event": {
+            "precision": 0.8636363636363636,
+            "recall": 0.95,
+            "f1": 0.9047619047619048,
+            "tp": 19,
+            "fp": 3,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.75,
+            "recall": 0.9230769230769231,
+            "f1": 0.8275862068965517,
+            "tp": 12,
+            "fp": 4,
+            "fn": 1
+          },
+          "event_f1_mean": 0.8661740558292282,
+          "rejected": {},
+          "IDF1": 0.7627002889414237,
+          "IDSW": 32,
+          "MOTA": 0.725653547831083
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 7,
+          "exits": 5,
+          "entry_acc": 0.7,
+          "exit_acc": 0.625,
+          "total_acc": 0.6666666666666667,
+          "entry_event": {
+            "precision": 1.0,
+            "recall": 0.7,
+            "f1": 0.8235294117647058,
+            "tp": 7,
+            "fp": 0,
+            "fn": 3
+          },
+          "exit_event": {
+            "precision": 1.0,
+            "recall": 0.625,
+            "f1": 0.7692307692307693,
+            "tp": 5,
+            "fp": 0,
+            "fn": 3
+          },
+          "event_f1_mean": 0.7963800904977376,
+          "rejected": {},
+          "IDF1": 0.49768285311303645,
+          "IDSW": 27,
+          "MOTA": 0.43136058572300184
+        }
+      }
+    },
+    {
+      "detector": "yolo11n@640 c0.25",
+      "tracker": "sort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 23,
+          "exits": 16,
+          "entry_acc": 0.85,
+          "exit_acc": 0.7692307692307692,
+          "total_acc": 0.8181818181818181,
+          "entry_event": {
+            "precision": 0.8260869565217391,
+            "recall": 0.95,
+            "f1": 0.8837209302325583,
+            "tp": 19,
+            "fp": 4,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.75,
+            "recall": 0.9230769230769231,
+            "f1": 0.8275862068965517,
+            "tp": 12,
+            "fp": 4,
+            "fn": 1
+          },
+          "event_f1_mean": 0.855653568564555,
+          "rejected": {},
+          "IDF1": 0.7646603444939036,
+          "IDSW": 37,
+          "MOTA": 0.726994158766638
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 11,
+          "exits": 12,
+          "entry_acc": 0.9,
+          "exit_acc": 0.5,
+          "total_acc": 0.7222222222222222,
+          "entry_event": {
+            "precision": 0.7272727272727273,
+            "recall": 0.8,
+            "f1": 0.761904761904762,
+            "tp": 8,
+            "fp": 3,
+            "fn": 2
+          },
+          "exit_event": {
+            "precision": 0.5,
+            "recall": 0.75,
+            "f1": 0.6,
+            "tp": 6,
+            "fp": 6,
+            "fn": 2
+          },
+          "event_f1_mean": 0.680952380952381,
+          "rejected": {},
+          "IDF1": 0.42868675995694294,
+          "IDSW": 39,
+          "MOTA": -0.17114093959731544
+        }
+      }
+    },
+    {
+      "detector": "yolo11n@640 c0.15",
+      "tracker": "bytetrack",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 23,
+          "exits": 16,
+          "entry_acc": 0.85,
+          "exit_acc": 0.7692307692307692,
+          "total_acc": 0.8181818181818181,
+          "entry_event": {
+            "precision": 0.8260869565217391,
+            "recall": 0.95,
+            "f1": 0.8837209302325583,
+            "tp": 19,
+            "fp": 4,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.75,
+            "recall": 0.9230769230769231,
+            "f1": 0.8275862068965517,
+            "tp": 12,
+            "fp": 4,
+            "fn": 1
+          },
+          "event_f1_mean": 0.855653568564555,
+          "rejected": {},
+          "IDF1": 0.7707032037074351,
+          "IDSW": 24,
+          "MOTA": 0.7322608445848894
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 14,
+          "exits": 10,
+          "entry_acc": 0.6,
+          "exit_acc": 0.75,
+          "total_acc": 0.6666666666666667,
+          "entry_event": {
+            "precision": 0.5714285714285714,
+            "recall": 0.8,
+            "f1": 0.6666666666666666,
+            "tp": 8,
+            "fp": 6,
+            "fn": 2
+          },
+          "exit_event": {
+            "precision": 0.6,
+            "recall": 0.75,
+            "f1": 0.6666666666666665,
+            "tp": 6,
+            "fp": 4,
+            "fn": 2
+          },
+          "event_f1_mean": 0.6666666666666665,
+          "rejected": {},
+          "IDF1": 0.45863154881190954,
+          "IDSW": 25,
+          "MOTA": -0.047895057962172055
+        }
+      }
+    },
+    {
+      "detector": "yolo11n@640 c0.15",
+      "tracker": "ocsort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 21,
+          "exits": 13,
+          "entry_acc": 0.95,
+          "exit_acc": 1.0,
+          "total_acc": 0.9696969696969697,
+          "entry_event": {
+            "precision": 0.9047619047619048,
+            "recall": 0.95,
+            "f1": 0.9268292682926829,
+            "tp": 19,
+            "fp": 2,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.9230769230769231,
+            "recall": 0.9230769230769231,
+            "f1": 0.9230769230769231,
+            "tp": 12,
+            "fp": 1,
+            "fn": 1
+          },
+          "event_f1_mean": 0.924953095684803,
+          "rejected": {},
+          "IDF1": 0.7543722847276373,
+          "IDSW": 28,
+          "MOTA": 0.6851479459925309
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 7,
+          "exits": 5,
+          "entry_acc": 0.7,
+          "exit_acc": 0.625,
+          "total_acc": 0.6666666666666667,
+          "entry_event": {
+            "precision": 1.0,
+            "recall": 0.7,
+            "f1": 0.8235294117647058,
+            "tp": 7,
+            "fp": 0,
+            "fn": 3
+          },
+          "exit_event": {
+            "precision": 1.0,
+            "recall": 0.625,
+            "f1": 0.7692307692307693,
+            "tp": 5,
+            "fp": 0,
+            "fn": 3
+          },
+          "event_f1_mean": 0.7963800904977376,
+          "rejected": {},
+          "IDF1": 0.5237683664649957,
+          "IDSW": 17,
+          "MOTA": 0.3981086028065894
+        }
+      }
+    },
+    {
+      "detector": "yolo11n@640 c0.15",
+      "tracker": "botsort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 22,
+          "exits": 16,
+          "entry_acc": 0.9,
+          "exit_acc": 0.7692307692307692,
+          "total_acc": 0.8484848484848485,
+          "entry_event": {
+            "precision": 0.8636363636363636,
+            "recall": 0.95,
+            "f1": 0.9047619047619048,
+            "tp": 19,
+            "fp": 3,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.75,
+            "recall": 0.9230769230769231,
+            "f1": 0.8275862068965517,
+            "tp": 12,
+            "fp": 4,
+            "fn": 1
+          },
+          "event_f1_mean": 0.8661740558292282,
+          "rejected": {},
+          "IDF1": 0.7430789133247089,
+          "IDSW": 31,
+          "MOTA": 0.7280474959302883
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 7,
+          "exits": 5,
+          "entry_acc": 0.7,
+          "exit_acc": 0.625,
+          "total_acc": 0.6666666666666667,
+          "entry_event": {
+            "precision": 1.0,
+            "recall": 0.7,
+            "f1": 0.8235294117647058,
+            "tp": 7,
+            "fp": 0,
+            "fn": 3
+          },
+          "exit_event": {
+            "precision": 1.0,
+            "recall": 0.625,
+            "f1": 0.7692307692307693,
+            "tp": 5,
+            "fp": 0,
+            "fn": 3
+          },
+          "event_f1_mean": 0.7963800904977376,
+          "rejected": {},
+          "IDF1": 0.5228455754771544,
+          "IDSW": 27,
+          "MOTA": 0.3941427699816962
+        }
+      }
+    },
+    {
+      "detector": "yolo11n@640 c0.15",
+      "tracker": "sort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 23,
+          "exits": 16,
+          "entry_acc": 0.85,
+          "exit_acc": 0.7692307692307692,
+          "total_acc": 0.8181818181818181,
+          "entry_event": {
+            "precision": 0.8260869565217391,
+            "recall": 0.95,
+            "f1": 0.8837209302325583,
+            "tp": 19,
+            "fp": 4,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.75,
+            "recall": 0.9230769230769231,
+            "f1": 0.8275862068965517,
+            "tp": 12,
+            "fp": 4,
+            "fn": 1
+          },
+          "event_f1_mean": 0.855653568564555,
+          "rejected": {},
+          "IDF1": 0.723744937364604,
+          "IDSW": 53,
+          "MOTA": 0.711864406779661
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 15,
+          "exits": 13,
+          "entry_acc": 0.5,
+          "exit_acc": 0.375,
+          "total_acc": 0.4444444444444444,
+          "entry_event": {
+            "precision": 0.6,
+            "recall": 0.9,
+            "f1": 0.7200000000000001,
+            "tp": 9,
+            "fp": 6,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.5384615384615384,
+            "recall": 0.875,
+            "f1": 0.6666666666666667,
+            "tp": 7,
+            "fp": 6,
+            "fn": 1
+          },
+          "event_f1_mean": 0.6933333333333334,
+          "rejected": {},
+          "IDF1": 0.3735526458175522,
+          "IDSW": 42,
+          "MOTA": -0.674496644295302
+        }
+      }
+    },
+    {
+      "detector": "yolo26n@640 c0.25",
+      "tracker": "bytetrack",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 22,
+          "exits": 14,
+          "entry_acc": 0.9,
+          "exit_acc": 0.9230769230769231,
+          "total_acc": 0.9090909090909091,
+          "entry_event": {
+            "precision": 0.8636363636363636,
+            "recall": 0.95,
+            "f1": 0.9047619047619048,
+            "tp": 19,
+            "fp": 3,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.9285714285714286,
+            "recall": 1.0,
+            "f1": 0.962962962962963,
+            "tp": 13,
+            "fp": 1,
+            "fn": 0
+          },
+          "event_f1_mean": 0.933862433862434,
+          "rejected": {},
+          "IDF1": 0.7917666887992236,
+          "IDSW": 25,
+          "MOTA": 0.7169395767499761
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 7,
+          "exits": 2,
+          "entry_acc": 0.7,
+          "exit_acc": 0.25,
+          "total_acc": 0.5,
+          "entry_event": {
+            "precision": 1.0,
+            "recall": 0.7,
+            "f1": 0.8235294117647058,
+            "tp": 7,
+            "fp": 0,
+            "fn": 3
+          },
+          "exit_event": {
+            "precision": 1.0,
+            "recall": 0.25,
+            "f1": 0.4,
+            "tp": 2,
+            "fp": 0,
+            "fn": 6
+          },
+          "event_f1_mean": 0.611764705882353,
+          "rejected": {},
+          "IDF1": 0.62018940157163,
+          "IDSW": 14,
+          "MOTA": 0.5030506406345332
+        }
+      }
+    },
+    {
+      "detector": "yolo26n@640 c0.25",
+      "tracker": "ocsort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 21,
+          "exits": 13,
+          "entry_acc": 0.95,
+          "exit_acc": 1.0,
+          "total_acc": 0.9696969696969697,
+          "entry_event": {
+            "precision": 0.9047619047619048,
+            "recall": 0.95,
+            "f1": 0.9268292682926829,
+            "tp": 19,
+            "fp": 2,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.9230769230769231,
+            "recall": 0.9230769230769231,
+            "f1": 0.9230769230769231,
+            "tp": 12,
+            "fp": 1,
+            "fn": 1
+          },
+          "event_f1_mean": 0.924953095684803,
+          "rejected": {},
+          "IDF1": 0.7556840291289121,
+          "IDSW": 23,
+          "MOTA": 0.6828497558172939
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 6,
+          "exits": 1,
+          "entry_acc": 0.6,
+          "exit_acc": 0.125,
+          "total_acc": 0.38888888888888884,
+          "entry_event": {
+            "precision": 1.0,
+            "recall": 0.6,
+            "f1": 0.7499999999999999,
+            "tp": 6,
+            "fp": 0,
+            "fn": 4
+          },
+          "exit_event": {
+            "precision": 1.0,
+            "recall": 0.125,
+            "f1": 0.2222222222222222,
+            "tp": 1,
+            "fp": 0,
+            "fn": 7
+          },
+          "event_f1_mean": 0.48611111111111105,
+          "rejected": {},
+          "IDF1": 0.4538001329492577,
+          "IDSW": 21,
+          "MOTA": 0.3685173886516168
+        }
+      }
+    },
+    {
+      "detector": "yolo26n@640 c0.25",
+      "tracker": "botsort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 21,
+          "exits": 13,
+          "entry_acc": 0.95,
+          "exit_acc": 1.0,
+          "total_acc": 0.9696969696969697,
+          "entry_event": {
+            "precision": 0.9047619047619048,
+            "recall": 0.95,
+            "f1": 0.9268292682926829,
+            "tp": 19,
+            "fp": 2,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.9230769230769231,
+            "recall": 0.9230769230769231,
+            "f1": 0.9230769230769231,
+            "tp": 12,
+            "fp": 1,
+            "fn": 1
+          },
+          "event_f1_mean": 0.924953095684803,
+          "rejected": {},
+          "IDF1": 0.735859936048645,
+          "IDSW": 37,
+          "MOTA": 0.7133007756391841
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 7,
+          "exits": 2,
+          "entry_acc": 0.7,
+          "exit_acc": 0.25,
+          "total_acc": 0.5,
+          "entry_event": {
+            "precision": 1.0,
+            "recall": 0.7,
+            "f1": 0.8235294117647058,
+            "tp": 7,
+            "fp": 0,
+            "fn": 3
+          },
+          "exit_event": {
+            "precision": 1.0,
+            "recall": 0.25,
+            "f1": 0.4,
+            "tp": 2,
+            "fp": 0,
+            "fn": 6
+          },
+          "event_f1_mean": 0.611764705882353,
+          "rejected": {},
+          "IDF1": 0.5184259837601499,
+          "IDSW": 23,
+          "MOTA": 0.45515558267236117
+        }
+      }
+    },
+    {
+      "detector": "yolo26n@640 c0.25",
+      "tracker": "sort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 22,
+          "exits": 14,
+          "entry_acc": 0.9,
+          "exit_acc": 0.9230769230769231,
+          "total_acc": 0.9090909090909091,
+          "entry_event": {
+            "precision": 0.8636363636363636,
+            "recall": 0.95,
+            "f1": 0.9047619047619048,
+            "tp": 19,
+            "fp": 3,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.9285714285714286,
+            "recall": 1.0,
+            "f1": 0.962962962962963,
+            "tp": 13,
+            "fp": 1,
+            "fn": 0
+          },
+          "event_f1_mean": 0.933862433862434,
+          "rejected": {},
+          "IDF1": 0.7703790428801405,
+          "IDSW": 41,
+          "MOTA": 0.7138753231829934
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 7,
+          "exits": 7,
+          "entry_acc": 0.7,
+          "exit_acc": 0.875,
+          "total_acc": 0.7777777777777778,
+          "entry_event": {
+            "precision": 1.0,
+            "recall": 0.7,
+            "f1": 0.8235294117647058,
+            "tp": 7,
+            "fp": 0,
+            "fn": 3
+          },
+          "exit_event": {
+            "precision": 0.7142857142857143,
+            "recall": 0.625,
+            "f1": 0.6666666666666666,
+            "tp": 5,
+            "fp": 2,
+            "fn": 3
+          },
+          "event_f1_mean": 0.7450980392156863,
+          "rejected": {},
+          "IDF1": 0.6029356417011668,
+          "IDSW": 28,
+          "MOTA": 0.45698596705308114
+        }
+      }
+    },
+    {
+      "detector": "yolo26n@640 c0.15",
+      "tracker": "bytetrack",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 22,
+          "exits": 15,
+          "entry_acc": 0.9,
+          "exit_acc": 0.8461538461538461,
+          "total_acc": 0.8787878787878788,
+          "entry_event": {
+            "precision": 0.8636363636363636,
+            "recall": 0.95,
+            "f1": 0.9047619047619048,
+            "tp": 19,
+            "fp": 3,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.8666666666666667,
+            "recall": 1.0,
+            "f1": 0.9285714285714286,
+            "tp": 13,
+            "fp": 2,
+            "fn": 0
+          },
+          "event_f1_mean": 0.9166666666666667,
+          "rejected": {},
+          "IDF1": 0.7724461292897047,
+          "IDSW": 28,
+          "MOTA": 0.7025758881547448
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 8,
+          "exits": 2,
+          "entry_acc": 0.8,
+          "exit_acc": 0.25,
+          "total_acc": 0.5555555555555556,
+          "entry_event": {
+            "precision": 1.0,
+            "recall": 0.8,
+            "f1": 0.888888888888889,
+            "tp": 8,
+            "fp": 0,
+            "fn": 2
+          },
+          "exit_event": {
+            "precision": 1.0,
+            "recall": 0.25,
+            "f1": 0.4,
+            "tp": 2,
+            "fp": 0,
+            "fn": 6
+          },
+          "event_f1_mean": 0.6444444444444445,
+          "rejected": {},
+          "IDF1": 0.6454277286135693,
+          "IDSW": 16,
+          "MOTA": 0.524405125076266
+        }
+      }
+    },
+    {
+      "detector": "yolo26n@640 c0.15",
+      "tracker": "ocsort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 21,
+          "exits": 13,
+          "entry_acc": 0.95,
+          "exit_acc": 1.0,
+          "total_acc": 0.9696969696969697,
+          "entry_event": {
+            "precision": 0.9047619047619048,
+            "recall": 0.95,
+            "f1": 0.9268292682926829,
+            "tp": 19,
+            "fp": 2,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.9230769230769231,
+            "recall": 0.9230769230769231,
+            "f1": 0.9230769230769231,
+            "tp": 12,
+            "fp": 1,
+            "fn": 1
+          },
+          "event_f1_mean": 0.924953095684803,
+          "rejected": {},
+          "IDF1": 0.7556840291289121,
+          "IDSW": 23,
+          "MOTA": 0.6828497558172939
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 6,
+          "exits": 1,
+          "entry_acc": 0.6,
+          "exit_acc": 0.125,
+          "total_acc": 0.38888888888888884,
+          "entry_event": {
+            "precision": 1.0,
+            "recall": 0.6,
+            "f1": 0.7499999999999999,
+            "tp": 6,
+            "fp": 0,
+            "fn": 4
+          },
+          "exit_event": {
+            "precision": 1.0,
+            "recall": 0.125,
+            "f1": 0.2222222222222222,
+            "tp": 1,
+            "fp": 0,
+            "fn": 7
+          },
+          "event_f1_mean": 0.48611111111111105,
+          "rejected": {},
+          "IDF1": 0.4538001329492577,
+          "IDSW": 21,
+          "MOTA": 0.3685173886516168
+        }
+      }
+    },
+    {
+      "detector": "yolo26n@640 c0.15",
+      "tracker": "botsort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 21,
+          "exits": 13,
+          "entry_acc": 0.95,
+          "exit_acc": 1.0,
+          "total_acc": 0.9696969696969697,
+          "entry_event": {
+            "precision": 0.9047619047619048,
+            "recall": 0.95,
+            "f1": 0.9268292682926829,
+            "tp": 19,
+            "fp": 2,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.9230769230769231,
+            "recall": 0.9230769230769231,
+            "f1": 0.9230769230769231,
+            "tp": 12,
+            "fp": 1,
+            "fn": 1
+          },
+          "event_f1_mean": 0.924953095684803,
+          "rejected": {},
+          "IDF1": 0.7388811405547807,
+          "IDSW": 37,
+          "MOTA": 0.7115771330077564
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 7,
+          "exits": 2,
+          "entry_acc": 0.7,
+          "exit_acc": 0.25,
+          "total_acc": 0.5,
+          "entry_event": {
+            "precision": 1.0,
+            "recall": 0.7,
+            "f1": 0.8235294117647058,
+            "tp": 7,
+            "fp": 0,
+            "fn": 3
+          },
+          "exit_event": {
+            "precision": 1.0,
+            "recall": 0.25,
+            "f1": 0.4,
+            "tp": 2,
+            "fp": 0,
+            "fn": 6
+          },
+          "event_f1_mean": 0.611764705882353,
+          "rejected": {},
+          "IDF1": 0.5433573635427394,
+          "IDSW": 24,
+          "MOTA": 0.46888346552776083
+        }
+      }
+    },
+    {
+      "detector": "yolo26n@640 c0.15",
+      "tracker": "sort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 22,
+          "exits": 15,
+          "entry_acc": 0.9,
+          "exit_acc": 0.8461538461538461,
+          "total_acc": 0.8787878787878788,
+          "entry_event": {
+            "precision": 0.8636363636363636,
+            "recall": 0.95,
+            "f1": 0.9047619047619048,
+            "tp": 19,
+            "fp": 3,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.8666666666666667,
+            "recall": 1.0,
+            "f1": 0.9285714285714286,
+            "tp": 13,
+            "fp": 2,
+            "fn": 0
+          },
+          "event_f1_mean": 0.9166666666666667,
+          "rejected": {},
+          "IDF1": 0.7311654403038215,
+          "IDSW": 46,
+          "MOTA": 0.7047783204060136
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 8,
+          "exits": 6,
+          "entry_acc": 0.8,
+          "exit_acc": 0.75,
+          "total_acc": 0.7777777777777778,
+          "entry_event": {
+            "precision": 1.0,
+            "recall": 0.8,
+            "f1": 0.888888888888889,
+            "tp": 8,
+            "fp": 0,
+            "fn": 2
+          },
+          "exit_event": {
+            "precision": 0.8333333333333334,
+            "recall": 0.625,
+            "f1": 0.7142857142857143,
+            "tp": 5,
+            "fp": 1,
+            "fn": 3
+          },
+          "event_f1_mean": 0.8015873015873016,
+          "rejected": {},
+          "IDF1": 0.5572865952612788,
+          "IDSW": 35,
+          "MOTA": 0.2651006711409396
+        }
+      }
+    },
+    {
+      "detector": "yolo11n@960 c0.25",
+      "tracker": "bytetrack",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 26,
+          "exits": 16,
+          "entry_acc": 0.7,
+          "exit_acc": 0.7692307692307692,
+          "total_acc": 0.7272727272727273,
+          "entry_event": {
+            "precision": 0.7307692307692307,
+            "recall": 0.95,
+            "f1": 0.8260869565217392,
+            "tp": 19,
+            "fp": 7,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.75,
+            "recall": 0.9230769230769231,
+            "f1": 0.8275862068965517,
+            "tp": 12,
+            "fp": 4,
+            "fn": 1
+          },
+          "event_f1_mean": 0.8268365817091454,
+          "rejected": {},
+          "IDF1": 0.7607207569961748,
+          "IDSW": 26,
+          "MOTA": 0.7196207986210859
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 9,
+          "exits": 5,
+          "entry_acc": 0.9,
+          "exit_acc": 0.625,
+          "total_acc": 0.7777777777777778,
+          "entry_event": {
+            "precision": 1.0,
+            "recall": 0.9,
+            "f1": 0.9473684210526316,
+            "tp": 9,
+            "fp": 0,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 1.0,
+            "recall": 0.625,
+            "f1": 0.7692307692307693,
+            "tp": 5,
+            "fp": 0,
+            "fn": 3
+          },
+          "event_f1_mean": 0.8582995951417005,
+          "rejected": {},
+          "IDF1": 0.5150197628458498,
+          "IDSW": 19,
+          "MOTA": 0.3682123245881635
+        }
+      }
+    },
+    {
+      "detector": "yolo11n@960 c0.25",
+      "tracker": "ocsort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 21,
+          "exits": 13,
+          "entry_acc": 0.95,
+          "exit_acc": 1.0,
+          "total_acc": 0.9696969696969697,
+          "entry_event": {
+            "precision": 0.9047619047619048,
+            "recall": 0.95,
+            "f1": 0.9268292682926829,
+            "tp": 19,
+            "fp": 2,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.9230769230769231,
+            "recall": 0.9230769230769231,
+            "f1": 0.9230769230769231,
+            "tp": 12,
+            "fp": 1,
+            "fn": 1
+          },
+          "event_f1_mean": 0.924953095684803,
+          "rejected": {},
+          "IDF1": 0.7349870172918623,
+          "IDSW": 32,
+          "MOTA": 0.6835200612850714
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 4,
+          "exits": 4,
+          "entry_acc": 0.4,
+          "exit_acc": 0.5,
+          "total_acc": 0.4444444444444444,
+          "entry_event": {
+            "precision": 1.0,
+            "recall": 0.4,
+            "f1": 0.5714285714285715,
+            "tp": 4,
+            "fp": 0,
+            "fn": 6
+          },
+          "exit_event": {
+            "precision": 1.0,
+            "recall": 0.5,
+            "f1": 0.6666666666666666,
+            "tp": 4,
+            "fp": 0,
+            "fn": 4
+          },
+          "event_f1_mean": 0.6190476190476191,
+          "rejected": {},
+          "IDF1": 0.3586271305159935,
+          "IDSW": 21,
+          "MOTA": 0.2953020134228188
+        }
+      }
+    },
+    {
+      "detector": "yolo11n@960 c0.25",
+      "tracker": "botsort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 21,
+          "exits": 12,
+          "entry_acc": 0.95,
+          "exit_acc": 0.9230769230769231,
+          "total_acc": 1.0,
+          "entry_event": {
+            "precision": 0.9047619047619048,
+            "recall": 0.95,
+            "f1": 0.9268292682926829,
+            "tp": 19,
+            "fp": 2,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.9166666666666666,
+            "recall": 0.8461538461538461,
+            "f1": 0.8799999999999999,
+            "tp": 11,
+            "fp": 1,
+            "fn": 2
+          },
+          "event_f1_mean": 0.9034146341463414,
+          "rejected": {},
+          "IDF1": 0.754816656308266,
+          "IDSW": 42,
+          "MOTA": 0.7180886718375945
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 7,
+          "exits": 5,
+          "entry_acc": 0.7,
+          "exit_acc": 0.625,
+          "total_acc": 0.6666666666666667,
+          "entry_event": {
+            "precision": 1.0,
+            "recall": 0.7,
+            "f1": 0.8235294117647058,
+            "tp": 7,
+            "fp": 0,
+            "fn": 3
+          },
+          "exit_event": {
+            "precision": 1.0,
+            "recall": 0.625,
+            "f1": 0.7692307692307693,
+            "tp": 5,
+            "fp": 0,
+            "fn": 3
+          },
+          "event_f1_mean": 0.7963800904977376,
+          "rejected": {},
+          "IDF1": 0.4470076169749728,
+          "IDSW": 37,
+          "MOTA": 0.3642464917632703
+        }
+      }
+    },
+    {
+      "detector": "yolo11n@960 c0.25",
+      "tracker": "sort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 26,
+          "exits": 17,
+          "entry_acc": 0.7,
+          "exit_acc": 0.6923076923076923,
+          "total_acc": 0.696969696969697,
+          "entry_event": {
+            "precision": 0.7307692307692307,
+            "recall": 0.95,
+            "f1": 0.8260869565217392,
+            "tp": 19,
+            "fp": 7,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.7058823529411765,
+            "recall": 0.9230769230769231,
+            "f1": 0.8000000000000002,
+            "tp": 12,
+            "fp": 5,
+            "fn": 1
+          },
+          "event_f1_mean": 0.8130434782608698,
+          "rejected": {},
+          "IDF1": 0.7569771392515653,
+          "IDSW": 35,
+          "MOTA": 0.7169395767499761
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 8,
+          "exits": 8,
+          "entry_acc": 0.8,
+          "exit_acc": 1.0,
+          "total_acc": 0.8888888888888888,
+          "entry_event": {
+            "precision": 1.0,
+            "recall": 0.8,
+            "f1": 0.888888888888889,
+            "tp": 8,
+            "fp": 0,
+            "fn": 2
+          },
+          "exit_event": {
+            "precision": 0.75,
+            "recall": 0.75,
+            "f1": 0.75,
+            "tp": 6,
+            "fp": 2,
+            "fn": 2
+          },
+          "event_f1_mean": 0.8194444444444444,
+          "rejected": {},
+          "IDF1": 0.45192776964372866,
+          "IDSW": 31,
+          "MOTA": 0.11531421598535692
+        }
+      }
+    },
+    {
+      "detector": "yolo11n@960 c0.15",
+      "tracker": "bytetrack",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 25,
+          "exits": 15,
+          "entry_acc": 0.75,
+          "exit_acc": 0.8461538461538461,
+          "total_acc": 0.7878787878787878,
+          "entry_event": {
+            "precision": 0.76,
+            "recall": 0.95,
+            "f1": 0.8444444444444444,
+            "tp": 19,
+            "fp": 6,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.8,
+            "recall": 0.9230769230769231,
+            "f1": 0.8571428571428571,
+            "tp": 12,
+            "fp": 3,
+            "fn": 1
+          },
+          "event_f1_mean": 0.8507936507936508,
+          "rejected": {},
+          "IDF1": 0.7787364871566003,
+          "IDSW": 27,
+          "MOTA": 0.7222062625682275
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 10,
+          "exits": 6,
+          "entry_acc": 1.0,
+          "exit_acc": 0.75,
+          "total_acc": 0.8888888888888888,
+          "entry_event": {
+            "precision": 0.9,
+            "recall": 0.9,
+            "f1": 0.9,
+            "tp": 9,
+            "fp": 1,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.8333333333333334,
+            "recall": 0.625,
+            "f1": 0.7142857142857143,
+            "tp": 5,
+            "fp": 1,
+            "fn": 3
+          },
+          "event_f1_mean": 0.8071428571428572,
+          "rejected": {},
+          "IDF1": 0.5478559797358422,
+          "IDSW": 14,
+          "MOTA": 0.29377669310555216
+        }
+      }
+    },
+    {
+      "detector": "yolo11n@960 c0.15",
+      "tracker": "ocsort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 21,
+          "exits": 13,
+          "entry_acc": 0.95,
+          "exit_acc": 1.0,
+          "total_acc": 0.9696969696969697,
+          "entry_event": {
+            "precision": 0.9047619047619048,
+            "recall": 0.95,
+            "f1": 0.9268292682926829,
+            "tp": 19,
+            "fp": 2,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.9230769230769231,
+            "recall": 0.9230769230769231,
+            "f1": 0.9230769230769231,
+            "tp": 12,
+            "fp": 1,
+            "fn": 1
+          },
+          "event_f1_mean": 0.924953095684803,
+          "rejected": {},
+          "IDF1": 0.7349870172918623,
+          "IDSW": 32,
+          "MOTA": 0.6835200612850714
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 4,
+          "exits": 4,
+          "entry_acc": 0.4,
+          "exit_acc": 0.5,
+          "total_acc": 0.4444444444444444,
+          "entry_event": {
+            "precision": 1.0,
+            "recall": 0.4,
+            "f1": 0.5714285714285715,
+            "tp": 4,
+            "fp": 0,
+            "fn": 6
+          },
+          "exit_event": {
+            "precision": 1.0,
+            "recall": 0.5,
+            "f1": 0.6666666666666666,
+            "tp": 4,
+            "fp": 0,
+            "fn": 4
+          },
+          "event_f1_mean": 0.6190476190476191,
+          "rejected": {},
+          "IDF1": 0.3586271305159935,
+          "IDSW": 21,
+          "MOTA": 0.2953020134228188
+        }
+      }
+    },
+    {
+      "detector": "yolo11n@960 c0.15",
+      "tracker": "botsort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 22,
+          "exits": 13,
+          "entry_acc": 0.9,
+          "exit_acc": 1.0,
+          "total_acc": 0.9393939393939394,
+          "entry_event": {
+            "precision": 0.8636363636363636,
+            "recall": 0.95,
+            "f1": 0.9047619047619048,
+            "tp": 19,
+            "fp": 3,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.8461538461538461,
+            "recall": 0.8461538461538461,
+            "f1": 0.8461538461538461,
+            "tp": 11,
+            "fp": 2,
+            "fn": 2
+          },
+          "event_f1_mean": 0.8754578754578755,
+          "rejected": {},
+          "IDF1": 0.7461939307244304,
+          "IDSW": 41,
+          "MOTA": 0.7206741357847362
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 7,
+          "exits": 5,
+          "entry_acc": 0.7,
+          "exit_acc": 0.625,
+          "total_acc": 0.6666666666666667,
+          "entry_event": {
+            "precision": 1.0,
+            "recall": 0.7,
+            "f1": 0.8235294117647058,
+            "tp": 7,
+            "fp": 0,
+            "fn": 3
+          },
+          "exit_event": {
+            "precision": 1.0,
+            "recall": 0.625,
+            "f1": 0.7692307692307693,
+            "tp": 5,
+            "fp": 0,
+            "fn": 3
+          },
+          "event_f1_mean": 0.7963800904977376,
+          "rejected": {},
+          "IDF1": 0.4875664187035069,
+          "IDSW": 34,
+          "MOTA": 0.38102501525320315
+        }
+      }
+    },
+    {
+      "detector": "yolo11n@960 c0.15",
+      "tracker": "sort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 25,
+          "exits": 14,
+          "entry_acc": 0.75,
+          "exit_acc": 0.9230769230769231,
+          "total_acc": 0.8181818181818181,
+          "entry_event": {
+            "precision": 0.76,
+            "recall": 0.95,
+            "f1": 0.8444444444444444,
+            "tp": 19,
+            "fp": 6,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.8571428571428571,
+            "recall": 0.9230769230769231,
+            "f1": 0.888888888888889,
+            "tp": 12,
+            "fp": 2,
+            "fn": 1
+          },
+          "event_f1_mean": 0.8666666666666667,
+          "rejected": {},
+          "IDF1": 0.727942565652749,
+          "IDSW": 56,
+          "MOTA": 0.704491046634109
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 12,
+          "exits": 11,
+          "entry_acc": 0.8,
+          "exit_acc": 0.625,
+          "total_acc": 0.7222222222222222,
+          "entry_event": {
+            "precision": 0.6666666666666666,
+            "recall": 0.8,
+            "f1": 0.7272727272727272,
+            "tp": 8,
+            "fp": 4,
+            "fn": 2
+          },
+          "exit_event": {
+            "precision": 0.45454545454545453,
+            "recall": 0.625,
+            "f1": 0.5263157894736842,
+            "tp": 5,
+            "fp": 6,
+            "fn": 3
+          },
+          "event_f1_mean": 0.6267942583732057,
+          "rejected": {},
+          "IDF1": 0.4249306747656147,
+          "IDSW": 28,
+          "MOTA": -0.2492373398413667
+        }
+      }
+    },
+    {
+      "detector": "yolo11s@640 c0.25",
+      "tracker": "bytetrack",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 22,
+          "exits": 16,
+          "entry_acc": 0.9,
+          "exit_acc": 0.7692307692307692,
+          "total_acc": 0.8484848484848485,
+          "entry_event": {
+            "precision": 0.9090909090909091,
+            "recall": 1.0,
+            "f1": 0.9523809523809523,
+            "tp": 20,
+            "fp": 2,
+            "fn": 0
+          },
+          "exit_event": {
+            "precision": 0.8125,
+            "recall": 1.0,
+            "f1": 0.896551724137931,
+            "tp": 13,
+            "fp": 3,
+            "fn": 0
+          },
+          "event_f1_mean": 0.9244663382594417,
+          "rejected": {},
+          "IDF1": 0.7737334719952459,
+          "IDSW": 27,
+          "MOTA": 0.7180886718375945
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 11,
+          "exits": 10,
+          "entry_acc": 0.9,
+          "exit_acc": 0.75,
+          "total_acc": 0.8333333333333334,
+          "entry_event": {
+            "precision": 0.6363636363636364,
+            "recall": 0.7,
+            "f1": 0.6666666666666666,
+            "tp": 7,
+            "fp": 4,
+            "fn": 3
+          },
+          "exit_event": {
+            "precision": 0.7,
+            "recall": 0.875,
+            "f1": 0.7777777777777777,
+            "tp": 7,
+            "fp": 3,
+            "fn": 1
+          },
+          "event_f1_mean": 0.7222222222222221,
+          "rejected": {},
+          "IDF1": 0.5487710619879425,
+          "IDSW": 21,
+          "MOTA": 0.17388651616839537
+        }
+      }
+    },
+    {
+      "detector": "yolo11s@640 c0.25",
+      "tracker": "ocsort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 21,
+          "exits": 14,
+          "entry_acc": 0.95,
+          "exit_acc": 0.9230769230769231,
+          "total_acc": 0.9393939393939394,
+          "entry_event": {
+            "precision": 0.9047619047619048,
+            "recall": 0.95,
+            "f1": 0.9268292682926829,
+            "tp": 19,
+            "fp": 2,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.8571428571428571,
+            "recall": 0.9230769230769231,
+            "f1": 0.888888888888889,
+            "tp": 12,
+            "fp": 2,
+            "fn": 1
+          },
+          "event_f1_mean": 0.9078590785907859,
+          "rejected": {},
+          "IDF1": 0.7947927736450584,
+          "IDSW": 26,
+          "MOTA": 0.7144498707268027
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 7,
+          "exits": 6,
+          "entry_acc": 0.7,
+          "exit_acc": 0.75,
+          "total_acc": 0.7222222222222222,
+          "entry_event": {
+            "precision": 1.0,
+            "recall": 0.7,
+            "f1": 0.8235294117647058,
+            "tp": 7,
+            "fp": 0,
+            "fn": 3
+          },
+          "exit_event": {
+            "precision": 1.0,
+            "recall": 0.75,
+            "f1": 0.8571428571428571,
+            "tp": 6,
+            "fp": 0,
+            "fn": 2
+          },
+          "event_f1_mean": 0.8403361344537814,
+          "rejected": {},
+          "IDF1": 0.5140546784751636,
+          "IDSW": 16,
+          "MOTA": 0.3422818791946309
+        }
+      }
+    },
+    {
+      "detector": "yolo11s@640 c0.25",
+      "tracker": "botsort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 21,
+          "exits": 14,
+          "entry_acc": 0.95,
+          "exit_acc": 0.9230769230769231,
+          "total_acc": 0.9393939393939394,
+          "entry_event": {
+            "precision": 0.9047619047619048,
+            "recall": 0.95,
+            "f1": 0.9268292682926829,
+            "tp": 19,
+            "fp": 2,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.8571428571428571,
+            "recall": 0.9230769230769231,
+            "f1": 0.888888888888889,
+            "tp": 12,
+            "fp": 2,
+            "fn": 1
+          },
+          "event_f1_mean": 0.9078590785907859,
+          "rejected": {},
+          "IDF1": 0.7756449319520617,
+          "IDSW": 36,
+          "MOTA": 0.722876568036005
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 10,
+          "exits": 9,
+          "entry_acc": 1.0,
+          "exit_acc": 0.875,
+          "total_acc": 0.9444444444444444,
+          "entry_event": {
+            "precision": 0.7,
+            "recall": 0.7,
+            "f1": 0.7,
+            "tp": 7,
+            "fp": 3,
+            "fn": 3
+          },
+          "exit_event": {
+            "precision": 0.6666666666666666,
+            "recall": 0.75,
+            "f1": 0.7058823529411765,
+            "tp": 6,
+            "fp": 3,
+            "fn": 2
+          },
+          "event_f1_mean": 0.7029411764705882,
+          "rejected": {},
+          "IDF1": 0.5270008795074758,
+          "IDSW": 28,
+          "MOTA": 0.31574130567419156
+        }
+      }
+    },
+    {
+      "detector": "yolo11s@640 c0.25",
+      "tracker": "sort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 22,
+          "exits": 16,
+          "entry_acc": 0.9,
+          "exit_acc": 0.7692307692307692,
+          "total_acc": 0.8484848484848485,
+          "entry_event": {
+            "precision": 0.9090909090909091,
+            "recall": 1.0,
+            "f1": 0.9523809523809523,
+            "tp": 20,
+            "fp": 2,
+            "fn": 0
+          },
+          "exit_event": {
+            "precision": 0.8125,
+            "recall": 1.0,
+            "f1": 0.896551724137931,
+            "tp": 13,
+            "fp": 3,
+            "fn": 0
+          },
+          "event_f1_mean": 0.9244663382594417,
+          "rejected": {},
+          "IDF1": 0.7675334143377885,
+          "IDSW": 35,
+          "MOTA": 0.7178971559896582
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 12,
+          "exits": 11,
+          "entry_acc": 0.8,
+          "exit_acc": 0.625,
+          "total_acc": 0.7222222222222222,
+          "entry_event": {
+            "precision": 0.5833333333333334,
+            "recall": 0.7,
+            "f1": 0.6363636363636365,
+            "tp": 7,
+            "fp": 5,
+            "fn": 3
+          },
+          "exit_event": {
+            "precision": 0.6363636363636364,
+            "recall": 0.875,
+            "f1": 0.7368421052631579,
+            "tp": 7,
+            "fp": 4,
+            "fn": 1
+          },
+          "event_f1_mean": 0.6866028708133971,
+          "rejected": {},
+          "IDF1": 0.4715989229388383,
+          "IDSW": 38,
+          "MOTA": -0.1802928615009152
+        }
+      }
+    },
+    {
+      "detector": "yolo11s@640 c0.15",
+      "tracker": "bytetrack",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 22,
+          "exits": 15,
+          "entry_acc": 0.9,
+          "exit_acc": 0.8461538461538461,
+          "total_acc": 0.8787878787878788,
+          "entry_event": {
+            "precision": 0.9090909090909091,
+            "recall": 1.0,
+            "f1": 0.9523809523809523,
+            "tp": 20,
+            "fp": 2,
+            "fn": 0
+          },
+          "exit_event": {
+            "precision": 0.8,
+            "recall": 0.9230769230769231,
+            "f1": 0.8571428571428571,
+            "tp": 12,
+            "fp": 3,
+            "fn": 1
+          },
+          "event_f1_mean": 0.9047619047619047,
+          "rejected": {},
+          "IDF1": 0.8013131461610074,
+          "IDSW": 22,
+          "MOTA": 0.7199080723929905
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 12,
+          "exits": 10,
+          "entry_acc": 0.8,
+          "exit_acc": 0.75,
+          "total_acc": 0.7777777777777778,
+          "entry_event": {
+            "precision": 0.6666666666666666,
+            "recall": 0.8,
+            "f1": 0.7272727272727272,
+            "tp": 8,
+            "fp": 4,
+            "fn": 2
+          },
+          "exit_event": {
+            "precision": 0.7,
+            "recall": 0.875,
+            "f1": 0.7777777777777777,
+            "tp": 7,
+            "fp": 3,
+            "fn": 1
+          },
+          "event_f1_mean": 0.7525252525252524,
+          "rejected": {},
+          "IDF1": 0.5331184056271981,
+          "IDSW": 23,
+          "MOTA": 0.09487492373398414
+        }
+      }
+    },
+    {
+      "detector": "yolo11s@640 c0.15",
+      "tracker": "ocsort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 21,
+          "exits": 14,
+          "entry_acc": 0.95,
+          "exit_acc": 0.9230769230769231,
+          "total_acc": 0.9393939393939394,
+          "entry_event": {
+            "precision": 0.9047619047619048,
+            "recall": 0.95,
+            "f1": 0.9268292682926829,
+            "tp": 19,
+            "fp": 2,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.8571428571428571,
+            "recall": 0.9230769230769231,
+            "f1": 0.888888888888889,
+            "tp": 12,
+            "fp": 2,
+            "fn": 1
+          },
+          "event_f1_mean": 0.9078590785907859,
+          "rejected": {},
+          "IDF1": 0.7947927736450584,
+          "IDSW": 26,
+          "MOTA": 0.7144498707268027
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 7,
+          "exits": 6,
+          "entry_acc": 0.7,
+          "exit_acc": 0.75,
+          "total_acc": 0.7222222222222222,
+          "entry_event": {
+            "precision": 1.0,
+            "recall": 0.7,
+            "f1": 0.8235294117647058,
+            "tp": 7,
+            "fp": 0,
+            "fn": 3
+          },
+          "exit_event": {
+            "precision": 1.0,
+            "recall": 0.75,
+            "f1": 0.8571428571428571,
+            "tp": 6,
+            "fp": 0,
+            "fn": 2
+          },
+          "event_f1_mean": 0.8403361344537814,
+          "rejected": {},
+          "IDF1": 0.5140546784751636,
+          "IDSW": 16,
+          "MOTA": 0.3422818791946309
+        }
+      }
+    },
+    {
+      "detector": "yolo11s@640 c0.15",
+      "tracker": "botsort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 21,
+          "exits": 14,
+          "entry_acc": 0.95,
+          "exit_acc": 0.9230769230769231,
+          "total_acc": 0.9393939393939394,
+          "entry_event": {
+            "precision": 0.9047619047619048,
+            "recall": 0.95,
+            "f1": 0.9268292682926829,
+            "tp": 19,
+            "fp": 2,
+            "fn": 1
+          },
+          "exit_event": {
+            "precision": 0.8571428571428571,
+            "recall": 0.9230769230769231,
+            "f1": 0.888888888888889,
+            "tp": 12,
+            "fp": 2,
+            "fn": 1
+          },
+          "event_f1_mean": 0.9078590785907859,
+          "rejected": {},
+          "IDF1": 0.7740577385725742,
+          "IDSW": 37,
+          "MOTA": 0.7181844297615627
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 10,
+          "exits": 9,
+          "entry_acc": 1.0,
+          "exit_acc": 0.875,
+          "total_acc": 0.9444444444444444,
+          "entry_event": {
+            "precision": 0.7,
+            "recall": 0.7,
+            "f1": 0.7,
+            "tp": 7,
+            "fp": 3,
+            "fn": 3
+          },
+          "exit_event": {
+            "precision": 0.6666666666666666,
+            "recall": 0.75,
+            "f1": 0.7058823529411765,
+            "tp": 6,
+            "fp": 3,
+            "fn": 2
+          },
+          "event_f1_mean": 0.7029411764705882,
+          "rejected": {},
+          "IDF1": 0.5237771739130435,
+          "IDSW": 28,
+          "MOTA": 0.27638804148871265
+        }
+      }
+    },
+    {
+      "detector": "yolo11s@640 c0.15",
+      "tracker": "sort",
+      "counter": "v1",
+      "views": {
+        "corridor": {
+          "clips": 8,
+          "gt_entries": 20,
+          "gt_exits": 13,
+          "entries": 22,
+          "exits": 15,
+          "entry_acc": 0.9,
+          "exit_acc": 0.8461538461538461,
+          "total_acc": 0.8787878787878788,
+          "entry_event": {
+            "precision": 0.9090909090909091,
+            "recall": 1.0,
+            "f1": 0.9523809523809523,
+            "tp": 20,
+            "fp": 2,
+            "fn": 0
+          },
+          "exit_event": {
+            "precision": 0.8,
+            "recall": 0.9230769230769231,
+            "f1": 0.8571428571428571,
+            "tp": 12,
+            "fp": 3,
+            "fn": 1
+          },
+          "event_f1_mean": 0.9047619047619047,
+          "rejected": {},
+          "IDF1": 0.7681980480837896,
+          "IDSW": 41,
+          "MOTA": 0.71138561715982
+        },
+        "front": {
+          "clips": 8,
+          "gt_entries": 10,
+          "gt_exits": 8,
+          "entries": 12,
+          "exits": 12,
+          "entry_acc": 0.8,
+          "exit_acc": 0.5,
+          "total_acc": 0.6666666666666667,
+          "entry_event": {
+            "precision": 0.5833333333333334,
+            "recall": 0.7,
+            "f1": 0.6363636363636365,
+            "tp": 7,
+            "fp": 5,
+            "fn": 3
+          },
+          "exit_event": {
+            "precision": 0.5833333333333334,
+            "recall": 0.875,
+            "f1": 0.7000000000000001,
+            "tp": 7,
+            "fp": 5,
+            "fn": 1
+          },
+          "event_f1_mean": 0.6681818181818182,
+          "rejected": {},
+          "IDF1": 0.4039470921688012,
+          "IDSW": 36,
+          "MOTA": -0.6619890176937157
+        }
+      }
+    }
+  ],
+  "folds": [
+    {
+      "tune": "corridor",
+      "test": "front",
+      "detector": "yolo26n@640 c0.15",
+      "tracker": "bytetrack",
+      "setting": {
+        "mode": "gate",
+        "gate_px": 12.0,
+        "min_track_age_s": 0.0,
+        "direction_mode": "off",
+        "confirm_s": 0.5
+      },
+      "tune_summary": {
+        "clips": 8,
+        "gt_entries": 20,
+        "gt_exits": 13,
+        "entries": 19,
+        "exits": 13,
+        "entry_acc": 0.95,
+        "exit_acc": 1.0,
+        "total_acc": 0.9696969696969697,
+        "entry_event": {
+          "precision": 1.0,
+          "recall": 0.95,
+          "f1": 0.9743589743589743,
+          "tp": 19,
+          "fp": 0,
+          "fn": 1
+        },
+        "exit_event": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "tp": 13,
+          "fp": 0,
+          "fn": 0
+        },
+        "event_f1_mean": 0.9871794871794872,
+        "rejected": {
+          "too_young": 0,
+          "direction": 0,
+          "displacement": 0,
+          "repeat": 0,
+          "cooldown": 0,
+          "reverted": 5
+        }
+      },
+      "test_summary": {
+        "clips": 8,
+        "gt_entries": 10,
+        "gt_exits": 8,
+        "entries": 7,
+        "exits": 2,
+        "entry_acc": 0.7,
+        "exit_acc": 0.25,
+        "total_acc": 0.5,
+        "entry_event": {
+          "precision": 1.0,
+          "recall": 0.7,
+          "f1": 0.8235294117647058,
+          "tp": 7,
+          "fp": 0,
+          "fn": 3
+        },
+        "exit_event": {
+          "precision": 1.0,
+          "recall": 0.25,
+          "f1": 0.4,
+          "tp": 2,
+          "fp": 0,
+          "fn": 6
+        },
+        "event_f1_mean": 0.611764705882353,
+        "rejected": {
+          "too_young": 0,
+          "direction": 0,
+          "displacement": 0,
+          "repeat": 0,
+          "cooldown": 0,
+          "reverted": 0
+        }
+      }
+    },
+    {
+      "tune": "front",
+      "test": "corridor",
+      "detector": "yolo11n@960 c0.25",
+      "tracker": "bytetrack",
+      "setting": {
+        "mode": "gate",
+        "gate_px": 8.0,
+        "min_track_age_s": 0.0,
+        "direction_mode": "off",
+        "confirm_s": 0.0
+      },
+      "tune_summary": {
+        "clips": 8,
+        "gt_entries": 10,
+        "gt_exits": 8,
+        "entries": 9,
+        "exits": 6,
+        "entry_acc": 0.9,
+        "exit_acc": 0.75,
+        "total_acc": 0.8333333333333334,
+        "entry_event": {
+          "precision": 1.0,
+          "recall": 0.9,
+          "f1": 0.9473684210526316,
+          "tp": 9,
+          "fp": 0,
+          "fn": 1
+        },
+        "exit_event": {
+          "precision": 1.0,
+          "recall": 0.75,
+          "f1": 0.8571428571428571,
+          "tp": 6,
+          "fp": 0,
+          "fn": 2
+        },
+        "event_f1_mean": 0.9022556390977443,
+        "rejected": {
+          "too_young": 0,
+          "direction": 0,
+          "displacement": 0,
+          "repeat": 0,
+          "cooldown": 0,
+          "reverted": 0
+        }
+      },
+      "test_summary": {
+        "clips": 8,
+        "gt_entries": 20,
+        "gt_exits": 13,
+        "entries": 24,
+        "exits": 14,
+        "entry_acc": 0.8,
+        "exit_acc": 0.9230769230769231,
+        "total_acc": 0.8484848484848485,
+        "entry_event": {
+          "precision": 0.75,
+          "recall": 0.9,
+          "f1": 0.8181818181818182,
+          "tp": 18,
+          "fp": 6,
+          "fn": 2
+        },
+        "exit_event": {
+          "precision": 0.8571428571428571,
+          "recall": 0.9230769230769231,
+          "f1": 0.888888888888889,
+          "tp": 12,
+          "fp": 2,
+          "fn": 1
+        },
+        "event_f1_mean": 0.8535353535353536,
+        "rejected": {
+          "too_young": 0,
+          "direction": 0,
+          "displacement": 0,
+          "repeat": 8,
+          "cooldown": 0,
+          "reverted": 0
+        }
+      }
+    }
+  ],
+  "cv_held_out": {
+    "clips": 16,
+    "gt_entries": 30,
+    "gt_exits": 21,
+    "entries": 31,
+    "exits": 16,
+    "entry_acc": 0.9666666666666667,
+    "exit_acc": 0.7619047619047619,
+    "total_acc": 0.9215686274509804,
+    "entry_event": {
+      "precision": 0.8064516129032258,
+      "recall": 0.8333333333333334,
+      "f1": 0.819672131147541,
+      "tp": 25,
+      "fp": 6,
+      "fn": 5
+    },
+    "exit_event": {
+      "precision": 0.875,
+      "recall": 0.6666666666666666,
+      "f1": 0.7567567567567567,
+      "tp": 14,
+      "fp": 2,
+      "fn": 7
+    },
+    "event_f1_mean": 0.7882144439521488,
+    "rejected": {
+      "too_young": 0,
+      "direction": 0,
+      "displacement": 0,
+      "repeat": 8,
+      "cooldown": 0,
+      "reverted": 0
+    }
+  },
+  "baseline_bytetrack_v1": {
+    "clips": 16,
+    "gt_entries": 30,
+    "gt_exits": 21,
+    "entries": 33,
+    "exits": 24,
+    "entry_acc": 0.9,
+    "exit_acc": 0.8571428571428572,
+    "total_acc": 0.8823529411764706,
+    "entry_event": {
+      "precision": 0.8484848484848485,
+      "recall": 0.9333333333333333,
+      "f1": 0.888888888888889,
+      "tp": 28,
+      "fp": 5,
+      "fn": 2
+    },
+    "exit_event": {
+      "precision": 0.7083333333333334,
+      "recall": 0.8095238095238095,
+      "f1": 0.7555555555555556,
+      "tp": 17,
+      "fp": 7,
+      "fn": 4
+    },
+    "event_f1_mean": 0.8222222222222223,
+    "rejected": {}
+  },
+  "shipped": {
+    "detector": "yolo11s@640 c0.25",
+    "tracker": "bytetrack",
+    "setting": {
+      "mode": "gate",
+      "gate_px": 8.0,
+      "min_track_age_s": 0.0,
+      "direction_mode": "off",
+      "confirm_s": 0.5
+    },
+    "in_sample": {
+      "clips": 16,
+      "gt_entries": 30,
+      "gt_exits": 21,
+      "entries": 28,
+      "exits": 21,
+      "entry_acc": 0.9333333333333333,
+      "exit_acc": 1.0,
+      "total_acc": 0.9607843137254902,
+      "entry_event": {
+        "precision": 0.9285714285714286,
+        "recall": 0.8666666666666667,
+        "f1": 0.896551724137931,
+        "tp": 26,
+        "fp": 2,
+        "fn": 4
+      },
+      "exit_event": {
+        "precision": 0.9523809523809523,
+        "recall": 0.9523809523809523,
+        "f1": 0.9523809523809523,
+        "tp": 20,
+        "fp": 1,
+        "fn": 1
+      },
+      "event_f1_mean": 0.9244663382594417,
+      "rejected": {
+        "too_young": 0,
+        "direction": 0,
+        "displacement": 0,
+        "repeat": 0,
+        "cooldown": 0,
+        "reverted": 7
+      }
+    }
+  }
+}

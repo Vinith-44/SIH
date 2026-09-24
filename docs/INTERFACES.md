@@ -256,4 +256,6 @@ Buckets: **A** public benchmark · **B** our own recording · **C** simulation (
 | `shelves[].drift_alpha` | 0.05 (0) | slow reference update while confidently FULL |
 | `shelves[].rectify_size`, `occluded_unknown_cycles`, `lux_node` | (96,128), 10, null | warp size; UNKNOWN after long occlusion; which ENVIRONMENT node's lux applies |
 | `shelves[].weight_mode`, `disagree_fill` | `fuse`, 0.4 | load-cell fusion; camera/weight disagreement → "check shelf" |
+| `shelves[].empty_threshold`, `low_threshold` | **0.28, 0.5** (0.15, 0.4) | defaults changed for the v2 fill scale (tuned on synthetic seeds 1-10) |
+| `SENSOR` with `sensor: "restock"`, `channel: <shelf>` | - | how the bridge publishes the `$R` restock button (no new event type) |
 | `shelves[].slots[].full_grams`, `deep` | null, false | weight when full (null = learnt at restock); deep shelf → weight wins |

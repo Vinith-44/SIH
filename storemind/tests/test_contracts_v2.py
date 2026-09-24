@@ -382,3 +382,13 @@ def test_m6_pickup_action_units_and_config_fields():
     assert AlertsConfig().open_hours == []
     with pytest.raises(ValidationError):
         AlertsConfig(open_hours=["25:00-26:00"])
+
+
+def test_m9_qnn_backends_are_valid_config():
+    from storemind.core.config import DetectorConfig
+
+    det = DetectorConfig(backend="litert_qnn", model="m.tflite", qnn_lib="libQnnTFLiteDelegate.so")
+    assert det.require_accelerator is False
+    assert DetectorConfig(backend="ort_qnn", model="m.onnx").qnn_lib is None
+    with pytest.raises(ValidationError):
+        DetectorConfig(backend="tensorrt")

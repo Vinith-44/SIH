@@ -194,13 +194,18 @@ class CameraConfig(_Model):
 
 
 class DetectorConfig(_Model):
-    backend: Literal["ultralytics", "litert", "onnx", "scripted", "stub"] = "ultralytics"
+    # litert_qnn / ort_qnn (M9): Qualcomm Hexagon NPU via the QNN delegate / execution provider.
+    backend: Literal["ultralytics", "litert", "onnx", "litert_qnn", "ort_qnn", "scripted", "stub"] = "ultralytics"
     model: str = "yolo11n.pt"
     conf: float = 0.35
     iou: float = 0.5
     person_class: int = 0
     num_threads: int = 4
     imgsz: int = 640
+    # QNN library: libQnnTFLiteDelegate.so (litert_qnn) or libQnnHtp.so / QnnHtp.dll (ort_qnn).
+    qnn_lib: str | None = None
+    # If the accelerator cannot be loaded: fall back to CPU (and say so) or refuse to start.
+    require_accelerator: bool = False
 
 
 class TrackerConfig(_Model):

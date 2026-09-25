@@ -142,3 +142,24 @@ Measured:
   bridge 146 lines / 0 errors.
 - `pytest -q tests/test_platform_panels.py` → 16 passed; full suite below.
 - `pytest -q` → 539 passed, 6 skipped; `ruff check .` clean.
+
+## 2026-09-25 — M7b: operations - systemd, install script, maintenance, soak + chaos (`b/m7b-ops`)
+
+Roadmap step 9. Docs: `docs/OPERATIONS.md`.
+
+- `deploy/pi5/systemd/`: pipeline (Type=notify, WatchdogSec=60, MemoryMax, hardening), bridge (notify,
+  WatchdogSec=30, BindsTo the /dev/storemind-mcu device), go2rtc, nightly maintenance service + timer;
+  `deploy/pi5/mosquitto/storemind.conf` (localhost, password, persistence); journald cap (200 MB, 14 days).
+- `scripts/install_pi5.sh`: idempotent one-command install/update (apt, user, /opt code + venv, pinned
+  go2rtc/MediaMTX arm64, /etc/storemind config + generated MQTT secret never overwritten, Mosquitto
+  password, units, timer); `--dry-run`, `--pi-hardware` (M8). `.gitattributes` keeps LF for Pi files.
+- `storemind/store/maintenance.py`: retention purge (nobody called `purge_old_events` before), WAL
+  checkpoint(TRUNCATE), optimize, VACUUM when > 25 % free.
+- `scripts/harness.py`, `scripts/soak.py`, `scripts/chaos.py`: in-process box (pipeline on live RTSP from fake
+  CCTV + bridge + simulator + API); soak samples RSS/threads/handles/DB/WAL/events/serial errors, fits growth;
+  chaos kills a stream, unplugs the node, fills the disk.
+
+Checks:
+- `bash -n scripts/install_pi5.sh` OK; `bash scripts/install_pi5.sh --dry-run` walks all 8 steps.
+- `pytest -q tests/test_ops.py` → 6 passed, 1 skipped (sd_notify socket test runs on Linux/CI only).
+- Not run: the install itself (no Pi here).

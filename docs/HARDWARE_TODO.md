@@ -131,3 +131,27 @@ CI; **nothing below has been run on hardware yet**, so every number from here is
 7. Full HIL: `python tools/hil_test.py --port COM5 --minutes 60` - acceptance for M5 is **0 framing
    errors in 1 h** and every command answered first time.
 8. On the Pi (after M8): the same with `--port /dev/storemind-mcu`.
+
+## M8-deploy - StoreMind on the Pi 5 + 24 h soak (Ram; not run yet)
+
+Needs: the Pi 5 (27 W supply, active cooler, RTC battery if bought), the STM32 node wired to the header
+UART, the shop LAN (or a phone hotspot) and ideally one real camera. Everything below is scripted and
+dry-run on the laptop; **nothing has been run on the Pi**.
+
+1. `docs/SETUP_PI5.md` §1-2: flash Bookworm Lite 64-bit, `sudo ./scripts/install_pi5.sh --pi-hardware`,
+   reboot, `./scripts/pi5_check.sh` → paste the output into `logs/WORK_LOG_B.md`.
+2. Link: `python tools/hil_test.py --port /dev/storemind-mcu --minutes 60` with the services stopped
+   (`sudo systemctl stop storemind-bridge storemind-pipeline`) → `hil_<date>_board.json`, bucket B.
+3. Time: set the DVR's NTP server to the Pi; after 1 h compare the DVR clock with `date` on the Pi and
+   note the offset. Unplug the Pi's Ethernet, reboot it: `timedatectl` must still show the right time (RTC).
+4. Detector speed: HARDWARE_TODO "M8" (Vinith's `bench_pi.py`), so the shipped model is known.
+5. 24 h soak on the Pi with the real model and the real node:
+   `cd /opt/storemind && sudo -u storemind storemind/.venv/bin/python scripts/soak.py --hours 24 --detector ultralytics --no-cctv --real-node --config /etc/storemind/store.yaml --device "Raspberry Pi 5 8GB" --label pi5_24h`
+   with `storemind-pipeline` and `storemind-bridge` stopped first (the soak runs the same stack in one
+   process; go2rtc and Mosquitto stay up). Acceptance: PASS on every check, RSS growth < 20 MB/h,
+   0 serial errors. Commit `soak_pi5_24h.json` + `.csv`.
+6. Chaos on the Pi: `python scripts/chaos.py --label pi5`, then by hand: `sudo systemctl restart mosquitto`
+   (the dashboard must recover within 1 min), cover the camera lens (CAMERA_TAMPER alert + tower light),
+   pull the STM32 USB/UART (SENSOR_LINK alert, bridge back by itself). Note each result in the work log.
+7. Acceptance tests that need the Pi + hardware, in this order: "M5" (board HIL), "M6" (MEMS shelf,
+   `tools/mems_test.py`), "M4" (canteen clip), "M1" (IR beams at the door).

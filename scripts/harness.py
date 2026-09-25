@@ -63,6 +63,7 @@ class Harness:
     api_port: int = 8766
     sim_speed: float = 1.0
     use_cctv: bool = True
+    use_sim: bool = True             # False: the real node on sensors.port (the Pi)
     detector: str = "stub"
     config_path: Path | None = None
     cctv: object | None = None
@@ -78,14 +79,17 @@ class Harness:
         config = (load_config(self.config_path) if self.config_path
                   else load_config(STOREMIND / "configs" / "demo.yaml"))
         config.storage.db_path = str(self.db_path)
-        config.detector.backend = self.detector
-        config.detector.model = ""
+        if self.detector != config.detector.backend:
+            config.detector.backend = self.detector
+            if self.detector in ("stub", "scripted"):
+                config.detector.model = ""       # no weights needed; a real backend keeps the config's model
         config.api.port = self.api_port
         config.sensors.enabled = True
-        config.sensors.tcp = f"127.0.0.1:{self.sim_port}"
-        config.sensors.cell_map = {"shelf-a/A1": "1", "shelf-a/A2": "2"}
-        config.sensors.mems_nodes = [MemsNodeConfig(id="m1", role="shelf", shelf="shelf-a", slot="A1"),
-                                     MemsNodeConfig(id="m2", role="camera_mount", cam="entrance")]
+        if self.use_sim:
+            config.sensors.tcp = f"127.0.0.1:{self.sim_port}"
+            config.sensors.cell_map = {"shelf-a/A1": "1", "shelf-a/A2": "2"}
+            config.sensors.mems_nodes = [MemsNodeConfig(id="m1", role="shelf", shelf="shelf-a", slot="A1"),
+                                         MemsNodeConfig(id="m2", role="camera_mount", cam="entrance")]
         if self.use_cctv:
             order = list(CLIPS)
             for cam in config.cameras:
@@ -117,10 +121,14 @@ class Harness:
     def start(self, run_seconds: float) -> None:
         if self.use_cctv:
             self.start_cctv()
-        self.start_sim()
+        if self.use_sim:
+            self.start_sim()
         config = self.build_config()
         self.pipeline = Pipeline(config, replay=False, realtime=True)
-        self.bridge = SensorBridge(config, self.pipeline.bus, TcpTransport(config.sensors.tcp)).start()
+        from storemind.sensors.bridge import transport_from_config
+
+        transport = TcpTransport(config.sensors.tcp) if self.use_sim else transport_from_config(config)
+        self.bridge = SensorBridge(config, self.pipeline.bus, transport).start()
         self.pipeline.sensor_bridge = self.bridge
         self.pipeline.alerts.add_sink(TowerLightSink(self.bridge))
 

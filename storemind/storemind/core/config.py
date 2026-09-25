@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+from datetime import date
 from pathlib import Path
 from typing import Any, Literal
 
@@ -70,14 +71,44 @@ class StaffConfig(_Model):
     badge_every_n: int = 2           # look for badges every N processed frames
 
 
+PROMO_ONLY_FIELDS = ("promo_name", "sku", "offer_text", "price", "start_date", "end_date",
+                     "approach_band", "report_every_s")
+
+
 class ZoneConfig(_Model):
     name: str
     points: list[Point]
     kind: Literal["zone", "promo", "shelf_front"] = "zone"
     min_dwell_s: float = 3.0
-    # Shelf slot this zone sits in front of (drives LOST_SALE_RISK in fusion).
+    # Shelf slot this zone sits in front of (drives LOST_SALE_RISK in fusion).  For a
+    # promo zone this is also the linked slot whose load-cell picks count as "took the item".
     shelf: str | None = None
     slot: str | None = None
+    # --- promotions (kind: promo only; docs/PROMO.md).  The owner marks the promo; the system measures it. --- #
+    promo_name: str | None = None        # e.g. "Diwali offer"; default = the zone name
+    sku: str | list[str] | None = None   # product(s) on offer
+    offer_text: str | None = None        # e.g. "Buy 2 get 1 free"
+    price: float | None = None           # offer price, rupees
+    start_date: date | None = None       # first active day (inclusive); null = no start limit
+    end_date: date | None = None         # last active day (inclusive); null = no end limit
+    approach_band: float | None = None   # fraction of frame height around the zone: this close = passer-by; null = default
+    report_every_s: float | None = None  # length of each PROMO_STATE window; null = default (analytics/promo.py)
+
+    @model_validator(mode="after")
+    def _promo_fields(self) -> ZoneConfig:
+        if self.kind != "promo":
+            # A saved config (save_config) writes every key as null, so only real values count.
+            misplaced = [f for f in PROMO_ONLY_FIELDS if getattr(self, f) is not None]
+            if misplaced:
+                raise ValueError(f"zone {self.name!r}: {misplaced} only apply to kind: promo")
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValueError(f"zone {self.name!r}: end_date {self.end_date} is before start_date {self.start_date}")
+        if self.kind == "promo" and (self.shelf is None) != (self.slot is None):
+            raise ValueError(f"promo zone {self.name!r}: the linked slot needs both shelf and slot, or neither")
+        bad_band = self.approach_band is not None and not 0 <= self.approach_band <= 1
+        if bad_band or (self.report_every_s is not None and self.report_every_s <= 0):
+            raise ValueError(f"zone {self.name!r}: approach_band must be 0-1 and report_every_s > 0")
+        return self
 
 
 class CounterConfig(_Model):

@@ -75,10 +75,23 @@ Secrets never go in these files.
 | `cameras[].zones` | list | `[]` | named floor areas |
 | `cameras[].zones[].name` | str | **required** | zone id in ZONE_VISIT events |
 | `cameras[].zones[].points` | list of points | **required** | polygon |
-| `cameras[].zones[].kind` | zone · promo · shelf_front | `zone` | `promo` = end-cap footfall; `shelf_front` = in front of a slot (drives lost-sale risk) |
+| `cameras[].zones[].kind` | zone · promo · shelf_front | `zone` | `promo` = a promotion display (also measured by analytics/promo.py, docs/PROMO.md); `shelf_front` = in front of a slot (drives lost-sale risk) |
 | `cameras[].zones[].min_dwell_s` | float | `3.0` | shorter visits are not reported |
 | `cameras[].zones[].shelf` | str or null | `null` | shelf this zone faces (LOST_SALE_RISK in fusion) |
 | `cameras[].zones[].slot` | str or null | `null` | slot this zone faces |
+
+Promo-only keys (`kind: promo`; any other kind with one of these set fails to load). The owner marks the promotion; the system measures it (docs/PROMO.md). For a promo zone, `shelf` + `slot` (both or neither) are the linked slot whose load-cell picks count as "took the item".
+
+| key | type | default | meaning |
+|---|---|---|---|
+| `cameras[].zones[].promo_name` | str or null | `null` | name shown on the dashboard, e.g. "Diwali offer"; null = the zone name |
+| `cameras[].zones[].sku` | str, list of str, or null | `null` | product(s) on offer |
+| `cameras[].zones[].offer_text` | str or null | `null` | e.g. "Buy 2 get 1 free" |
+| `cameras[].zones[].price` | float or null | `null` | offer price, rupees |
+| `cameras[].zones[].start_date` | date or null | `null` | first active day, inclusive (YYYY-MM-DD); null = no start limit |
+| `cameras[].zones[].end_date` | date or null | `null` | last active day, inclusive; must not be before `start_date` |
+| `cameras[].zones[].approach_band` | float 0-1 or null | `null` (= 0.08) | how close to the zone, in frame heights, counts as walking past it |
+| `cameras[].zones[].report_every_s` | float > 0 or null | `null` (= 300) | length of each PROMO_STATE window, seconds |
 
 ### 2.3 Billing counters (`cameras[].counters[]`, queue; docs/QUEUE.md)
 

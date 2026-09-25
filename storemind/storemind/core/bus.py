@@ -34,10 +34,12 @@ Handler = Callable[[Event], None]
 QOS1_TYPES = frozenset({
     EventType.ENTRY, EventType.EXIT, EventType.SERVICE_DONE, EventType.SLOT_STATE,
     EventType.ALERT, EventType.BEAM_CROSS, EventType.SHELF_MOTION,
+    EventType.PROMO_STATE,       # a window's counts are not repeated by the next one
 })
 RETAINED_TYPES = frozenset({
     EventType.QUEUE_STATE, EventType.SLOT_STATE, EventType.HEALTH,
     EventType.NODE_HEALTH, EventType.CAMERA_HEALTH, EventType.ENVIRONMENT,
+    EventType.PROMO_STATE,       # last window per camera topic (like QUEUE_STATE with several counters)
 })
 COMMANDS = ("LED", "BUZZER", "SERVO", "TARE", "CAL", "CONFIG")
 

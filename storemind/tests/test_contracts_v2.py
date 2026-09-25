@@ -54,6 +54,10 @@ V2_EXAMPLES = {
                             "reset_cause": "POR", "link": "up"},
     EventType.CAMERA_HEALTH: {"cam": "entrance", "state": "ok", "fps": 9.8, "lag_ms": 120,
                               "reconnects": 0},
+    EventType.PROMO_STATE: {"promo": "Diwali offer", "zone": "promo-endcap", "active": True, "window_s": 300.0,
+                            "passers_by": 20, "stoppers": 6, "stop_rate": 0.231, "dwell_mean_s": 11.2,
+                            "dwell_median_s": 9.5, "dwell_total_s": 67.2, "picks": 2, "put_backs": 0,
+                            "units_picked": 3},
 }
 
 

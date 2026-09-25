@@ -252,3 +252,26 @@ Commands and results:
 - After run 4: a rupee template followed by "rupees" no longer prints "Rs 770.5 rupees" (wording only, no number
   changes; unit-tested).
 - Tests: 472 passed (30 new in tests/test_ask.py: guard, verifier, templates/units, fallbacks, summary).
+## 2026-09-25 - M11 docs, Person A part (branch `a/m11-docs`; split agreed with Vinith: by owner)
+
+- Filled from the code on master (each claim checked against the source):
+  - docs/ARCHITECTURE.md: Mermaid diagrams (big picture, per-frame flow, planned Pi process layout), fusion table,
+    module map with owners, and a list of what is built but not wired.
+  - docs/CONFIG_REFERENCE.md: every config key (type, default, meaning), generated from `core/config.py`.
+    `tests/test_config_reference.py` fails if a key is missing.
+  - docs/EVALUATION.md: buckets, anti-tuning rules, per-evaluation protocol table, every disclosed correction, how
+    to regenerate RESULTS.md, what is not measured.
+  - docs/PRIVACY_DPDP.md: what is and is not kept, with the code that guarantees it; deployment rules; judge answers.
+  - docs/DEMO_RUNBOOK.md: laptop replay commands (run on 2026-09-25: demo replay, dashboard on --api returned HTTP
+    200, summary and ask on the demo DB, CAVIAR corridor replay); 5-minute script; numbers card; failure table.
+    Ram's sections are marked slots.
+  - docs/TEAM_GUIDE.md: section 2 (what the cameras measure, in simple English); Ram's sections are slots.
+  - docs/HARDWARE_TODO.md: M10 item (Ollama on the Pi, time one question).
+- Found while checking, and fixed:
+  - RESULTS.md labelled the bake-off's all-clips pick (YOLO11s) "shipped configuration". Relabelled, with a row
+    saying the Pi ships YOLO11n@640 (run_all.py).
+- Found while checking, **not fixed** (behaviour changes; listed in the handoff for separate PRs):
+  - Track IDs are sequential per run, not "session-random" as CLAUDE.md and `tracking/tracker.py` say.
+  - Config keys no code reads: `cameras[].infer_size`, `forecast.horizon_min`, `shelf.detector_model`.
+  - `shelf.method: detector|hybrid` do nothing: the pipeline passes no detector to the shelf engine.
+  - `run.py --backend` choices lack `litert_qnn` / `ort_qnn` (config works).

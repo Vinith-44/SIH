@@ -1,11 +1,12 @@
-# HANDOFF — Person A (Vinith) — 2026-09-25
+# HANDOFF — Person A (Vinith) — 2026-09-25 (M11)
 
 Overwritten every session. Read `CLAUDE.md` first, then this.
 
 ## Open PRs (Ram approves)
-- **M10** (`a/m10-ask`): `llm/` package (Ask your store + trilingual daily summary), `eval/eval_ask.py`,
-  docs/ASK.md, run_all section. No contract change.
-- Merged: PR-0, M1, M3, M4, M6, M8, M9 and their contracts (#1-#5, #7, #9-#16, #19), plus Ram's M2 (#6, #8, #17, #18).
+- **M11 docs, Person A part** (`a/m11-docs`): ARCHITECTURE, CONFIG_REFERENCE (+ test), EVALUATION, PRIVACY_DPDP,
+  DEMO_RUNBOOK, TEAM_GUIDE §2, HARDWARE_TODO "M10", a RESULTS label fix. No contract change.
+- Merged: PR-0, M1, M3, M4, M6, M8, M9, M10 and their contracts (#1-#5, #7, #9-#16, #19, #21), plus Ram's M2 and CI
+  (#6, #8, #17, #18, #20).
 
 ## Where each milestone stands (details in docs/)
 | Milestone | State | Honest headline |
@@ -15,28 +16,31 @@ Overwritten every session. Read `CLAUDE.md` first, then this.
 | M4 queue (QUEUE.md) | merged | passers-by fixed (joins 825 vs 833 true); per-person wait 33% under ID switches; **canteen clip not recorded** |
 | M6 fusion (MEMS.md) | merged | simulated picks F1 0.98, units 99.7%; **no hardware yet** |
 | M8 models (MODELS.md) | merged | FP32 exports lossless on CAVIAR; INT8 moves 2-4 crossings; **Pi speed not measured** |
-| M9 Qualcomm (QUALCOMM.md) | merged | AI Hub hosted RB3 Gen 2 (QCS6490), bucket Q: YOLO11n INT8 12.8 ms, 100% NPU; YOLO11s INT8 11.0 ms |
-| M10 ask (ASK.md) | PR | **0 invented numbers** in 60 questions × all backends; held-out accuracy 13/20 (7 wrong queries, cited); **Pi latency not measured** |
+| M9 Qualcomm (QUALCOMM.md) | merged | AI Hub hosted RB3 Gen 2 (QCS6490), bucket Q: YOLO11n INT8 12.8 ms, 100% NPU |
+| M10 ask (ASK.md) | merged | 0 invented numbers in 60 questions; held-out accuracy 13/20; **Pi latency not measured** |
+| M11 docs | PR (my part) | Ram's slots marked "Ram fills in" in DEMO_RUNBOOK §2, §3, §7 and TEAM_GUIDE §3, §4 |
 
-## M10 notes
-- The model never supplies a number: it writes SQL (guarded by SQLite's authorizer on a read-only connection), and
-  a sentence is only a `{column}` template the code fills in.
-- Wrong answers are real numbers from the wrong query, so the dashboard must show `sql` + rows.
-- The keyword rules overfit to the questions they were written for; they are only the fallback.
-- The Telugu/Hindi summary templates need a native speaker's read before the demo (`TEMPLATES` in llm/summary.py).
-- Ollama + `qwen2.5-coder:1.5b` (and `:3b`) are installed on this laptop.
+## For Ram (M11, his part)
+- Fill the marked slots: DEMO_RUNBOOK §2 (primary demo commands on the Pi), §3 (fake-CCTV backup), §7 (STM32 and
+  bridge failures); TEAM_GUIDE §3, §4 (switching on, red lights, photos).
+- His own docs, still stubs: FIRMWARE, WIRING, SETUP_PI5, OPERATIONS, TROUBLESHOOTING, HARDWARE_INVENTORY.
+- PRIVACY_DPDP §4 points to SETUP_PI5 / CCTV_ONBOARDING for the concrete firewall and DVR-account steps.
+- Wire `/api/ask` and `/api/summary` (docs/ASK.md §6); start `IngestManager` from `run.py` when ready
+  (ARCHITECTURE §5 lists it as built but not connected).
 
-## For Ram (docs/ASK.md section 6)
-- Wire `GET /api/ask?q=` and `GET /api/summary?day=&lang=` in `api/` (Ram's path). Call `ask()` off the event loop
-  (≈5 s on the laptop GPU; slower on the Pi).
-- Pi: install Ollama, `ollama pull qwen2.5-coder:1.5b`, time one question.
-- Optional contract PR: an `llm:` config section (`enabled`, `model`, `host`).
-
-## Next: M11 (final docs + demo pack, shared with Ram)
+## Follow-ups found in M11 (separate small PRs; none are in the docs PR)
+1. **Track IDs are sequential per run, not random** (CLAUDE.md asks for session-random ids; `tracking/tracker.py`'s
+   docstring claims them). Fix: a random per-session offset in `tracking/` (my path). PRIVACY_DPDP §2 describes
+   today's behaviour; update it with the fix.
+2. Config keys that no code reads: `cameras[].infer_size`, `forecast.horizon_min`, `shelf.detector_model`. Either
+   implement them or remove them (a contract PR either way).
+3. `shelf.method: detector|hybrid` do nothing: the pipeline gives the shelf engine no detector.
+4. `run.py --backend` choices lack `litert_qnn` / `ort_qnn` (a contract file; the config already works).
 
 ## Blocked / needs the team
-- Ram's approval of the M10 PR.
+- Ram's approval of the M11 PR, and his half of M11.
 - Our own recordings (bucket B): shelf photos across a day, a canteen queue clip, 30 walked door crossings with the
   IR beam, and the M6 shelf test on Ram's board (docs/HARDWARE_TODO.md).
-- Pi 5 run of `tools/bench_pi.py` (docs/HARDWARE_TODO.md "M8") and of one Ask question.
+- Pi 5 runs: `tools/bench_pi.py` (HARDWARE_TODO "M8") and one Ask question (HARDWARE_TODO "M10").
+- Telugu/Hindi summary templates: a native speaker's read before the demo.
 - Optional: a real QCS6490 board, to move the Q numbers to S (deploy/qualcomm/README.md checklist).

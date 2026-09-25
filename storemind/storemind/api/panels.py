@@ -133,6 +133,8 @@ class PlatformPanels:
             "mj_per_frame": h.mj_per_frame if h else None,
             "power_note": "Pi 5 PMIC, corrected: real W = 1.1451 x PMIC W + 0.5879 (misses USB/HAT loads)",
             "detector": f"{pipeline.config.detector.backend}:{pipeline.config.detector.model}",
+            # M9: which silicon actually runs the model ("qnn-htp ...", or "cpu (fallback: ...)").
+            "accelerator": getattr(pipeline.detector, "accelerator", None),
         }
 
     def _privacy(self, pipeline) -> dict[str, Any]:

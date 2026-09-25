@@ -250,6 +250,37 @@ def create_app(pipeline, hub: Hub | None = None) -> FastAPI:
             return FileResponse(out, media_type="image/png")
         raise HTTPException(404, "no heatmap for that camera")
 
+    # --- M10: Ask your store + daily summary (docs/ASK.md section 6) ------- #
+    from datetime import date as _date
+
+    from .ask_api import AskService
+
+    asker = AskService(pipeline.config.storage.db_path)
+    app.state.asker = asker
+
+    @app.get("/api/ask")
+    def ask_store(q: str, today: str | None = None) -> JSONResponse:
+        """Plain `def`: FastAPI runs it in a worker thread, so a slow model never
+        blocks the event loop.  The answer always carries its SQL and rows."""
+        if not q.strip():
+            raise HTTPException(400, "empty question")
+        try:
+            day = _date.fromisoformat(today) if today else None
+            return JSONResponse(asker.ask(q, day))
+        except FileNotFoundError as error:
+            raise HTTPException(503, "no events stored yet") from error
+        except ValueError as error:
+            raise HTTPException(400, str(error)) from error
+
+    @app.get("/api/summary")
+    def summary(day: str | None = None, lang: str = "en") -> JSONResponse:
+        try:
+            return JSONResponse(asker.summary(day or _date.today().isoformat(), lang))
+        except FileNotFoundError as error:
+            raise HTTPException(503, "no events stored yet") from error
+        except ValueError as error:
+            raise HTTPException(400, str(error)) from error
+
     @app.get("/api/platform")
     def platform() -> JSONResponse:
         """Camera health, sensor node, hardware, privacy and reorder panels (M7)."""

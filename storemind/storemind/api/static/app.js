@@ -247,6 +247,7 @@ function renderHardware(p) {
   const infer = Object.entries(h.infer_ms || {}).map(([k, v]) => `${k} ${v.p50}/${v.p95}`).join(', ') || '-';
   kvTable($('hardware'), [
     ['Detector', h.detector || '-'],
+    ['Accelerator', h.accelerator || '-'],
     ['Frames per second', fps],
     ['Inference ms (p50 / p95)', infer],
     ['CPU temperature', na(h.cpu_temp_c, ' °C')],
@@ -306,6 +307,55 @@ function wirePlatformButtons() {
       $('copy-result').textContent = 'copied - paste it into WhatsApp';
     } catch (error) {
       $('copy-result').textContent = 'copy blocked by the browser';
+    }
+  });
+}
+
+/* ---------- Ask your store + daily summary (M10) ---------- */
+
+function renderAnswer(a) {
+  const box = $('ask-answer');
+  if (!a) { box.innerHTML = ''; return; }
+  const head = a.columns && a.columns.length
+    ? '<tr>' + a.columns.map((c) => `<th>${esc(c)}</th>`).join('') + '</tr>' : '';
+  const body = (a.rows || []).slice(0, 20).map((r) =>
+    '<tr>' + r.map((v) => `<td>${esc(v)}</td>`).join('') + '</tr>').join('');
+  box.innerHTML = `
+    <p class="answer">${esc(a.text)}</p>
+    ${a.model_query ? '<p class="warnline">Query written by the local model: check it asks what you meant.</p>' : ''}
+    ${a.sql ? `<details open><summary>query and rows (${(a.rows || []).length})</summary>
+       <code class="sql">${esc(a.sql)}</code>
+       <table class="kv rows">${head}${body}</table></details>` : ''}
+    ${(a.notes || []).length ? `<p class="muted small">${esc(a.notes.join(' · '))}</p>` : ''}
+    <p class="muted small">${esc(a.backend || 'no backend')} · ${a.elapsed_ms} ms</p>`;
+}
+
+function wireAsk() {
+  $('ask-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const q = $('ask-q').value.trim();
+    if (!q) return;
+    $('ask-answer').innerHTML = '<p class="muted">thinking...</p>';
+    try {
+      const response = await fetch('/api/ask?q=' + encodeURIComponent(q));
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.detail || response.status);
+      renderAnswer(body);
+    } catch (error) {
+      $('ask-answer').innerHTML = `<p class="bad">${esc(String(error.message || error))}</p>`;
+    }
+  });
+  $('summary-day').value = new Date().toISOString().slice(0, 10);
+  $('summary-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const url = '/api/summary?day=' + encodeURIComponent($('summary-day').value)
+              + '&lang=' + encodeURIComponent($('summary-lang').value);
+    try {
+      const response = await fetch(url);
+      const body = await response.json();
+      $('summary-text').textContent = response.ok ? body.text : (body.detail || 'not available');
+    } catch (error) {
+      $('summary-text').textContent = 'not available';
     }
   });
 }
@@ -414,6 +464,7 @@ function connect() {
 }
 
 wirePlatformButtons();
+wireAsk();
 poll();
 renderEvents();
 refreshHeatmap();

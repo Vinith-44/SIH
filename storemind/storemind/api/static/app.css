@@ -185,3 +185,13 @@ button.ack[disabled] { opacity: .4; cursor: default; }
 .reorder li.CRITICAL .sev { color: #e5484d; }
 .reorder li.WARN .sev { color: #f0a202; }
 .bad { color: #e5484d; }
+
+/* ---------- Ask your store (M10) ---------- */
+.askform { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.5rem; }
+.askform input[type="text"] { flex: 1 1 14rem; min-width: 0; }
+.answer { font-size: 1.1rem; font-weight: 600; margin: 0.4rem 0; }
+.warnline { color: #f0a202; font-size: 0.9rem; }
+code.sql { display: block; white-space: pre-wrap; word-break: break-word; font-size: 0.8rem;
+           padding: 0.4rem; margin: 0.3rem 0; background: rgba(127, 127, 127, 0.12); border-radius: 4px; }
+table.rows { font-size: 0.85rem; }
+pre.summary { white-space: pre-wrap; word-break: break-word; margin: 0; }

@@ -100,3 +100,16 @@ second MediaMTX cannot bind the default RTP ports.
 
 See `storemind/storemind/eval/results/platform/` (included in RESULTS.md by `run_all`). Laptop numbers are
 bucket S (soak) / C (chaos, HIL on the simulator); nothing on the Pi has been measured yet.
+
+## 8. On a Qualcomm QCS6490 board (M9: prepared, not run)
+
+Vinith's `deploy/qualcomm/README.md` is the port guide; for the platform side:
+
+| Piece | On the QCS6490 (RUBIK Pi 3 / RB3 Gen 2) |
+|---|---|
+| systemd units (`deploy/pi5/systemd/`) | apply as they are (paths under `/opt/storemind`); set `detector.backend: litert_qnn` and `require_accelerator: true` in `store.yaml` |
+| `install_pi5.sh` | steps 2-7 and 9 apply (user, code + venv, go2rtc/MediaMTX arm64, config, Mosquitto, units, Ollama); step 1 package names may differ on the vendor image; **step 8 (`pi5_hardware.sh`) is Pi-only** |
+| STM32 UART | the 40-pin header UART has a different device name (check `ls /dev/ttyHS* /dev/ttyMSM*`); change the `KERNEL==` in `99-storemind-mcu.rules` and keep the `/dev/storemind-mcu` name |
+| time | `chrony-storemind.conf` applies; check whether the board has a battery-backed RTC |
+| power / throttling on the dashboard | `vcgencmd` is Pi-only, so the hardware panel shows "not measured"; use an inline meter (the checklist in `deploy/qualcomm/README.md`) |
+| the dashboard's "Accelerator" row | must read `qnn-htp (...)`; anything with `fallback` means the NPU is not in use |

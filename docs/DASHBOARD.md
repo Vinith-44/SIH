@@ -51,3 +51,29 @@ Pipeline in live mode on the three synthetic clips + the STM32 simulator over TC
 in a browser: every panel filled, no console errors; the "LED alert" button reached the simulated node
 (`$K OK`); Vinith's `SHELF_TILT` alert set the node's LED and buzzer to ALERT; bridge counters stayed at
 0 crc / 0 framing / 0 lost. Tests: `storemind/tests/test_platform_panels.py`.
+
+## Ask your store + daily summary (M10 wiring)
+
+Vinith's `storemind/llm` (docs/ASK.md) is served by the dashboard:
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/ask?q=...` (`&today=YYYY-MM-DD` optional) | `text, sql, columns, rows, backend, answered, model_query, notes, elapsed_ms, backends` |
+| `GET /api/summary?day=YYYY-MM-DD&lang=en\|te\|hi` | `{day, lang, text}` |
+
+- Each request uses a **read-only** connection (`open_readonly`: TEMP views + authorizer), one per worker
+  thread, beside the pipeline's writer (WAL). The endpoints are plain `def`, so FastAPI runs them in its
+  thread pool: a slow model never blocks the dashboard's event loop or WebSocket.
+- The backend list (the local model through Ollama if it has the model, then the keyword rules) is probed
+  once and re-probed every 5 minutes, not per question.
+- The panel follows ASK.md's UI rules: the query and its rows are always shown under the answer; a query
+  written by the model carries "check it asks what you meant"; fallback notes are shown.
+- Settings by environment (`/etc/storemind/storemind.env`, no config contract change):
+  `STOREMIND_LLM_MODEL` (default `qwen2.5-coder:1.5b`, `off` = rules only), `STOREMIND_LLM_HOST`
+  (default `http://localhost:11434`).
+- On the Pi: `sudo ./scripts/install_pi5.sh --with-llm` installs Ollama and pulls the model;
+  `python scripts/ask_latency.py --label pi5_qwen1.5b` times every question of Vinith's set through the API
+  and writes `eval/results/platform/ask_latency_<label>.json` (bucket S). **Pi latency: not measured yet.**
+
+The hardware panel also shows the detector's **accelerator** (M9: `qnn-htp (...)` on a Qualcomm board,
+`cpu (fallback: ...)` when the QNN delegate did not load), so a silent CPU fallback is visible.

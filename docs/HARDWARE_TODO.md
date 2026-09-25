@@ -93,6 +93,19 @@ Needs: the Pi set up per `docs/SETUP_PI5.md` (Ram, M8-deploy), the official 27 W
 5. Vinith then ships the fastest variant that holds **>= 8 FPS** with the least CAVIAR accuracy loss
    (eval/results/model_export.md) in the Pi config.
 
+## M10 - "Ask your store" on the Raspberry Pi 5 (bucket S; decides whether the LLM runs on the Pi)
+
+Needs: the Pi set up per `docs/SETUP_PI5.md`, and a database with a day of events (a demo replay is enough).
+
+1. Install Ollama (ARM64 build: https://ollama.com/download) and run `ollama pull qwen2.5-coder:1.5b`.
+2. From `storemind/`, time one question and the summary:
+   `python -m storemind.llm.ask --db data/storemind.db "How many people came in today?"`
+   `python -m storemind.llm.summary --db data/storemind.db --lang te`
+3. Paste the seconds per question into `handoff/HANDOFF_B.md`. On the laptop GPU it is about 5 s
+   (docs/ASK.md section 3).
+4. If a question takes more than about 20 s, the dashboard should offer the daily summary and the keyword rules
+   only (`--model ''`), and say so.
+
 ## M5 - sensor node bring-up and HIL test (Ram's board; not run yet)
 
 Needs: the Blue Pill, an ST-Link (or a USB-UART for the serial bootloader), a USB-UART adapter for

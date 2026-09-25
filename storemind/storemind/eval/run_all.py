@@ -293,9 +293,14 @@ def tracker_bakeoff() -> Section | None:
                     f"{fold['detector']} + {fold['tracker']}, test F1 "
                     f"{fmt(fold['test_summary']['event_f1_mean'])}", "-")
     shipped = data["shipped"]
-    section.row("shipped configuration (tuned on all clips)",
+    # The bake-off's pick on all clips.  It is not what ships when it needs a detector the
+    # Pi 5 CPU cannot run at 8 FPS (docs/COUNTING.md: YOLO11s -> the Pi ships YOLO11n@640).
+    section.row("configuration tuned on all 16 clips (graded on the answers; not an accuracy claim)",
                 f"{shipped['detector']} + {shipped['tracker']}, "
                 f"`{', '.join(f'{k}={v}' for k, v in shipped['setting'].items())}`", "-")
+    if "yolo11s" in str(shipped["detector"]):
+        section.row("detector that ships on the Pi 5", "YOLO11n@640 (YOLO11s: 3.75 FPS on the laptop CPU, "
+                    "below the 8 FPS budget; its place is the Qualcomm NPU, docs/QUALCOMM.md)", "-")
     cv = data["cv_held_out"]
     if (cv["exit_acc"] or 0) < 0.9 or (cv["entry_acc"] or 0) < 0.9:
         section.note += (f"\n\n**Did not meet target on held-out data:** entry accuracy "

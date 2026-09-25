@@ -1,0 +1,234 @@
+# StoreMind primary demo on the Raspberry Pi 5 (docs/DEMO_RUNBOOK.md section 2).
+#
+#   entrance       Pi Camera Module 3 (csi:0) at the demo door.  The door line and zones are the
+#                  demo.yaml geometry: re-draw them at the venue with tools/calibrate.py.
+#   shelf-a        a USB webcam (source 0) on the demo shelf with the load cells and the MEMS node.
+#                  No USB camera?  Delete this camera; the load cells and MEMS still work alone.
+#   cctv-corridor  "the shop's CCTV": CAVIAR clips (real people) served by tools/fake_cctv.py
+#   cctv-front     on rtsp://127.0.0.1:8554 (go2rtc is on 8564, so they do not clash).
+#
+# The STM32 node is on /dev/storemind-mcu through the storemind-bridge service (MQTT), so this
+# config has mqtt.listen on.  Copy to /etc/storemind/store.yaml or pass with --config.
+
+store: bvrit-demo
+node: pi5-01
+detector:
+  backend: ultralytics
+  model: ../models/yolo11n.pt
+  conf: 0.35
+  iou: 0.5
+  imgsz: 640
+  person_class: 0
+  num_threads: 4
+tracker:
+  track_activation_threshold: 0.25
+  lost_track_buffer: 30
+  minimum_matching_threshold: 0.8
+  frame_rate: 8
+forecast:
+  target_wait_min: 3.0
+  max_prob_over_target: 0.2
+  max_counters: 8
+  min_lag_min: 1
+  max_lag_min: 40
+  conversion: 0.6
+  default_service_s: 90.0
+  period_s: 60.0
+shelf:
+  method: reference
+  embed_threshold: 0.75
+alerts:
+  cooldown_s: 120.0
+  escalate_after_s: 300.0
+  console: true
+  sound: false
+  voice_enabled: false
+  voice_lang: en
+storage:
+  db_path: /var/lib/storemind/demo.db
+  retention_days: 30
+api:
+  host: 0.0.0.0
+  port: 8000
+sensors:
+  enabled: true
+  port: /dev/storemind-mcu
+  baud: 115200
+  tcp: null
+  cell_map:
+    shelf-a/A1: '1'
+    shelf-a/A2: '2'
+  node:
+    id: stm32-01
+  mems_nodes:
+  - id: m1
+    role: shelf
+    shelf: shelf-a
+    slot: A1
+  - id: m2
+    role: camera_mount
+    cam: entrance
+mqtt:
+  enabled: true
+  host: 127.0.0.1
+  port: 1883
+  listen: true
+cameras:
+- name: entrance
+  source: csi:0
+  role: entrance
+  fps: 12
+  line:
+    name: door
+    a:
+    - 0.02
+    - 0.5
+    b:
+    - 0.98
+    - 0.5
+    margin_px: 14
+    entry_direction: pos
+    cooldown_s: 3.0
+    mode: gate
+    gate_px: 16
+    confirm_s: 0.5
+  zones:
+  - name: promo-endcap
+    kind: promo
+    points:
+    - - 0.6
+      - 0.58
+    - - 0.92
+      - 0.58
+    - - 0.92
+      - 0.92
+    - - 0.6
+      - 0.92
+    min_dwell_s: 3.0
+  floor_plan:
+    image_points:
+    - - 0.1
+      - 0.4
+    - - 0.9
+      - 0.4
+    - - 0.98
+      - 0.98
+    - - 0.02
+      - 0.98
+    plan_points:
+    - - 1.0
+      - 1.0
+    - - 7.0
+      - 1.0
+    - - 7.0
+      - 6.0
+    - - 1.0
+      - 6.0
+    plan_width: 8.0
+    plan_height: 8.0
+    cell_size: 0.5
+- name: shelf-a
+  source: '0'
+  role: shelf
+  fps: 1
+  shelf_period_s: 5.0
+  zones:
+  - name: front-of-A1
+    kind: shelf_front
+    points:
+    - - 0.08
+      - 0.9
+    - - 0.34
+      - 0.9
+    - - 0.34
+      - 1.0
+    - - 0.08
+      - 1.0
+    min_dwell_s: 5.0
+    shelf: shelf-a
+    slot: A1
+  shelves:
+  - name: shelf-a
+    vote_k: 2
+    vote_n: 3
+    occlusion_iou: 0.05
+    auto_reference_s: 1.0
+    slots:
+    - name: A1
+      points:
+      - - 0.1
+        - 0.22
+      - - 0.3
+        - 0.22
+      - - 0.3
+        - 0.55
+      - - 0.1
+        - 0.55
+      sku: Atta 5kg
+      price: 260.0
+    - name: A2
+      points:
+      - - 0.34
+        - 0.22
+      - - 0.54
+        - 0.22
+      - - 0.54
+        - 0.55
+      - - 0.34
+        - 0.55
+      sku: Toor Dal 1kg
+      price: 165.0
+    - name: A3
+      points:
+      - - 0.58
+        - 0.22
+      - - 0.78
+        - 0.22
+      - - 0.78
+        - 0.55
+      - - 0.58
+        - 0.55
+      sku: Biscuits pack
+      price: 30.0
+    - name: B1
+      points:
+      - - 0.1
+        - 0.6
+      - - 0.3
+        - 0.6
+      - - 0.3
+        - 0.9
+      - - 0.1
+        - 0.9
+      sku: Soap bar
+      price: 45.0
+- name: cctv-corridor
+  source: rtsp://127.0.0.1:8554/cam1
+  role: entrance
+  fps: 8
+  line:
+    name: corridor-passing-line
+    a:
+    - 0.0
+    - 0.75
+    b:
+    - 1.0
+    - 0.75
+    margin_px: 6
+    entry_direction: pos
+    cooldown_s: 2.0
+- name: cctv-front
+  source: rtsp://127.0.0.1:8554/cam2
+  role: entrance
+  fps: 8
+  line:
+    name: shop-doorway
+    a:
+    - 0.4
+    - 0.45
+    b:
+    - 1.0
+    - 0.45
+    margin_px: 6
+    entry_direction: neg
+    cooldown_s: 2.0

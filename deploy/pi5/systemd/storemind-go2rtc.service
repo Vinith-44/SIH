@@ -1,5 +1,5 @@
 # go2rtc: the single camera gateway (M2).  One connection per DVR/NVR channel,
-# restreamed on rtsp://127.0.0.1:8554/<camera> for the pipeline.
+# restreamed on rtsp://127.0.0.1:8564/<camera> for the pipeline (8554 is left to MediaMTX, as in M2).
 [Unit]
 Description=StoreMind camera gateway (go2rtc)
 Wants=network-online.target

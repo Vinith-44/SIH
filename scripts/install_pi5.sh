@@ -172,7 +172,7 @@ write_new "$ETC/go2rtc.yaml" 0640 <<'EOF'
 api:
   listen: "127.0.0.1:1984"
 rtsp:
-  listen: "127.0.0.1:8554"
+  listen: "127.0.0.1:8564"      # 8554 is left to MediaMTX / fake CCTV, as in M2 (docs/CCTV_ONBOARDING.md)
 streams: {}
 EOF
 write_new "$ETC/storemind.env" 0640 <<'EOF'

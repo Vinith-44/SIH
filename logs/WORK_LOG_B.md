@@ -202,3 +202,27 @@ What HANDOFF_A / docs/ASK.md §6 / deploy/qualcomm asked of Ram:
 - `python scripts/chaos.py --label 20260925_laptop` (bucket C): PASS. Camera stream killed 40 s → other cameras kept
   decoding, frames back 5 s after restore; node unplugged 40 s → link=down + SENSOR_LINK alert, bridge reconnected;
   disk full 40 s → 0 writes, pipeline alive, writing resumed. MQTT restart / lens cover: not run (Pi steps).
+
+## 2026-09-25 — M11, Ram's part: demo runbook, team guide, troubleshooting, inventory (`b/m11-ram-docs`)
+
+From HANDOFF_A "For Ram (M11, his part)":
+- DEMO_RUNBOOK §2 (primary on the Pi: what runs where, day-before steps, commands, first 60 s, no-STM32 fallback),
+  §3 (backup: fake CCTV + simulator + `run.py --sensors`), §7 (STM32 / bridge failure rows).
+  New `configs/demo_pi.yaml` and `configs/demo_backup.yaml` (both load with `load_config`).
+- TEAM_GUIDE §3 (power-on order, lights, dashboard on a phone) and §4 (every alert and what to do). Photos:
+  not taken (hardware not assembled): listed as a to-do.
+- TROUBLESHOOTING (platform side, entries marked "(seen)" happened while building), HARDWARE_INVENTORY (parts the
+  code assumes; "in hand" left for the team: nobody has counted the physical parts).
+- PRIVACY_DPDP §4 now points to concrete steps: SETUP_PI5 §6 (ufw firewall, no port forwarding, DVR account),
+  CCTV_ONBOARDING (10-step installer checklist, questions for college IT), `docs/templates/` (permission letter,
+  entrance notice en/te/hi: te/hi to be checked by a native speaker).
+- FIRMWARE, WIRING, SETUP_PI5, OPERATIONS were written in M5-M8 (#27-#37).
+- Fixed an inconsistency found while writing: the Pi install put go2rtc on 8554, but M2 (and Vinith's docs) use
+  8564 so that MediaMTX / fake CCTV keeps 8554. Install template, unit comment and OPERATIONS now say 8564.
+
+Checks:
+- Backup demo, exact commands of DEMO_RUNBOOK §3 with `--backend stub` (no weights here): cameras ok + node heartbeat
+  20 s after the first command; corridor / front at 6.8 FPS; WEIGHT / ENVIRONMENT / PRESENCE / BEAM_CROSS flowing,
+  crc_err 0. With YOLO (as on the demo laptop) not run here.
+- Primary demo (§2): **not rehearsed on a Pi** (no Pi here).
+- `pytest -q` → 574 passed, 7 skipped; `ruff check .` clean.

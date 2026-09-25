@@ -1,6 +1,7 @@
 # CCTV onboarding
 
-**Owner:** B · **Filled in:** M2 · **Status:** steps 3–4 (discover, probe) and the URL cheat-sheet done; the rest of the installer checklist and `docs/templates/` still to come.
+**Owner:** B (Ram) · **Filled in:** M2, M11 · **Status:** installer checklist, questions for college IT, templates,
+discover / probe and the URL cheat-sheet done. **Not yet done on a real DVR** (none borrowed yet).
 
 ## What goes here
 
@@ -11,6 +12,34 @@ The 15-minute installer checklist, questions to ask college IT, URL cheat-sheet,
 - research/24_CCTV_INTEGRATION.md §3, §5, §8
 
 ---
+
+## The 15-minute installer checklist (research/24 §5)
+
+| # | step | how | done when |
+|---|---|---|---|
+| 1 | **Permission first** | the owner signs [`templates/permission_letter.md`](templates/permission_letter.md); put up [`templates/dpdp_notice.md`](templates/dpdp_notice.md) at each entrance | signed copy with the team; notice visible |
+| 2 | **Read-only DVR user** | the owner / IT creates it in the DVR menu (usually *Configuration → User → Add*): **live view only**, no playback, no config, no PTZ; a strong unique password | you can log in and see live, but not recordings |
+| 3 | **Discover** | `python storemind/tools/discover.py --subnet 192.168.1.0/24` (below) | the recorder's IP and open ports |
+| 4 | **Probe** | `python storemind/tools/probe.py "<rtsp url>" --expect-fps 8` (below) | codec, resolution, FPS for every channel; a YAML block to paste |
+| 5 | **Sub-stream only** (with the owner's OK) | H.264/H.265, 640×360-1280×720, 8-10 FPS for entrance/queue, I-frame ≈ 2× FPS; **the main (recording) stream is never touched** | probe shows the new sub-stream settings |
+| 6 | **go2rtc** | paste the streams into `/etc/storemind/go2rtc.yaml` (it holds the camera passwords: `root:storemind 0640`, never in git), then `sudo systemctl restart storemind-go2rtc` | `rtsp://127.0.0.1:8564/<camera>` plays |
+| 7 | **Roles** | `role: entrance / counter / shelf` per camera in `/etc/storemind/store.yaml` | the FPS policy follows the role |
+| 8 | **Calibrate** | `python tools/calibrate.py --source rtsp://127.0.0.1:8564/<camera> --camera <name> --role <role>`: door line, queue lane, billing spot, shelf slots | lines drawn on a snapshot |
+| 9 | **Validate** | count 20-30 people by hand at the door while the dashboard counts; move the line if they differ | hand count and dashboard agree (write both in `logs/WORK_LOG_B.md`) |
+| 10 | **Go live** | `sudo systemctl restart storemind-pipeline` | every camera **green** in the Cameras panel |
+
+Time: set the DVR's NTP server to the Pi's IP (docs/SETUP_PI5.md §4) so its clock matches ours.
+
+## Questions to ask college IT / the shop before the visit
+
+1. Recorder brand and exact model (on a label on the box, or *System → Info*)? Analog (DVR) or IP (NVR)?
+2. Its IP address, and can we have a LAN cable (or a free switch port) next to it?
+3. Can you create a **read-only live-view user** for us? (We never need playback or settings.)
+4. How many channels, and which channel number sees the entrance, each billing counter, and each shelf we care about?
+5. Is the sub-stream enabled on those channels, and may we set it to 640×360 at 8-10 FPS? (The main stream stays as it is.)
+6. Is RTSP / ONVIF enabled on the recorder (some ship with it off)? Which RTSP port (default 554)?
+7. Any VLAN or firewall between the recorder and a new device on the LAN? Is there an NTP server we should use?
+8. Who signs the permission letter, and who do we call on the day?
 
 ## Find the cameras: discover, then probe
 

@@ -85,6 +85,43 @@
     </div>
   </section>
 
+  <section class="grid2">
+    <div class="panel" id="panel-camhealth">
+      <h2>Cameras</h2>
+      <p class="muted small">green = frames flowing &middot; amber = reconnecting / too dark &middot; red = stale or moved</p>
+      <div id="camhealth" class="camhealth"><p class="empty">No cameras</p></div>
+    </div>
+    <div class="panel" id="panel-sensors">
+      <h2>Sensor node</h2>
+      <div id="sensors"><p class="empty">Sensor node not enabled</p></div>
+      <div class="nodebuttons" id="nodebuttons" hidden>
+        <span class="muted small">Test the tower light:</span>
+        <button data-cmd="LED" data-pattern="ALERT">LED alert</button>
+        <button data-cmd="LED" data-pattern="OFF">LED off</button>
+        <button data-cmd="BUZZER" data-pattern="FAST">Beep</button>
+        <span class="muted small" id="nodecmd-result"></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid2">
+    <div class="panel" id="panel-hardware">
+      <h2>Hardware</h2>
+      <table class="kv" id="hardware"><tbody><tr><td class="empty" colspan="2">-</td></tr></tbody></table>
+    </div>
+    <div class="panel" id="panel-privacy">
+      <h2>Privacy</h2>
+      <table class="kv" id="privacy-panel"><tbody><tr><td class="empty" colspan="2">-</td></tr></tbody></table>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-reorder">
+    <h2>Reorder list</h2>
+    <ul class="reorder" id="reorder"><li class="empty">Nothing to reorder</li></ul>
+    <button id="copy-reorder" hidden>Copy as WhatsApp text</button>
+    <span class="muted small" id="copy-result"></span>
+  </section>
+
   <section class="panel">
     <h2>Recent events</h2>
     <ul class="events" id="events"><li class="empty">-</li></ul>

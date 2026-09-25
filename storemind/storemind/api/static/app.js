@@ -71,6 +71,9 @@ function renderTiles(s) {
 
 function renderAlerts(s) {
   const list = $('alerts');
+  // Alerts from other processes (e.g. the sensor bridge: SENSOR_LINK) join the list.
+  const external = (s.platform && s.platform.external_alerts) || [];
+  s = Object.assign({}, s, { alerts: s.alerts.concat(external) });
   if (!s.alerts.length) {
     list.innerHTML = '<li class="empty">No alerts</li>';
     return;
@@ -181,6 +184,132 @@ function renderHealth(s) {
     </div>`).join('');
 }
 
+/* ---------- platform panels (M7) ---------- */
+
+function kvTable(node, rows) {
+  node.innerHTML = '<tbody>' + rows.map(([k, v]) =>
+    `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join('') + '</tbody>';
+}
+
+function na(value, unit) {
+  return value === null || value === undefined ? 'not measured' : value + (unit || '');
+}
+
+function renderCamHealth(p) {
+  const cams = p.camera_health || [];
+  $('camhealth').innerHTML = cams.length ? cams.map((c) => `
+    <div class="camrow">
+      <span class="led ${esc(c.colour)}" title="${esc(c.state)}"></span>
+      <span class="n">${esc(c.cam)}</span>
+      <span class="muted">${esc(c.state)}</span>
+      <span>${c.fps === null || c.fps === undefined ? '' : c.fps + ' fps'}</span>
+      <span class="muted">${c.lag_ms ? Math.round(c.lag_ms) + ' ms lag' : ''}</span>
+      <span class="muted">${c.reconnects ? c.reconnects + ' reconnects' : ''}</span>
+    </div>`).join('') : '<p class="empty">No cameras</p>';
+}
+
+function renderSensors(p) {
+  const s = p.sensors;
+  const box = $('sensors');
+  if (!s || !s.enabled) {
+    box.innerHTML = '<p class="empty">Sensor node not enabled (sensors.enabled in the config)</p>';
+    $('nodebuttons').hidden = true;
+    return;
+  }
+  const nodes = s.nodes.map((n) => `
+    <div class="camrow">
+      <span class="led ${esc(n.colour)}"></span>
+      <span class="n">${esc(n.node)}</span>
+      <span class="muted">link ${esc(n.link)} &middot; up ${secs(n.uptime_s)} &middot; heap ${n.free_heap} B &middot;
+        stack ${n.min_stack_words} words &middot; reset ${esc(n.reset_cause)}</span>
+      <span class="${n.crc_err || n.uart_err || n.i2c_err ? 'bad' : 'muted'}">
+        errors: crc ${n.crc_err} &middot; uart ${n.uart_err} &middot; i2c ${n.i2c_err}</span>
+    </div>`).join('') || '<p class="empty">No heartbeat from the node yet</p>';
+  const latest = s.latest || {};
+  const rows = [];
+  (latest.WEIGHT || []).forEach((w) => rows.push(['Load cell ' + w.slot, w.grams + ' g' + (w.stable ? '' : ' (moving)')]));
+  (latest.ENVIRONMENT || []).forEach((e) => rows.push(['Light / climate',
+    [e.lux === null ? null : e.lux + ' lux', e.temp_c === null ? null : e.temp_c + ' °C',
+     e.rh_pct === null ? null : e.rh_pct + ' %RH'].filter(Boolean).join(' · ') || 'not fitted']));
+  (latest.PRESENCE || []).forEach((z) => rows.push(['PIR ' + z.zone, z.active ? 'motion' : 'quiet']));
+  Object.entries(s.doors || {}).forEach(([door, c]) => rows.push(['Door ' + door + ' (IR beams)', c.in + ' in · ' + c.out + ' out']));
+  (latest.SHELF_MOTION || []).forEach((m) => rows.push(['Shelf ' + m.shelf + ' (MEMS ' + m.node + ')', m.kind + ' · ' + m.peak_mg + ' mg']));
+  (latest.CAMERA_MOUNT || []).forEach((m) => rows.push(['Camera ' + m.cam + ' bracket', m.kind + (m.tilt_deg ? ' ' + m.tilt_deg + '°' : '')]));
+  const table = rows.length ? '<table class="kv"><tbody>' + rows.map(([k, v]) =>
+    `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join('') + '</tbody></table>' : '';
+  box.innerHTML = nodes + table;
+  $('nodebuttons').hidden = !s.bridge;
+}
+
+function renderHardware(p) {
+  const h = p.hardware || {};
+  const fps = Object.entries(h.fps || {}).map(([k, v]) => k + ' ' + v).join(', ') || '-';
+  const infer = Object.entries(h.infer_ms || {}).map(([k, v]) => `${k} ${v.p50}/${v.p95}`).join(', ') || '-';
+  kvTable($('hardware'), [
+    ['Detector', h.detector || '-'],
+    ['Frames per second', fps],
+    ['Inference ms (p50 / p95)', infer],
+    ['CPU temperature', na(h.cpu_temp_c, ' °C')],
+    ['Throttled now', h.throttled === null || h.throttled === undefined ? 'not measured' : (h.throttled ? 'YES' : 'no')],
+    ['Power (Pi 5 PMIC, corrected)', na(h.power_w, ' W')],
+    ['Energy per frame', na(h.mj_per_frame, ' mJ')],
+  ]);
+}
+
+function renderPrivacy(p) {
+  const v = p.privacy || {};
+  kvTable($('privacy-panel'), [
+    ['Video stored', (v.video_bytes_stored || 0) + ' bytes'],
+    ['Frames on disk', String(v.frames_on_disk || 0)],
+    ['Face recognition', v.face_recognition ? 'ON' : 'off (not in the code)'],
+    ['Re-identification', v.reidentification ? 'ON' : 'off (not in the code)'],
+    ['Track IDs', v.track_ids || '-'],
+    ['Audio', v.audio ? 'ON' : 'none (no microphone)'],
+    ['Event retention', (v.retention_days || '-') + ' days'],
+  ]);
+}
+
+let reorderText = '';
+function renderReorder(p) {
+  const r = p.reorder || { open: [] };
+  reorderText = r.whatsapp || '';
+  $('reorder').innerHTML = r.open.length ? r.open.map((d) => `
+    <li class="${d.state === 'EMPTY' ? 'CRITICAL' : 'WARN'}">
+      <span class="sev">${d.state === 'EMPTY' ? 'OUT' : 'LOW'}</span>
+      <span class="msg">${esc(d.sku || d.shelf + '/' + d.slot)} · since ${esc(clockText(d.opened_ts))}
+        ${d.suggested_qty ? ' · qty ' + d.suggested_qty : ''}</span>
+    </li>`).join('') : '<li class="empty">Nothing to reorder</li>';
+  $('copy-reorder').hidden = !r.open.length;
+}
+
+function renderPlatform(s) {
+  const p = s.platform;
+  if (!p) return;
+  renderCamHealth(p);
+  renderSensors(p);
+  renderHardware(p);
+  renderPrivacy(p);
+  renderReorder(p);
+}
+
+function wirePlatformButtons() {
+  document.querySelectorAll('#nodebuttons button').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const url = '/api/node/' + button.dataset.cmd + '?pattern=' + encodeURIComponent(button.dataset.pattern);
+      const response = await fetch(url, { method: 'POST' }).catch(() => null);
+      $('nodecmd-result').textContent = response && response.ok ? 'sent' : 'not sent';
+    });
+  });
+  $('copy-reorder').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(reorderText);
+      $('copy-result').textContent = 'copied - paste it into WhatsApp';
+    } catch (error) {
+      $('copy-result').textContent = 'copy blocked by the browser';
+    }
+  });
+}
+
 /* ---------- inline SVG charts (no library) ---------- */
 
 function barChart(node, pairs, formatLabel) {
@@ -250,6 +379,7 @@ function render(state) {
   renderCounters(state);
   renderShelves(state);
   renderHealth(state);
+  renderPlatform(state);
   renderCharts(state);
 }
 
@@ -283,6 +413,7 @@ function connect() {
   socket.onerror = () => { socket.close(); };
 }
 
+wirePlatformButtons();
 poll();
 renderEvents();
 refreshHeatmap();

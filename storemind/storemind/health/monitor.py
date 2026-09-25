@@ -28,6 +28,9 @@ a Pi, and the reference frame is the one image we are allowed to keep on disk
 from __future__ import annotations
 
 import logging
+import re
+import shutil
+import subprocess
 import time
 from collections import deque
 from dataclasses import dataclass, field
@@ -59,6 +62,53 @@ def cpu_temperature_c() -> float | None:
     except Exception:
         pass
     return None
+
+
+# --------------------------------------------------------------------------- #
+# Pi 5 power and throttling (hardware panel, research/23 section 4.5).  Same
+# parsing and published correction as Vinith's tools/bench_pi.py; kept here
+# because tools/ is not importable from the package.  None off the Pi.
+# --------------------------------------------------------------------------- #
+
+PMIC_CORRECTION = (1.1451, 0.5879)   # real W = a * PMIC W + b (jfikar/RPi5-power, research/23)
+
+
+def _vcgencmd(*args: str) -> str:
+    if not shutil.which("vcgencmd"):
+        return ""
+    try:
+        return subprocess.run(["vcgencmd", *args], capture_output=True, text=True, timeout=2).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def parse_pmic_watts(text: str) -> float | None:
+    """Sum of V x I over the PMIC rails, with the published correction applied."""
+    currents: dict[str, float] = {}
+    volts: dict[str, float] = {}
+    for name, kind, value in re.findall(r"(\S+)_([AV])\s+\w+\(\d+\)=([\d.]+)[AV]", text):
+        (currents if kind == "A" else volts)[name] = float(value)
+    rails = currents.keys() & volts.keys()
+    if not rails:
+        return None
+    a, b = PMIC_CORRECTION
+    return round(a * sum(currents[r] * volts[r] for r in rails) + b, 2)
+
+
+def parse_throttled_now(text: str) -> bool | None:
+    """`throttled=0x50005` -> True if under-voltage / capped / throttled / soft-temp *now* (bits 0-3)."""
+    match = re.search(r"throttled=(0x[0-9a-fA-F]+)", text)
+    if not match:
+        return None
+    return bool(int(match.group(1), 16) & 0xF)
+
+
+def pi_power_w() -> float | None:
+    return parse_pmic_watts(_vcgencmd("pmic_read_adc"))
+
+
+def pi_throttled() -> bool | None:
+    return parse_throttled_now(_vcgencmd("get_throttled"))
 
 
 @dataclass
@@ -176,8 +226,11 @@ class HealthMonitor:
             memory = psutil.virtual_memory().percent
         except Exception:
             pass
+        fps = self.fps()
+        power = pi_power_w()
+        total_fps = sum(fps.values())
         data = HealthData(
-            fps=self.fps(),
+            fps=fps,
             cpu_percent=cpu,
             cpu_temp_c=cpu_temperature_c(),
             mem_percent=memory,
@@ -185,6 +238,10 @@ class HealthMonitor:
             tamper=dict(self.tamper),
             uptime_s=round(time.monotonic() - self._start_wall, 1),
             video_bytes_stored=self.video_bytes_stored,
+            # v2 hardware panel: whole-box power over all processed frames.
+            power_w=power,
+            mj_per_frame=round(power * 1000.0 / total_fps, 1) if power is not None and total_fps > 0 else None,
+            throttled=pi_throttled(),
         )
         self.last = data
         return [make_event(ts=clock.now(), store=self.store, node=self.node,

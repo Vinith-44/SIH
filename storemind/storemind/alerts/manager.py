@@ -53,6 +53,20 @@ VOICE_LINES: dict[str, tuple[str, str, str]] = {
                "vajan_badla_hi.wav", "baruvu_marindi_te.wav"),
     "CAMERA_TAMPER": ("A camera has moved or is blocked.",
                       "camera_hila_hi.wav", "camera_kadilindi_te.wav"),
+    # M4 / M6 alerts (Vinith's engines) and the sensor node (Ram's bridge).  The
+    # Hindi / Telugu clips are not recorded yet: English TTS is the fallback.
+    "QUEUE_OVERFLOW": ("The queue has reached the end of its lane. Please open another counter.",
+                       "queue_bahar_hi.wav", "queue_bayataku_te.wav"),
+    "FALLEN_STOCK": ("Stock may have fallen from a shelf. Please check.",
+                     "saman_gira_hi.wav", "saruku_padindi_te.wav"),
+    "SHELF_TILT": ("A shelf has tilted. Please check it is safe.",
+                   "shelf_jhuka_hi.wav", "shelf_vangindi_te.wav"),
+    "CAMERA_MOVED": ("A camera was moved. It needs recalibration.",
+                     "camera_hila_hi.wav", "camera_kadilindi_te.wav"),
+    "AFTER_HOURS": ("Motion detected in the store after hours.",
+                    "raat_halchal_hi.wav", "ratri_kadalika_te.wav"),
+    "SENSOR_LINK": ("The sensor node is not responding.",
+                    "sensor_band_hi.wav", "sensor_aagindi_te.wav"),
 }
 
 
@@ -147,17 +161,28 @@ class VoiceSink(Sink):
 
 
 class TowerLightSink(Sink):
-    """Drives the STM32 tower light / buzzer through the sensor bridge (`@L`, `@Z`)."""
+    """Drives the STM32 tower LED / buzzer (`$L`, `$Z`) through the sensor bridge.
+
+    Which pattern each alert gets is `alerts/tower.py` (one policy, also used by
+    the bridge service on the Pi).  The LED shows the worst alert still open and
+    goes off when the last one is acknowledged.
+    """
 
     def __init__(self, bridge) -> None:
+        from .tower import TowerPolicy
+
         self.bridge = bridge
+        self.policy = TowerPolicy(bridge)
 
     def emit(self, alert: AlertData) -> None:
-        colour = {"INFO": "G", "WARN": "A", "CRITICAL": "R"}.get(alert.severity.value, "G")
         try:
-            self.bridge.set_light(colour)
-            if alert.severity is Severity.CRITICAL:
-                self.bridge.buzz(2)
+            self.policy.raised(alert.alert_id, alert.message_key, alert.severity.value)
+        except Exception:
+            log.debug("tower light sink failed", exc_info=True)
+
+    def acknowledged(self, alert_id: str) -> None:
+        try:
+            self.policy.acknowledged(alert_id)
         except Exception:
             log.debug("tower light sink failed", exc_info=True)
 
@@ -182,6 +207,13 @@ class AlertManager:
                 for entry in self.log:
                     if entry.alert_id == alert_id:
                         entry.ack = True
+                for sink in self.sinks:          # e.g. turn the tower LED off
+                    notify = getattr(sink, "acknowledged", None)
+                    if notify is not None:
+                        try:
+                            notify(alert_id)
+                        except Exception:
+                            log.exception("alert sink %r failed on ack", sink)
                 return True
         return False
 

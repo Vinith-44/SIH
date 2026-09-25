@@ -193,3 +193,12 @@ What HANDOFF_A / docs/ASK.md §6 / deploy/qualcomm asked of Ram:
   QCS6490 (what applies, what is Pi-only, UART device name, power not via vcgencmd).
 - Checks: `pytest tests/test_ask_api.py` → 7 passed (rules backend, 3 languages, 400/503 cases, the latency
   script against a live uvicorn). Pi latency: not measured (HARDWARE_TODO "M10", step 5 added to Vinith's section).
+
+## 2026-09-25 — M7b results: laptop soak + chaos (carried to master in #37)
+
+- `python scripts/soak.py --hours 1 --every 60 --label laptop_1h_20260925` (bucket S, stub detector = platform soak):
+  PASS. 1.00 h; RSS 280 → 158 MB (no growth after warm-up); threads 117-119; handles 576 → 587; DB+WAL +2.6 MB/h;
+  5,249 events; serial 0 crc / 0 framing / 0 lost / 0 reconnects; pipeline, API and bridge up in every sample.
+- `python scripts/chaos.py --label 20260925_laptop` (bucket C): PASS. Camera stream killed 40 s → other cameras kept
+  decoding, frames back 5 s after restore; node unplugged 40 s → link=down + SENSOR_LINK alert, bridge reconnected;
+  disk full 40 s → 0 writes, pipeline alive, writing resumed. MQTT restart / lens cover: not run (Pi steps).

@@ -134,7 +134,7 @@ PR if flash > 60 KB or RAM > 18 KB, and uploads the `.hex/.bin/.elf/.map` as an 
 | Actuator | High (40) | 320 B | LED / buzzer patterns every 20 ms (`sm_pat_*`), servo PWM; the buzzer switches itself off after 5 s |
 | UART | AboveNormal (32) | 640 B | owns USART1: encodes every uplink line with the one `seq` counter; assembles, validates and applies commands, answers each with `$K` |
 | HX711 | Normal4 (28) | 384 B | DOUT interrupt → read 24 bits → `sm_weight_push` → `$W` on change > 5 g, flag change, or every 10 s |
-| MEMS | Normal2 (26) | 512 B | M6 (placeholder until then) |
+| MEMS | Normal2 (26) | 512 B | two MPU6050s at 100 Hz → `sm_mems_sample` (docs/MEMS.md §2) → `$M` TOUCH / SETTLED / KNOCK / TILT; a missing chip is re-probed every 5 s |
 | Presence | Normal2 (26) | 384 B | beam edges with µs timestamps → `sm_beam_edge` → `$B` / `$D`; PIR (200 ms debounce) → `$P`; restock button (50 ms, 1 s lockout) → `$R` |
 | Fusion/State | Normal (24) | 384 B | sensor events → UART task; weight gating: while the shelf MEMS node is between TOUCH and SETTLED, `$W` goes out with `stable=0` |
 | Environment | BelowNormal (16) | 512 B | BH1750 every 1 s; BME280 (forced mode, Bosch integer compensation) and `$E` every 5 s; a missing sensor = empty field |
@@ -193,5 +193,5 @@ It writes `storemind/storemind/eval/results/platform/hil_<label>.json` for RESUL
 runs the same checks against the simulator (bucket C); `--port` runs them on the board (bucket B).
 Steps: HARDWARE_TODO.md "M5".
 
-## Still to come in this file
-MEMS state machine (M6).
+## Still to come
+Nothing: M6 is in MEMS.md §1–3.

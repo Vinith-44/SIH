@@ -95,3 +95,27 @@ Measured:
   → PASS; command RTT p50 27.3 ms, p95 42.1 ms over TCP to the simulator (bucket C: this is the
   laptop's loopback + Python, not the UART).
 - Board: **not measured** (no Blue Pill here). Steps in HARDWARE_TODO.md "M5".
+
+## 2026-09-25 — M6: MEMS firmware task + $M events + MEMS.md §1-3 (`b/m6-mems`)
+
+Roadmap step 7.
+
+- `firmware/stm32/logic/src/sm_mems.c`: portable, integer-only state machine IDLE -> CANDIDATE ->
+  ACTIVE -> SETTLING with TOUCH / SETTLED / KNOCK (150 ms knock window) / TILT (boot reference,
+  integer atan2, 2 s hold, re-arm on return); camera nodes report KNOCK/TILT only.
+- `App/Src/mems_task.c`: two MPU6050s (0x68 shelf, 0x69 camera) at 100 Hz, +-2 g, DLPF 44 Hz;
+  events -> fusion task -> `$M`; MEMS_THR from flash applied live; missing chip re-probed every 5 s.
+- `storemind/tools/mems_test.py`: guided acceptance (30 picks, 10 put-backs, 10 touches, 10 bumps,
+  10 camera knocks, 10 min idle) through the bridge + Vinith's ShelfInteractionEngine; `--simulate`.
+- `docs/MEMS.md` §1-3 (chip/mounting, state machine + thresholds, calibration).
+
+Measured (bucket C: logic on synthetic signals / simulator, not the sensor):
+- `zig cc ... test_sm_mems.c` → `22 checks, 0 failures`; integer atan2 worst error 0.3 deg over 0-180 deg;
+  10 min of +-25 mg noise → 0 events; 6.2 deg tilt → one TILT reading 5.5-6.9 deg.
+- `python tools/mems_test.py --simulate --scale 0.2 --idle-minutes 10 --speed 100 --no-write` →
+  picks 6/6, put-backs 2/2, touches 2/2 (0 counted as picks), bumps 2/2 (0 counted as picks),
+  camera knocks 2/2, 0 false TOUCH in 10 simulated idle minutes. This exercises the tool and the
+  fusion wiring; the simulator's $M lines come from its own model, not from sm_mems.c.
+- firmware build: flash 31,468 B (49%), RAM 12,688 B (62%), 0 warnings.
+- `pytest -q` → 523 passed, 6 skipped; `ruff check .` clean.
+- Board: **not measured**. HARDWARE_TODO.md "M6" (Vinith's steps) + MEMS.md §3.

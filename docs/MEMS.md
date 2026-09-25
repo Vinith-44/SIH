@@ -3,14 +3,88 @@
 **Owners:** Ram (Person B) — firmware, chip, mounting, calibration (§1–§3) · Vinith (Person A) — fusion on the Pi (§4–§6).
 Analogy: the camera sees, the load cell weighs, the MEMS chip under the shelf *feels* when someone touches or bumps it.
 
-## 1. Chip, mounting, axis orientation — *Ram (M6-firmware), to fill*
-MPU6050 (GY-521) by default, ADXL345 as the alternative; the part is confirmed in `HARDWARE_INVENTORY.md`.
+## 1. Chip, mounting, axis orientation — *Ram (M6-firmware)*
 
-## 2. Firmware state machine and thresholds — *Ram, to fill*
-IDLE → ACTIVE → SETTLING → SETTLED per node, sending `$M` TOUCH / SETTLED / TILT / KNOCK (`PROTOCOL.md`).
-Thresholds are set by `$C,MEMS_THR`.
+**Chip:** MPU6050 (GY-521 breakout) by default, ADXL345 as the alternative; the part actually bought
+goes in `HARDWARE_INVENTORY.md`. Firmware settings (`firmware/stm32/App/Src/mems_task.c`, register map
+InvenSense RM-MPU-6000A-00): accelerometer only, **±2 g** (16384 LSB/g), digital low-pass **44 Hz**,
+**100 Hz** sample rate. The gyro is not used. Only the MPU6050 driver is written; if the team buys ADXL345s
+instead, `mpu6050_init/read_mg` in `mems_task.c` need an ADXL345 twin (0x53 / 0x1D, same mg output).
 
-## 3. Calibration — *Ram, to fill*
+| Node | I2C address | Mounted on | Role on the wire | Reports |
+|---|---|---|---|---|
+| `m1` | 0x68 (AD0 → GND) | underside of shelf-a | `S` | TOUCH, SETTLED, KNOCK, TILT |
+| `m2` | 0x69 (AD0 → 3.3 V) | entrance camera bracket | `C` | KNOCK, TILT |
+
+Two MPU6050s fit on one I2C bus (AD0 selects 0x68/0x69); a third needs a TCA9548A mux (don't use
+I2C2 on the Blue Pill, its pins are shared with USART3). Ids must match `sensors.mems_nodes` in the
+store config — the bridge still publishes an unknown id (shelf or cam = the id) and logs a warning.
+
+**Mounting.** Glue (double-sided foam tape is too soft: it damps the touch) or screw the module
+**flat under the shelf board**, near the front edge where hands land, chip side down, the X arrow
+pointing along the shelf. Orientation does not matter to the firmware: it measures the *angle* between
+the current gravity direction and the one it saw at boot, so any mounting works as long as it is rigid.
+On the camera: on the bracket arm itself, not on the wall plate.
+
+## 2. Firmware state machine and thresholds — *Ram*
+
+Per node, every 10 ms: read x/y/z (mg) → subtract a slow gravity estimate (exponential average,
+~0.64 s) → the dynamic magnitude. Decisions are made per 50 ms window (peak and RMS of 5 samples),
+in `firmware/stm32/logic/src/sm_mems.c` (portable C, host-tested):
+
+```
+IDLE --window peak > thr--> CANDIDATE --still active at 150 ms--> ACTIVE --quiet window--> SETTLING
+                               |          emits TOUCH                  ^   (active again)     |
+                               |                                       '--------------------'
+                               |                                  quiet for 500 ms: emits SETTLED
+                               '--quiet before 150 ms: peak >= knock -> KNOCK (no TOUCH)
+                                                       peak <  knock -> a light tap: TOUCH, then SETTLED
+any state: gravity direction > tilt threshold away from the boot reference for 2 s -> TILT (once;
+           re-armed when it comes back within half the threshold)
+```
+
+| Setting | Shelf (`m1`) | Camera (`m2`) | Set by |
+|---|---|---|---|
+| activity threshold `thr` | 120 mg | 600 mg | `$C,MEMS_THR,<node>,<mg>` (stored in flash) |
+| knock level | max(4 × thr, 800 mg) | = thr (any strong burst) | follows `thr` |
+| knock window | 150 ms | 150 ms | compile time |
+| settle time | 500 ms quiet | — | compile time |
+| tilt threshold / hold | 5° / 2 s | 2° / 2 s | compile time |
+
+What the `$M` fields mean: **TOUCH** — peak and RMS of the burst so far, `dur_ms` = time since it
+started (~150 ms). **SETTLED** — peak and RMS of the calm that ended it, `dur_ms` = the whole episode
+(touch → settled). **KNOCK** — peak and RMS of the spike, its duration. **TILT** — current window
+peak/RMS, `dur_ms` = how long it has been tilted, `tilt_ddeg` = the angle in 0.1°. A camera node never
+sends TOUCH/SETTLED (PROTOCOL.md drops them anyway), which saves UART bandwidth.
+
+Why wait 150 ms before TOUCH: a trolley bump is one short spike, a hand lasts longer; 150 ms separates
+them and is still far shorter than a pick (the load cell needs ~1 s to settle).
+
+Weight gating also happens on the MCU: between the shelf node's TOUCH and SETTLED the Fusion/State
+task sends every `$W` with `stable=0`. Vinith's Pi-side fusion (§4) applies the same rule again.
+
+Host tests (`firmware/stm32/logic/tests/test_sm_mems.c`, synthetic 100 Hz streams, **bucket C**):
+10 minutes of ±25 mg noise → 0 events; a 0.8 s hand at 350 mg → TOUCH then SETTLED
+(duration 1.1–1.6 s); a 40 ms 1500 mg spike → KNOCK only; a 300 mg brush on the camera → nothing,
+a 1850 mg knock → KNOCK; a 6.2° lean → one TILT reading 5.5–6.9°, no repeat while tilted, fires again
+after returning level; a 1° lean → nothing; the integer atan2 is within 0.3° of `atan2` over 0–180°.
+These check the logic against our model of a shelf. **Real thresholds come from the shelf test (§6).**
+
+## 3. Calibration — *Ram*
+
+1. **Orientation (automatic):** at every boot the node waits for 2 s of calm and takes that gravity
+   direction as "level". So: power up with the shelf and camera in their normal position. A tilt that
+   happens while the node is off is not seen (documented limit; the camera's image tamper check still
+   catches a moved camera).
+2. **Thresholds:** with nobody near, watch `$M` for 10 minutes (`python tools/mems_test.py --port COM5`
+   runs the whole acceptance and reports false TOUCHes). If the shelf is next to a fridge compressor
+   or a busy door and false TOUCHes appear, raise the shelf threshold, e.g. `cmd/CONFIG
+   {"key": "MEMS_THR", "args": ["m1", 180]}`; if gentle picks are missed, lower it. It is kept in flash.
+3. **Load cell pairing:** tare and calibrate the load cell under the same slot first
+   (`docs/WIRING.md` §3), then enter the pack weight as `slots[].unit_grams` in the store config.
+4. **Acceptance run:** `python tools/mems_test.py --port COM5 --config configs/<store>.yaml`
+   (30 picks, 10 put-backs, 10 touches, 10 bumps, 10 camera knocks, 10 min idle) → writes
+   `storemind/storemind/eval/results/platform/mems_<date>_board.json`, bucket B.
 
 ## 4. What the Pi does with it (fusion, `storemind/storemind/fusion/interaction.py`)
 

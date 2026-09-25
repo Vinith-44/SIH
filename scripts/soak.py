@@ -70,6 +70,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--detector", default="stub")
     ap.add_argument("--config", type=Path, default=None, help="store config (default configs/demo.yaml)")
     ap.add_argument("--no-cctv", action="store_true", help="use the config's sources instead of fake CCTV")
+    ap.add_argument("--real-node", action="store_true",
+                    help="use the STM32 on the config's sensors.port instead of the simulator (the Pi)")
     ap.add_argument("--rtsp-port", type=int, default=8554)
     ap.add_argument("--api-port", type=int, default=8766)
     ap.add_argument("--device", default="ASUS Vivobook 15 (Ram's laptop)")
@@ -83,7 +85,8 @@ def main(argv: list[str] | None = None) -> int:
     tmp = tempfile.TemporaryDirectory(prefix="storemind_soak_", ignore_cleanup_errors=True)
     db = Path(tmp.name) / "soak.db"
     harness = Harness(db_path=db, rtsp_port=args.rtsp_port, api_port=args.api_port,
-                      use_cctv=not args.no_cctv, detector=args.detector, config_path=args.config)
+                      use_cctv=not args.no_cctv, use_sim=not args.real_node, detector=args.detector,
+                      config_path=args.config)
     label = args.label or f"{datetime.now():%Y%m%d_%H%M}"
     csv_path = (RESULTS if not args.no_write else Path(tmp.name)) / f"soak_{label}.csv"
     csv_path.parent.mkdir(parents=True, exist_ok=True)

@@ -163,3 +163,19 @@ Checks:
 - `bash -n scripts/install_pi5.sh` OK; `bash scripts/install_pi5.sh --dry-run` walks all 8 steps.
 - `pytest -q tests/test_ops.py` → 6 passed, 1 skipped (sd_notify socket test runs on Linux/CI only).
 - Not run: the install itself (no Pi here).
+
+## 2026-09-25 — M8: Pi 5 deploy - UART, udev, chrony, RTC (`b/m8-pi5`)
+
+Roadmap step 10. Docs: `docs/SETUP_PI5.md`, HARDWARE_TODO.md "M8-deploy".
+
+- Checked the Pi 5 facts in the official docs (raspberrypi.com, "Configure UARTs" and "Real Time Clock"):
+  header GPIO14/15 = UART0 = /dev/ttyAMA0 (off by default, `dtoverlay=uart0-pi5`); /dev/serial0 = the
+  debug header (UART10); `enable_uart=1` without a debug cable sends kernel logs to GPIO14/15; RTC
+  charging `dtparam=rtc_bbat_vchg=3000000`, off by default, rechargeable Li-Mn cell only.
+- `scripts/pi5_boot_config.py` (idempotent config.txt / cmdline.txt edits, backup, --dry-run; tested),
+  `scripts/pi5_hardware.sh` (boot files, serial-getty off, udev, chrony drop-in + confdir, RTC),
+  `scripts/pi5_check.sh` (PASS/FAIL for board, UART, symlink, dialout, chrony, RTC, services, dashboard),
+  `deploy/pi5/99-storemind-mcu.rules` (ttyAMA0 -> /dev/storemind-mcu, TAG systemd; USB-UART alternatives),
+  `deploy/pi5/chrony-storemind.conf` (serve the LAN, `local stratum 10 orphan`, makestep, rtcsync).
+- Checks: `bash -n` on all three scripts; `bash scripts/pi5_hardware.sh --dry-run`; `pytest tests/test_pi5_setup.py`
+  → 6 passed. **Not run on a Pi** (none here): HARDWARE_TODO.md "M8-deploy".

@@ -339,6 +339,9 @@ class SensorBridge:
     def connected(self) -> bool:
         return self._connected.is_set()
 
+    def threads_alive(self) -> bool:
+        return bool(self._threads) and all(thread.is_alive() for thread in self._threads)
+
     # ------------------------------------------------------------------ #
     # Receive path
     # ------------------------------------------------------------------ #
@@ -818,7 +821,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         while args.seconds is None or time.monotonic() - started < args.seconds:
             time.sleep(0.5)
-            notifier.watchdog()
+            # Feed the systemd watchdog only while the reader and command threads
+            # live: if one dies, the pings stop and systemd restarts the service.
+            if bridge.threads_alive():
+                notifier.watchdog()
             if time.monotonic() >= next_stats:
                 next_stats += args.stats_every
                 log.info("bridge stats: %s", json.dumps(bridge.stats.as_dict()))

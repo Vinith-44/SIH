@@ -10,6 +10,7 @@ If you want to … read …
 | edit a config file | [CONFIG_REFERENCE.md](CONFIG_REFERENCE.md) |
 | connect a shop's DVR/NVR | [CCTV_ONBOARDING.md](CCTV_ONBOARDING.md) |
 | run the serial bridge or the STM32 simulator | [SENSOR_BRIDGE.md](SENSOR_BRIDGE.md) |
+| read the dashboard panels, or change what the tower light does | [DASHBOARD.md](DASHBOARD.md) |
 | wire the sensor node | [WIRING.md](WIRING.md) |
 | build and flash the firmware | [FIRMWARE.md](FIRMWARE.md) |
 | set up a fresh Raspberry Pi 5 | [SETUP_PI5.md](SETUP_PI5.md) |

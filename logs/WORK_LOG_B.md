@@ -119,3 +119,26 @@ Measured (bucket C: logic on synthetic signals / simulator, not the sensor):
 - firmware build: flash 31,468 B (49%), RAM 12,688 B (62%), 0 warnings.
 - `pytest -q` → 523 passed, 6 skipped; `ruff check .` clean.
 - Board: **not measured**. HARDWARE_TODO.md "M6" (Vinith's steps) + MEMS.md §3.
+
+## 2026-09-25 — M7a: dashboard platform panels, alerts -> LED / buzzer (`b/m7a-dashboard`)
+
+Roadmap step 8. Docs: `docs/DASHBOARD.md`.
+
+- `api/panels.py` + `api/server.py`: camera-health, sensor-node, hardware, privacy and reorder panels from
+  bus events (`/api/state.platform`, `/api/platform`, `/api/reorder`, `POST /api/node/{cmd}`); alerts from
+  other processes (bridge SENSOR_LINK) join the alert list; acknowledging re-publishes the alert with ack=true.
+- `alerts/tower.py`: one LED / buzzer policy for every alert key, incl. QUEUE_OVERFLOW (#12), SHELF_TILT,
+  FALLEN_STOCK, CAMERA_MOVED/BUMP/TILT, AFTER_HOURS (#14) and SENSOR_LINK; worst open alert wins, ack turns
+  it off. Used by TowerLightSink (in-process) and by the bridge service (ALERTs over MQTT). Voice lines added.
+- `health/monitor.py`: Pi 5 PMIC power (corrected), mJ/frame, throttled-now in HEALTH (None off the Pi).
+- Also committed: `eval/results/platform/hil_20260925_sim.json` from M5d's tool.
+
+Measured:
+- `python tools/hil_test.py --simulate --minutes 60 --speed 60 --rtt-rounds 50 --sensor-seconds 20 --label 20260925_sim`
+  → PASS: 238,525 lines, 0 checksum / 0 framing / 0 lost, 0 reconnects; RTT p50 41.5 ms p95 43.6 ms
+  (bucket C: simulator over TCP on the laptop, 60 MCU-hours at 60x).
+- Live check in the browser (scratch launcher: pipeline live on the synthetic clips + simulator + bridge + API):
+  all panels filled, no console errors, "LED alert" button -> $K OK, SHELF_TILT alert -> node LED+buzzer ALERT,
+  bridge 146 lines / 0 errors.
+- `pytest -q tests/test_platform_panels.py` → 16 passed; full suite below.
+- `pytest -q` → 539 passed, 6 skipped; `ruff check .` clean.

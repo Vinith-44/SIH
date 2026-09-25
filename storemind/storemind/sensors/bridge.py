@@ -802,6 +802,12 @@ def main(argv: list[str] | None = None) -> int:
     if config.mqtt.enabled and not args.no_mqtt:
         listener = MqttCommandListener(bridge, config.mqtt.host, config.mqtt.port,
                                        config.mqtt.username, config.mqtt.password)
+        # Alerts raised by the pipeline service drive this node's LED / buzzer
+        # (alerts/tower.py); an acknowledged alert arrives again with ack=true.
+        from ..alerts.tower import TowerPolicy
+
+        tower = TowerPolicy(bridge)
+        bus.subscribe_types(EventType.ALERT, tower.on_alert_event)
     from ..health.systemd import Notifier
 
     notifier = Notifier()

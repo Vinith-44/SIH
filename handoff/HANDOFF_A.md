@@ -3,8 +3,9 @@
 Overwritten every session. Read `CLAUDE.md` first, then this.
 
 ## Open PRs (Ram approves)
-- **M11 docs, Person A part** (`a/m11-docs`): ARCHITECTURE, CONFIG_REFERENCE (+ test), EVALUATION, PRIVACY_DPDP,
-  DEMO_RUNBOOK, TEAM_GUIDE §2, HARDWARE_TODO "M10", a RESULTS label fix. No contract change.
+- **#22 M11 docs, Person A part** (`a/m11-docs`): ARCHITECTURE, CONFIG_REFERENCE (+ test), EVALUATION,
+  PRIVACY_DPDP, DEMO_RUNBOOK, TEAM_GUIDE §2, HARDWARE_TODO "M10", a RESULTS label fix.
+- **Track IDs** (`a/track-ids`, on #22) and **contract fixes** (`a/fix-contract`, on track-ids): see below.
 - Merged: PR-0, M1, M3, M4, M6, M8, M9, M10 and their contracts (#1-#5, #7, #9-#16, #19, #21), plus Ram's M2 and CI
   (#6, #8, #17, #18, #20).
 
@@ -28,14 +29,14 @@ Overwritten every session. Read `CLAUDE.md` first, then this.
 - Wire `/api/ask` and `/api/summary` (docs/ASK.md §6); start `IngestManager` from `run.py` when ready
   (ARCHITECTURE §5 lists it as built but not connected).
 
-## Follow-ups found in M11 (separate small PRs; none are in the docs PR)
-1. **Track IDs are sequential per run, not random** (CLAUDE.md asks for session-random ids; `tracking/tracker.py`'s
-   docstring claims them). Fix: a random per-session offset in `tracking/` (my path). PRIVACY_DPDP §2 describes
-   today's behaviour; update it with the fix.
-2. Config keys that no code reads: `cameras[].infer_size`, `forecast.horizon_min`, `shelf.detector_model`. Either
-   implement them or remove them (a contract PR either way).
-3. `shelf.method: detector|hybrid` do nothing: the pipeline gives the shelf engine no detector.
-4. `run.py --backend` choices lack `litert_qnn` / `ort_qnn` (a contract file; the config already works).
+## Follow-ups found in M11: all fixed, in two stacked PRs (merge after #22)
+1. `a/track-ids`: session-random track IDs (`SessionIdTracker`); no measured number changed.
+2. `a/fix-contract` (contract PR, needs Ram):
+   - `cameras[].infer_size` works (per-size detector; fixed-shape models refuse a mismatch);
+   - `forecast.horizon_min` retired (old configs load with a warning);
+   - `shelf.method` detector / hybrid wired, `hybrid` implemented, and both refuse to start without
+     `shelf.detector_model`. **No product detector is trained**: this is plumbing, not a result;
+   - `run.py --backend` takes its choices from the config schema.
 
 ## Blocked / needs the team
 - Ram's approval of the M11 PR, and his half of M11.

@@ -11,6 +11,7 @@ shape) or from environment variables, via `load_secrets`.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from pathlib import Path
@@ -20,6 +21,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 Point = tuple[float, float]
+log = logging.getLogger(__name__)
 
 
 class _Model(BaseModel):
@@ -180,7 +182,10 @@ class CameraConfig(_Model):
     source: str
     role: Literal["entrance", "counter", "shelf", "zone", "generic"] = "generic"
     fps: float = 8.0
-    infer_size: int = 640
+    # Detector input size for this camera; null = `detector.imgsz`.  A different
+    # size gives the camera its own detector instance (e.g. 416 for a small entrance
+    # sub-stream); a fixed-shape exported model must have been exported at that size.
+    infer_size: int | None = None
     rotate: Literal[0, 90, 180, 270] = 0
     line: LineConfig | None = None
     zones: list[ZoneConfig] = Field(default_factory=list)
@@ -223,7 +228,6 @@ class ForecastConfig(_Model):
     target_wait_min: float = 3.0
     max_prob_over_target: float = 0.2
     max_counters: int = 8
-    horizon_min: int = 10
     min_lag_min: int = 1
     max_lag_min: int = 40
     # Fraction of people entering the store who reach a billing counter.
@@ -232,11 +236,31 @@ class ForecastConfig(_Model):
     period_s: float = 60.0
     warmup_min: int = 3
 
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_retired_keys(cls, data: Any) -> Any:
+        # `horizon_min` was never read: the look-ahead is the learned door-to-counter
+        # lag.  Configs saved by tools/calibrate.py still carry it, so drop it with a
+        # warning instead of refusing the file.
+        if isinstance(data, dict) and "horizon_min" in data:
+            data = {k: v for k, v in data.items() if k != "horizon_min"}
+            log.warning("config: forecast.horizon_min is retired and ignored (the lag is learned)")
+        return data
+
 
 class ShelfEngineConfig(_Model):
+    # reference = compare with the restocked reference (evaluated, docs/SHELF.md);
+    # detector = count product boxes from `detector_model`; hybrid = average of both.
+    # detector and hybrid need a product detector, which we have not trained or evaluated.
     method: Literal["reference", "detector", "hybrid"] = "reference"
-    detector_model: str | None = None
+    detector_model: str | None = None     # product detector (class 0 = product), same backend as `detector`
     embed_threshold: float = 0.75
+
+    @model_validator(mode="after")
+    def _detector_needs_a_model(self) -> ShelfEngineConfig:
+        if self.method != "reference" and not self.detector_model:
+            raise ValueError(f"shelf.method {self.method!r} needs shelf.detector_model (a product detector)")
+        return self
 
 
 class AlertsConfig(_Model):

@@ -74,24 +74,59 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      # The protocol library is portable C with no HAL: the same files are
-      # compiled into the STM32 firmware and, here, into a PC test binary.
+      # The protocol and logic libraries are portable C with no HAL: the same
+      # files are compiled into the STM32 firmware and, here, into PC test binaries.
+      # firmware/stm32/logic builds both (it pulls in ../protocol).
       - name: gcc, -Werror -Wconversion
         run: |
-          cmake -S firmware/stm32/protocol -B build/proto-gcc -DCMAKE_C_COMPILER=gcc
-          cmake --build build/proto-gcc
-          ctest --test-dir build/proto-gcc --output-on-failure
+          cmake -S firmware/stm32/logic -B build/host-gcc -DCMAKE_C_COMPILER=gcc
+          cmake --build build/host-gcc
+          ctest --test-dir build/host-gcc --output-on-failure
       - name: clang (stricter -Wconversion, includes sign changes)
         run: |
-          cmake -S firmware/stm32/protocol -B build/proto-clang -DCMAKE_C_COMPILER=clang
-          cmake --build build/proto-clang
-          ctest --test-dir build/proto-clang --output-on-failure
+          cmake -S firmware/stm32/logic -B build/host-clang -DCMAKE_C_COMPILER=clang
+          cmake --build build/host-clang
+          ctest --test-dir build/host-clang --output-on-failure
       - name: AddressSanitizer + UBSan
         run: |
-          cmake -S firmware/stm32/protocol -B build/proto-asan -DCMAKE_C_COMPILER=gcc \
+          cmake -S firmware/stm32/logic -B build/host-asan -DCMAKE_C_COMPILER=gcc \
             -DSM_SANITIZE=ON -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build/proto-asan
-          ctest --test-dir build/proto-asan --output-on-failure
+          cmake --build build/host-asan
+          ctest --test-dir build/host-asan --output-on-failure
+
+  firmware-build:
+    name: firmware (STM32F103 build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Arm GNU toolchain + Ninja
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends gcc-arm-none-eabi libnewlib-arm-none-eabi ninja-build
+          arm-none-eabi-gcc --version | head -1
+      - name: Build (HAL, CMSIS and FreeRTOS fetched and hash-checked by CMake)
+        run: |
+          cmake -S firmware/stm32 -B build/fw -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$GITHUB_WORKSPACE/firmware/stm32/cmake/arm-none-eabi.cmake"
+          cmake --build build/fw
+      - name: Flash / RAM budget (64 KB part, 20 KB RAM)
+        # Headroom on the Blue Pill: at most 60 KB of the 63 KB code area and
+        # 18 KB of RAM (the rest is the main stack).  Over budget fails the PR.
+        run: |
+          read -r text data bss _ < <(arm-none-eabi-size build/fw/storemind_node.elf | tail -1)
+          flash=$((text + data)); ram=$((data + bss))
+          echo "flash=${flash} B ram=${ram} B" | tee -a "$GITHUB_STEP_SUMMARY"
+          test "$flash" -le 61440 && test "$ram" -le 18432
+      - uses: actions/upload-artifact@v4
+        with:
+          name: storemind-node-firmware
+          path: |
+            build/fw/storemind_node.elf
+            build/fw/storemind_node.hex
+            build/fw/storemind_node.bin
+            build/fw/storemind_node.map
+          retention-days: 14
 
   e2e:
     name: e2e (fake CCTV -> go2rtc -> reader)

@@ -32,7 +32,7 @@ docs/SETUP_PI5.md).
 
 | Unit | Runs | Restart / watchdog |
 |---|---|---|
-| `storemind-go2rtc` | camera gateway on `127.0.0.1:8554` | `Restart=always` |
+| `storemind-go2rtc` | camera gateway on `127.0.0.1:8564` (8554 stays free for fake CCTV, as in M2) | `Restart=always` |
 | `storemind-pipeline` | cameras → analytics → SQLite → dashboard `:8000` | `Type=notify`, `WatchdogSec=60`: a WATCHDOG ping per HEALTH event (every 10 s); a hung loop is restarted. `MemoryMax=2500M` |
 | `storemind-bridge` | `/dev/storemind-mcu` ↔ MQTT, LED / buzzer from alerts | `Type=notify`, `WatchdogSec=30`; `BindsTo` the device, so it stops when the node is unplugged and starts when it comes back |
 | `mosquitto` | broker, `127.0.0.1:1883` only, password required, persistent | distro unit |

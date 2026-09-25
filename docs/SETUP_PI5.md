@@ -94,7 +94,32 @@ Dashboard: `http://storemind.local:8000/` from any phone on the shop Wi-Fi. Conf
 `/etc/storemind/store.yaml` (cameras, zones, counters, shelves: `python tools/calibrate.py` on a snapshot;
 DVR connection: docs/CCTV_ONBOARDING.md), then `sudo systemctl restart storemind-pipeline`.
 
-## 6. After setup
+## 6. Lock it down (privacy rules, PRIVACY_DPDP.md §4)
+
+- **Firewall** (`ufw`): only SSH and the dashboard, only from the shop LAN. Mosquitto already listens on
+  `127.0.0.1` only, and go2rtc's API and RTSP too (`/etc/storemind/go2rtc.yaml`).
+
+```bash
+sudo apt install -y ufw
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow from 192.168.0.0/16 to any port 22 proto tcp
+sudo ufw allow from 192.168.0.0/16 to any port 8000 proto tcp
+sudo ufw allow from 192.168.0.0/16 to any port 123 proto udp
+sudo ufw enable
+```
+
+  Use the shop's real subnet instead of `192.168.0.0/16` if it differs (`ip -4 addr`). Port 123 is chrony serving
+  time to the DVR (§4).
+- **No port forwarding** on the shop router, ever. Remote help goes through the owner, not an open port.
+- **DVR:** a separate **read-only** live-view account, sub-stream only, recording settings untouched
+  (docs/CCTV_ONBOARDING.md); its password goes in `/etc/storemind/secrets.yaml` (`root:storemind 0640`) or
+  `/etc/storemind/storemind.env`, never in `store.yaml` or git. A private cable or VLAN between the Pi and the DVR
+  if the shop can do it.
+- **After a pilot:** rotate the DVR password; if the owner asks, stop the services and delete
+  `/var/lib/storemind/*.db`.
+
+## 7. After setup
 
 `HARDWARE_TODO.md`: "M8-deploy" (this page for real + a 24 h soak on the Pi), "M5" (HIL on the board),
 "M6" (MEMS shelf test), "M4" (canteen clip), "M8" (detector speed on the Pi).

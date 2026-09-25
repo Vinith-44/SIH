@@ -7,8 +7,8 @@ switch without apologising.
 
 | | what the judges see | depends on | state |
 |---|---|---|---|
-| **Primary** | live Pi Camera 3 + fake-CCTV streams + STM32 node (or its simulator), dashboard on a laptop | Pi 5, STM32, venue network | **Ram fills in** (section 2) |
-| **Backup** | same code path, recorded clips served as RTSP "CCTV" by MediaMTX | laptop only | **Ram fills in** (section 3) |
+| **Primary** | live Pi Camera 3 + fake-CCTV streams + STM32 node (or its simulator), dashboard on a laptop | Pi 5, STM32, venue network | written; **not rehearsed on a Pi yet** (section 2) |
+| **Backup** | same code path, recorded clips served as RTSP "CCTV" by MediaMTX, STM32 simulator | laptop only | **works today** (section 3, run on 2026-09-25) |
 | **Laptop replay** | three synthetic cameras replayed with saved detections, dashboard, daily summary, Ask your store | laptop only, no network | **works today** (section 4, run on 2026-09-25) |
 
 ## 1. The day before
@@ -21,11 +21,66 @@ switch without apologising.
 - [ ] Copy of RESULTS.md open in a tab, and the numbers in section 6 on a card.
 - [ ] **Ram:** Pi 5, STM32, cables, power, camera mounts; checklist in section 2.
 
-## 2. Primary demo: live Pi + fake CCTV + STM32 (Ram fills in)
+## 2. Primary demo: live Pi + fake CCTV + STM32 (Ram)
 
-> **Ram:** exact commands to start go2rtc/MediaMTX, the serial bridge (or the STM32 simulator), and
-> `storemind.run` on the Pi; which config file; how the laptop opens the dashboard; what to check in the first
-> 60 seconds. Link docs/SETUP_PI5.md and docs/WIRING.md.
+**Status:** every command below exists and is tested on the laptop, but **the whole section has not been
+rehearsed on a Pi yet** (no Pi here). Rehearse it once with a timer before the event (HARDWARE_TODO "M8-deploy").
+
+What runs where:
+
+| | where | what |
+|---|---|---|
+| `entrance` camera | Pi Camera Module 3 (`csi:0`) at the demo door | live people: door counter, queue lane |
+| `shelf-a` camera | USB webcam (`source: '0'`) on the demo shelf | shelf states; delete it from the config if there is no USB camera |
+| "shop CCTV" | `tools/fake_cctv.py` on the Pi, port 8554 | two CAVIAR clips (real people) as `rtsp://127.0.0.1:8554/cam1`, `cam2` |
+| STM32 node | `/dev/storemind-mcu` → `storemind-bridge` service | load cells, MEMS, door beams, PIR, light, tower LED + buzzer |
+| dashboard | `storemind-pipeline` service, port 8000 | opened on the presenter's laptop |
+
+**The day before** (on the Pi, after docs/SETUP_PI5.md; wiring in docs/WIRING.md):
+
+1. Copy the model and the clips (neither is in git): `models/yolo11n.pt` (or the variant Vinith picked in
+   HARDWARE_TODO "M8") to `/opt/storemind/models/`, and `videos/entrance/caviar/OneStopEnter1{cor,front}.mpg` to
+   `~/SIH/videos/entrance/caviar/`.
+2. Use the demo config: `sudo cp /opt/storemind/storemind/configs/demo_pi.yaml /etc/storemind/store.yaml`
+   (the MQTT password stays in `/etc/storemind/secrets.yaml`).
+3. Draw the door line and the queue lane on a Pi Camera snapshot, from `/opt/storemind/storemind`:
+   `sudo -u storemind .venv/bin/python tools/calibrate.py --source csi:0 --camera entrance --role entrance --out /tmp/entrance.yaml`,
+   then paste its `line:` / `zones:` / `counters:` into the `entrance` camera in `/etc/storemind/store.yaml`.
+4. Load cells: with the shelf empty press **Tare**, then put a known weight on and send **CAL** (docs/WIRING.md §3);
+   enter the pack weight as `slots[].unit_grams`.
+5. `./scripts/pi5_check.sh` → ALL CHECKS PASSED.
+
+**On stage** (three terminals on the Pi, or one with `tmux`):
+
+```bash
+# 1. the shop's "CCTV" (MediaMTX on 8554; go2rtc is on 8564, so they do not clash)
+cd ~/SIH && /opt/storemind/storemind/.venv/bin/python storemind/tools/fake_cctv.py --fps 25 \
+    --video videos/entrance/caviar/OneStopEnter1cor.mpg --video videos/entrance/caviar/OneStopEnter1front.mpg
+
+# 2. pipeline + bridge (they read /etc/storemind/store.yaml)
+sudo systemctl restart storemind-bridge storemind-pipeline
+
+# 3. watch it come up
+journalctl -u storemind-pipeline -u storemind-bridge -f
+```
+
+On the presenter's laptop, on the same Wi-Fi / hotspot: `http://storemind.local:8000/` (or `http://<pi-ip>:8000/`;
+`hostname -I` on the Pi prints it).
+
+**First 60 seconds, before anyone looks:**
+- **Cameras** panel: `entrance`, `cctv-corridor`, `cctv-front` (and `shelf-a`) green, with FPS.
+- **Sensor node** panel: `stm32-01` green, "link up", errors crc 0 / uart 0 / i2c 0, a weight per load cell.
+- Press **LED alert** under the sensor panel: the tower LED blinks; press **LED off**.
+- Walk through the door once: "Entered today" goes up.
+
+**No STM32 on the day?** Stop the bridge service and run the simulator in its place (the dashboard cannot tell):
+
+```bash
+sudo systemctl stop storemind-bridge
+/opt/storemind/storemind/.venv/bin/python -m storemind.sensors.simulator --port 7777 --scenario demo &
+cd /opt/storemind/storemind && sudo -u storemind .venv/bin/python -m storemind.sensors.bridge \
+    --config /etc/storemind/store.yaml --tcp 127.0.0.1:7777
+```
 
 What to point at once it is running (Vinith presents this part):
 - walk through the door → the entry counter goes up; walk back → the exit counter;
@@ -34,10 +89,33 @@ What to point at once it is running (Vinith presents this part):
 - cover the shelf camera or turn the light off → the slot says UNKNOWN "too dark", never EMPTY (M3);
 - nudge a camera → CRITICAL "camera moved" alert and counting pauses (tamper detection).
 
-## 3. Backup: recorded clips as fake CCTV (Ram fills in)
+## 3. Backup: recorded clips as fake CCTV (Ram)
 
-> **Ram:** `tools/fake_cctv.py` (MediaMTX + ffmpeg) serves clips as `rtsp://127.0.0.1:8554/cam1...`; give the
-> exact command, the config that points the cameras at those URLs, and how long it takes to start.
+The same code path as the box (live RTSP ingest, detector, serial bridge, dashboard); only the sources are
+recorded. Laptop only, no network. All commands from `storemind/`, each in its own terminal, in this order.
+**Tested on 2026-09-25: cameras green and the node's heartbeat up 20 s after the first command.**
+
+```bash
+# 1. "CCTV": two CAVIAR clips (real people) as rtsp://127.0.0.1:8554/cam1 and cam2 (MediaMTX + ffmpeg, M2)
+.venv/Scripts/python tools/fake_cctv.py --fps 25 \
+    --video ../videos/entrance/caviar/OneStopEnter1cor.mpg --video ../videos/entrance/caviar/OneStopEnter1front.mpg
+
+# 2. the STM32 simulator: weights, touches, door beams, heartbeat, tower light
+.venv/Scripts/python -m storemind.sensors.simulator --port 7777 --scenario demo
+
+# 3. the pipeline on those RTSP cameras, the bridge in the same process, and the dashboard
+.venv/Scripts/python -m storemind.run --config configs/demo_backup.yaml --live --api --sensors
+#    open http://localhost:8000/
+```
+
+- The config (`configs/demo_backup.yaml`) is `configs/caviar.yaml` with the sources pointed at the fake CCTV and the
+  sensors pointed at the simulator; the database is `data/demo_backup.db` (delete it before a new rehearsal).
+- It needs the YOLO model (`../models/yolo11n.pt`, as for CAVIAR). Without it, add `--backend stub`: the cameras,
+  sensor panel and alerts still run, but nobody is counted.
+- The clips loop, so the counters keep moving for as long as you talk. The synthetic clips of section 4 are **not**
+  usable here: they are drawn scenes whose people exist only in their saved detection files.
+- What to point at: the **Cameras** panel (these are "the shop's CCTV"), the **Sensor node** panel filling up, a
+  simulated trolley knock or shelf tilt turning into an alert, and the privacy line.
 
 ## 4. Laptop replay (works today, no network)
 
@@ -100,4 +178,9 @@ Qualcomm's hosted board"). Never say "accuracy" for a C number.
 | Ask your store is slow or says "cannot answer" | show the daily summary instead: it needs no model |
 | live camera or network dies (primary) | switch to section 3, then section 4; same dashboard, same story |
 | the summary counts double | a previous rehearsal is in the database: use a new `--db` file |
-| **Ram:** STM32 / bridge failures | Ram fills in (docs/TROUBLESHOOTING.md) |
+| sensor panel red, "link down" | USB / UART cable or power to the STM32: re-seat it, the bridge reconnects by itself within ~10 s; no board at all → the simulator (section 2, "No STM32 on the day?") |
+| sensor panel green but no weights | load cell not tared or a wire loose: press Tare on the empty shelf; the rest of the demo does not depend on it |
+| crc / uart errors climbing | UART wiring (TX↔RX crossed, common GND) or a second program has the port open (a serial monitor): close it |
+| tower LED does not react | `LED alert` button → if the panel shows "sent" but nothing lights, check the LED / transistor wiring (docs/WIRING.md); the alert is still on the dashboard |
+| a fake CCTV camera stays red | `fake_cctv.py` window closed or port 8554 in use: restart it; the pipeline reconnects by itself |
+| anything else on the STM32 / bridge | docs/TROUBLESHOOTING.md §2-§3 |

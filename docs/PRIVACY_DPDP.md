@@ -46,7 +46,7 @@ None of these files may be committed: `.gitignore` excludes videos and snapshots
 
 ## 4. Deployment rules (with Ram's install; research/24 §8)
 
-Ram fills in the concrete steps for these in docs/SETUP_PI5.md and docs/CCTV_ONBOARDING.md.
+The concrete steps: firewall and network in docs/SETUP_PI5.md §6, the read-only DVR account and sub-stream in docs/CCTV_ONBOARDING.md, secrets handling in docs/OPERATIONS.md §1.
 
 - **Permission letter** (one page, signed by the owner):
   - read-only live-view access to named cameras, for anonymous analytics only;

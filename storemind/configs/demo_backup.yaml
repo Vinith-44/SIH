@@ -1,0 +1,76 @@
+# StoreMind backup demo on a laptop (docs/DEMO_RUNBOOK.md section 3): no Pi, no board, no network.
+#
+#   corridor, front   CAVIAR clips (real people, a shopping-centre corridor) served as RTSP "CCTV" by
+#                     tools/fake_cctv.py on rtsp://127.0.0.1:8554/cam1 and cam2; YOLO11n counts them.
+#   sensors           the STM32 simulator on TCP 7777 (python -m storemind.sensors.simulator), brought in
+#                     with `run.py --sensors`: weights, MEMS touches, door beams, heartbeat, tower light.
+# Same code path as the real box: live RTSP ingest, bridge, dashboard.  Only the sources are recorded.
+
+store: caviar-eval
+node: laptop
+detector:
+  backend: ultralytics
+  model: ../models/yolo11n.pt
+  conf: 0.25
+  iou: 0.5
+  imgsz: 640
+  person_class: 0
+tracker:
+  track_activation_threshold: 0.25
+  lost_track_buffer: 50
+  minimum_matching_threshold: 0.8
+  frame_rate: 25
+forecast:
+  period_s: 60.0
+alerts:
+  console: false
+  sound: false
+  voice_enabled: false
+storage:
+  db_path: data/demo_backup.db
+  retention_days: 30
+cameras:
+- name: corridor
+  source: rtsp://127.0.0.1:8554/cam1
+  role: entrance
+  fps: 8
+  line:
+    name: corridor-passing-line
+    a:
+    - 0.0
+    - 0.75
+    b:
+    - 1.0
+    - 0.75
+    margin_px: 6
+    entry_direction: pos
+    cooldown_s: 2.0
+- name: front
+  source: rtsp://127.0.0.1:8554/cam2
+  role: entrance
+  fps: 8
+  line:
+    name: shop-doorway
+    a:
+    - 0.4
+    - 0.45
+    b:
+    - 1.0
+    - 0.45
+    margin_px: 6
+    entry_direction: neg
+    cooldown_s: 2.0
+sensors:
+  enabled: true
+  tcp: 127.0.0.1:7777
+  cell_map:
+    shelf-a/A1: '1'
+    shelf-a/A2: '2'
+  mems_nodes:
+  - id: m1
+    role: shelf
+    shelf: shelf-a
+    slot: A1
+  - id: m2
+    role: camera_mount
+    cam: corridor

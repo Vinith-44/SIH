@@ -66,6 +66,21 @@ M4 accepts on **queue MAE <= 1 and wait error <= 20% on our own clip**. Nothing 
    --source ../videos/queue/canteen_01.mp4`. Run it with `membership: polygon` and with `membership: dwell`,
    and paste both into `logs/WORK_LOG_A.md`. Do not tune on this clip; record a second one to tune.
 
+## Promotions - a real promo display (bucket B; docs/PROMO.md)
+
+Promo numbers are simulation only (bucket C). Nothing about a real display is measured until this is done.
+
+1. Same permission and DPDP-notice rules as the canteen clip. Keep the recording on the laptop only and delete it
+   after labelling.
+2. Record 15-20 min of a display or end-cap with people walking past and some stopping (sub-stream is fine).
+   Save as `../videos/promo/promo_01.mp4`.
+3. Calibrate a `kind: promo` zone on the floor in front of the display (`tools/calibrate.py`), and look at the
+   snapshot to choose `approach_band` for this view.
+4. Label every person who comes near: passer-by or stopper, and for stoppers the time in and out of the zone.
+   **Not built yet:** a scorer for a real clip (`eval_promo` only runs the simulator). Vinith adds it before this
+   step.
+5. Do not tune on this clip; record a second one to tune.
+
 ## M6 - MEMS + load cell on the real shelf (Vinith's fusion, Ram's board)
 
 Acceptance (CLAUDE_CODE_PROMPT_V2 M6): picks and put-backs detected >= 90% with weight gating; fewer than 1 false

@@ -17,6 +17,7 @@ If you want to … read …
 | set up a fresh Raspberry Pi 5 | [SETUP_PI5.md](SETUP_PI5.md) |
 | understand counting / queue / shelf | [COUNTING.md](COUNTING.md) · [QUEUE.md](QUEUE.md) · [SHELF.md](SHELF.md) |
 | understand the MEMS accelerometer | [MEMS.md](MEMS.md) |
+| measure a promotion display (passers-by, stoppers, dwell, picks) | [PROMO.md](PROMO.md) |
 | pick or export the detector, benchmark it on the Pi | [MODELS.md](MODELS.md) |
 | know where a number came from | [EVALUATION.md](EVALUATION.md) and `storemind/storemind/eval/results/RESULTS.md` |
 | run on Qualcomm silicon | [QUALCOMM.md](QUALCOMM.md) |

@@ -192,4 +192,4 @@ What HANDOFF_A / docs/ASK.md §6 / deploy/qualcomm asked of Ram:
 - M9: hardware panel shows the detector's `accelerator`; OPERATIONS.md §8 maps the Pi deploy files to the
   QCS6490 (what applies, what is Pi-only, UART device name, power not via vcgencmd).
 - Checks: `pytest tests/test_ask_api.py` → 7 passed (rules backend, 3 languages, 400/503 cases, the latency
-  script against a live uvicorn). Pi latency: not measured (HARDWARE_TODO "M10 on the Pi").
+  script against a live uvicorn). Pi latency: not measured (HARDWARE_TODO "M10", step 5 added to Vinith's section).

@@ -73,7 +73,7 @@ Vinith's `storemind/llm` (docs/ASK.md) is served by the dashboard:
   (default `http://localhost:11434`).
 - On the Pi: `sudo ./scripts/install_pi5.sh --with-llm` installs Ollama and pulls the model;
   `python scripts/ask_latency.py --label pi5_qwen1.5b` times every question of Vinith's set through the API
-  and writes `eval/results/platform/ask_latency_<label>.json` (bucket S). **Pi latency: not measured yet.**
+  and writes `eval/results/platform/ask_latency_<label>.json` (bucket S; HARDWARE_TODO "M10" step 5). **Pi latency: not measured yet.**
 
 The hardware panel also shows the detector's **accelerator** (M9: `qnn-htp (...)` on a Qualcomm board,
 `cpu (fallback: ...)` when the QNN delegate did not load), so a silent CPU fallback is visible.

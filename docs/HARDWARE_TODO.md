@@ -105,6 +105,11 @@ Needs: the Pi set up per `docs/SETUP_PI5.md`, and a database with a day of event
    (docs/ASK.md section 3).
 4. If a question takes more than about 20 s, the dashboard should offer the daily summary and the keyword rules
    only (`--model ''`), and say so.
+5. (Ram, platform side) The same through the dashboard, for every question in the set:
+   `sudo ./scripts/install_pi5.sh --with-llm` installs Ollama + the model, then with the dashboard running
+   `python scripts/ask_latency.py --url http://127.0.0.1:8000 --label pi5_qwen1.5b` writes p50 / p95 per
+   question to `eval/results/platform/ask_latency_pi5_qwen1.5b.json`. To switch the dashboard to rules only
+   (step 4), set `STOREMIND_LLM_MODEL=off` in `/etc/storemind/storemind.env` and restart the pipeline.
 
 ## M5 - sensor node bring-up and HIL test (Ram's board; not run yet)
 
@@ -155,13 +160,3 @@ dry-run on the laptop; **nothing has been run on the Pi**.
    pull the STM32 USB/UART (SENSOR_LINK alert, bridge back by itself). Note each result in the work log.
 7. Acceptance tests that need the Pi + hardware, in this order: "M5" (board HIL), "M6" (MEMS shelf,
    `tools/mems_test.py`), "M4" (canteen clip), "M1" (IR beams at the door).
-
-## M10 on the Pi - "Ask your store" latency (Ram; not run yet)
-
-docs/ASK.md: "Pi 5 latency: not measured". After M8-deploy:
-1. `sudo ./scripts/install_pi5.sh --with-llm` (Ollama + `qwen2.5-coder:1.5b`); `ollama list` shows the model.
-2. Dashboard running with some events stored (or copy a day's DB), then
-   `python scripts/ask_latency.py --url http://127.0.0.1:8000 --label pi5_qwen1.5b` → p50 / p95 per
-   question, which backend answered. Commit the JSON; tell Vinith the numbers for ASK.md.
-3. Optional: repeat with `STOREMIND_LLM_MODEL=qwen2.5-coder:3b` in `/etc/storemind/storemind.env`
-   (restart the pipeline) and `--label pi5_qwen3b`.

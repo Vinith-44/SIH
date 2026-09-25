@@ -158,10 +158,19 @@ class Harness:
         return self.counts.get(event_type.value, 0)
 
 
+_PROC = None
+
+
 def process_stats() -> dict:
+    """RSS, threads, handles and CPU % of this process.  One psutil.Process is
+    kept, because cpu_percent() measures since the previous call on the same object."""
+    global _PROC
     import psutil
 
-    proc = psutil.Process(os.getpid())
+    if _PROC is None:
+        _PROC = psutil.Process(os.getpid())
+        _PROC.cpu_percent(interval=None)
+    proc = _PROC
     with proc.oneshot():
         mem = proc.memory_info()
         stats = {"rss_mb": round(mem.rss / 1e6, 1), "threads": proc.num_threads(),

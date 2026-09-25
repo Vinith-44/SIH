@@ -3,6 +3,7 @@
     python -m storemind.run --config configs/demo.yaml
     python -m storemind.run --config configs/demo.yaml --source videos/entrance/x.mp4 --show
     python -m storemind.run --config configs/demo.yaml --live --api
+    python -m storemind.run --config configs/demo.yaml --live --api --sensors   # + STM32 bridge
 
 `--show` is the only thing that opens a window; without it the process is fully
 headless and runs on a Raspberry Pi over SSH.
@@ -47,6 +48,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--start-time", default=None,
                         help="ISO datetime the replay should pretend to start at")
     parser.add_argument("--summary-json", default=None, help="write the run summary to this file")
+    parser.add_argument("--sensors", action="store_true",
+                        help="also run the STM32 serial bridge in this process (laptop demo; "
+                             "on the Pi it is its own service, docs/SENSOR_BRIDGE.md)")
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--verbose", action="store_true")
     return parser
@@ -119,6 +123,23 @@ def main(argv: list[str] | None = None) -> int:
                             price, sku = slot.price, slot.sku
                 pipeline.fusion.register_zone(zone.name, zone.shelf, zone.slot, sku, price)
 
+    # systemd (deploy/pi5): READY once built; a watchdog ping per HEALTH event, so
+    # a hung loop stops the pings and systemd restarts the service.  No-op elsewhere.
+    from .core.events import EventType
+    from .health.systemd import Notifier
+
+    notifier = Notifier()
+    pipeline.bus.subscribe_types(EventType.HEALTH, lambda _event: notifier.watchdog())
+
+    bridge = None
+    if args.sensors:
+        from .alerts.manager import TowerLightSink
+        from .sensors.bridge import SensorBridge
+
+        bridge = SensorBridge(config, pipeline.bus).start()
+        pipeline.sensor_bridge = bridge
+        pipeline.alerts.add_sink(TowerLightSink(bridge))   # alerts -> LED / buzzer on the node
+
     server_thread = None
     if args.api:
         from .api.server import serve_in_thread
@@ -133,6 +154,7 @@ def main(argv: list[str] | None = None) -> int:
         for camera in config.cameras:
             print(f"  camera {camera.name:12s} role={camera.role:9s} src={camera.source}", flush=True)
 
+    notifier.ready(f"store={config.store} cameras={len(config.cameras)}")
     summary = pipeline.run(max_seconds=args.max_seconds, progress=not args.quiet)
     summary["db"] = str(Path(config.storage.db_path).resolve())
     summary["events_in_db"] = pipeline.store.counts_by_type()
@@ -152,6 +174,9 @@ def main(argv: list[str] | None = None) -> int:
         except KeyboardInterrupt:
             pass
 
+    notifier.stopping()
+    if bridge is not None:
+        bridge.stop()
     pipeline.close()
     return 0
 

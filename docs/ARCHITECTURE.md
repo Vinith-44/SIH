@@ -74,6 +74,7 @@ flowchart TD
 | `fusion/beam.py` | BEAM_CROSS, ENTRY, EXIT, CAMERA_HEALTH | camera-vs-beam agreement; ENTRY / EXIT from the beam when the camera is down | COUNTING.md |
 | `fusion/fusion.py` | SLOT_STATE, SENSOR, ZONE_VISIT | LOST_SALE_RISK; the v1 weight-only PICKUP / SHRINK_FLAG | SHELF.md |
 | `fusion/forecast.py` | ENTRY, checkout arrivals | FORECAST ("open counter 2 in ~6 min") | QUEUE.md |
+| `analytics/promo.py` | customer tracks (per frame), PICKUP | PROMO_STATE (passers-by, stoppers, dwell, picks per promo zone per window) | PROMO.md |
 | `analytics/reorder.py` | SLOT_STATE | reorder drafts | SHELF.md |
 | `store/db.py` (Ram) | every event | SQLite rows + per-minute aggregates | INTERFACES.md |
 | `alerts/manager.py` (Ram) | alert requests | ALERT (cooldown, escalation, voice en/hi/te) | - |

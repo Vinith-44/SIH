@@ -1,0 +1,67 @@
+{
+ "bucket": "C",
+ "seeds": [
+  11,
+  40
+ ],
+ "approach_band": 0.08,
+ "stitch": true,
+ "report": {
+  "clean": {
+   "seeds": [
+    11,
+    40
+   ],
+   "truth": {
+    "passers_by": 1849,
+    "stoppers": 1205,
+    "picks": 439,
+    "put_backs": 38,
+    "units": 866
+   },
+   "counted": {
+    "passers_by": 1848,
+    "stoppers": 1206,
+    "picks": 439,
+    "put_backs": 38,
+    "units": 866
+   },
+   "passers_err": 0.0006172839506172839,
+   "stoppers_err": 0.0009523809523809524,
+   "stop_rate_true": 0.39574280140496787,
+   "stop_rate_ours": 0.39611733324017384,
+   "stop_rate_err_pp": 0.037453183520599155,
+   "dwell_mean_err": 0.0006493848078064403,
+   "v1_stoppers": 1206,
+   "v1_stoppers_err": 0.0009523809523809524
+  },
+  "noisy": {
+   "seeds": [
+    11,
+    40
+   ],
+   "truth": {
+    "passers_by": 1849,
+    "stoppers": 1205,
+    "picks": 439,
+    "put_backs": 38,
+    "units": 866
+   },
+   "counted": {
+    "passers_by": 1959,
+    "stoppers": 1207,
+    "picks": 439,
+    "put_backs": 38,
+    "units": 866
+   },
+   "passers_err": 0.059877640964079666,
+   "stoppers_err": 0.016386930182196044,
+   "stop_rate_true": 0.39574280140496787,
+   "stop_rate_ours": 0.3829791289629241,
+   "stop_rate_err_pp": 1.4401880058866832,
+   "dwell_mean_err": 0.001404956057850338,
+   "v1_stoppers": 1223,
+   "v1_stoppers_err": 0.02794569102087177
+  }
+ }
+}

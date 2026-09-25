@@ -327,3 +327,31 @@ Commands and results:
   - Final: 53 pages, all diagrams and tables readable.
 - Dev dependencies added to the venv only (not requirements.txt): playwright, pypdf, pypdfium2.
 - Tests: 487 passed; ruff clean on the new script.
+## 2026-09-25 - Promotion analytics (branches `a/promo-contract` → PR #39, `a/promo` stacked on it)
+
+- **Contract (#39, needs Ram):** `PROMO_STATE` event (`PromoStateData`), QoS 1 + retained; optional promo keys on
+  `kind: promo` zones (`promo_name, sku, offer_text, price, start_date, end_date, approach_band, report_every_s`),
+  refused on other kinds, dates / linked slot / band / window validated. INTERFACES.md and CONFIG_REFERENCE.md
+  updated; `tests/test_promo_contract.py` (10).
+  - Fixed before committing: the bus comment claimed "each promo's last window" is retained; the topic is per
+    camera, so only the last zone's is (INTERFACES §3.2 now says so). Removed an unused `ZoneConfig.promo_active`.
+- **Engine (`a/promo`):** `analytics/promo.py`: passers-by (within `approach_band` of the zone or crossing it),
+  stoppers (>= `min_dwell_s` inside), dwell, stop rate, picks / put-backs / units from PICKUP at the linked slot
+  (null when the slot has no load cell), windows that add up, dates, track stitching. Each window is stamped at its
+  own end (fixed: catch-up windows after a frame gap all carried "now").
+  - `pipeline.py` (shared file, small hook): builds the engine for promo zones, feeds it customer tracks, forwards
+    PICKUP, flushes at the end, adds totals to the run summary.
+  - `tests/test_promo.py` (11, incl. pipeline wiring).
+- **Evaluation (bucket C):** `eval/promo_sim.py` + `eval/eval_promo.py`.
+  - `python -m storemind.eval.eval_promo --grid` (seeds 1-10) → `results/promo_tuning.json`: best band 0.08 +
+    stitching. The simulator defines "walked past" with a 0.08 band, so the band result is true by construction
+    (disclosed in PROMO.md §4); stitching cut the noisy stopper error 2.5% → 0.9%.
+  - `python -m storemind.eval.eval_promo` (seeds 11-40) → `results/promo.json`: clean passers-by 1848/1849,
+    stoppers 1206/1205, stop rate 0.0 pp; noisy passers-by 1959/1849 (6.0% over), stoppers 1207/1205 (1.6%; v1
+    2.8%), stop rate 1.4 pp low, dwell 0.1%, picks 439/439.
+- **Demo replay** (`run.py --config configs/demo.yaml --backend scripted --headless`): promo-endcap 5 passers-by,
+  2 stoppers vs 1 ZONE_VISIT. Traced per frame: an ID switch at 82.4 s split one 4.2 s stop into two < 3 s stays the
+  zone engine dropped; stitching joined them.
+- docs/PROMO.md (new), README index row, ARCHITECTURE module row; RESULTS.md gets a "Promotion display" section
+  (`run_all.py` builder `promo`).
+- Tests: 603 passed, 1 skipped.

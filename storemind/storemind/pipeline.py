@@ -31,6 +31,7 @@ from .analytics.queue import QueueEngine, counter_spec_from_config
 from .analytics.reorder import ReorderQueue
 from .analytics.shelf import ShelfEngine, SlotSpec
 from .analytics.staff import StaffFilter
+from .analytics.promo import PromoEngine, promo_spec_from_config
 from .analytics.zones import ZoneEngine, ZoneSpec
 from .core.bus import EventBus, MqttBus
 from .core.clock import Clock, VideoClock, WallClock
@@ -67,6 +68,7 @@ class CameraPipeline:
     det_filter: DetectionFilter | None = None
     staff: StaffFilter | None = None
     zones: ZoneEngine | None = None
+    promo: PromoEngine | None = None      # kind: promo zones (docs/PROMO.md)
     heatmap: FloorHeatmap | None = None
     queue: QueueEngine | None = None
     shelf: ShelfEngine | None = None
@@ -75,6 +77,7 @@ class CameraPipeline:
     shelf_method: str = "reference"
     shelf_embed_threshold: float = 0.75
     shelf_detector: Detector | None = None  # product detector for shelf.method detector / hybrid
+    scales: frozenset[str] = frozenset()  # "shelf/slot" keys with a load cell (sensors.cell_map)
     check_now: bool = False               # M6: a shelf was just touched - look now
     # Per-camera detector override.  Normally every camera shares one model (one
     # model in memory is the whole point on a Pi), but the scripted backend
@@ -117,6 +120,9 @@ class CameraPipeline:
                 for z in cfg.zones
             ]
             self.zones = ZoneEngine(specs, store=self.store, node=self.node, cam=cfg.name)
+            promos = [promo_spec_from_config(z, width, height, self.scales) for z in cfg.zones if z.kind == "promo"]
+            if promos:
+                self.promo = PromoEngine(promos, store=self.store, node=self.node, cam=cfg.name)
 
         if cfg.counters:
             specs = [counter_spec_from_config(c, width, height) for c in cfg.counters]
@@ -254,6 +260,8 @@ class Pipeline:
                                     Path(self.config.storage.db_path).with_name("reorder.db"))
         self.bus.subscribe_types(EventType.SLOT_STATE, self.reorder.on_event)
         self.bus.subscribe_types(EventType.SHRINK_FLAG, self._on_shrink)
+        # Promotions (docs/PROMO.md): a pick at a promo's linked slot = "took the item".
+        self.bus.subscribe_types(EventType.PICKUP, self._on_pickup_for_promo)
 
     def _build_interaction(self) -> ShelfInteractionEngine:
         cell_map = self.config.sensors.cell_map
@@ -339,6 +347,11 @@ class Pipeline:
             message = f"Wrong product in {shelf} slot {slot} (planogram says {sku})"
         self._emit_all(self.alerts.raise_alert(key, message, severity, self.clock, dict(event.data)))
 
+    def _on_pickup_for_promo(self, event: Event) -> None:
+        for camera in self.cameras:
+            if camera.promo is not None:
+                camera.promo.on_pickup(event, self.clock)
+
     def _on_shrink(self, event: Event) -> None:
         shelf, slot = event.data["shelf"], event.data["slot"]
         self._emit_all(self.alerts.raise_alert(
@@ -361,6 +374,7 @@ class Pipeline:
                 shelf_method=self.config.shelf.method,
                 shelf_embed_threshold=self.config.shelf.embed_threshold,
                 shelf_detector=self.shelf_detector,
+                scales=frozenset(self.config.sensors.cell_map),
                 detector=self._per_camera_detector(cam)))
             self.health.camera_ok[cam.name] = True
 
@@ -469,6 +483,8 @@ class Pipeline:
             self._emit_all(camera.footfall.update(tracks, self.clock, exclude=staff))
         if camera.zones is not None:
             self._emit_all(camera.zones.update(customers, self.clock))
+        if camera.promo is not None:
+            self._emit_all(camera.promo.update(customers, self.clock))
         if camera.heatmap is not None:
             camera.heatmap.update(customers, self.clock, (width, height))
         if camera.queue is not None:
@@ -686,6 +702,8 @@ class Pipeline:
         for camera in self.cameras:
             if camera.zones is not None:
                 self._emit_all(camera.zones.flush(self.clock))
+            if camera.promo is not None:
+                self._emit_all(camera.promo.flush(self.clock))
             camera.source.close()
         if self.show:
             cv2.destroyAllWindows()
@@ -722,6 +740,8 @@ class Pipeline:
                 entry["occupancy"] = camera.footfall.occupancy
             if camera.zones is not None:
                 entry["zone_visits"] = len(camera.zones.completed)
+            if camera.promo is not None:
+                entry["promo"] = {zone: dict(totals) for zone, totals in camera.promo.totals.items()}
             if camera.queue is not None:
                 entry["counters"] = camera.queue.summary()
             if camera.shelf is not None:

@@ -1,17 +1,13 @@
-# HANDOFF — Person A (Vinith) — 2026-09-25 (M11)
+# HANDOFF — Person A (Vinith) — 2026-09-25 (promotion analytics)
 
 Overwritten every session. Read `CLAUDE.md` first, then this.
 
 ## Open PRs (Ram approves)
-- **Carry #23/#24 to master** (#25, `a/track-ids` → master): the stacked PRs #23 and #24 merged into their base
-  branches, not master. Master lacks random track IDs and the contract fixes until #25 merges.
-- **Technical document** (`a/tech-doc`, based on `a/track-ids`, PR against master): docs/TECHNICAL_DOCUMENT.md +
-  docs/StoreMind_Technical_Document.pdf (53 pages) + tools/build_docs_pdf.py.
-- **#22 M11 docs, Person A part** (`a/m11-docs`): ARCHITECTURE, CONFIG_REFERENCE (+ test), EVALUATION,
-  PRIVACY_DPDP, DEMO_RUNBOOK, TEAM_GUIDE §2, HARDWARE_TODO "M10", a RESULTS label fix.
-- #22, #23, #24 merged, but #23/#24 only into their base branches: see #25.
-- Merged: PR-0, M1, M3, M4, M6, M8, M9, M10 and their contracts (#1-#5, #7, #9-#16, #19, #21), plus Ram's M2 and CI
-  (#6, #8, #17, #18, #20).
+- **#39 Contract: PROMO_STATE + promo keys** (`a/promo-contract` → master): small contract PR, additive.
+- **Promotion analytics** (`a/promo`, stacked on `a/promo-contract`): engine, pipeline hook, simulator + eval,
+  docs/PROMO.md, RESULTS section. **Merge #39 first, then retarget this PR to master before merging it** (the
+  #23/#24 lesson: a stacked PR merged into its base never reaches master).
+- Merged: everything up to #37 (all of M1-M11 Person A parts, #25 carry, #26 tech doc; Ram's #27-#37).
 
 ## Where each milestone stands (details in docs/)
 | Milestone | State | Honest headline |
@@ -23,7 +19,8 @@ Overwritten every session. Read `CLAUDE.md` first, then this.
 | M8 models (MODELS.md) | merged | FP32 exports lossless on CAVIAR; INT8 moves 2-4 crossings; **Pi speed not measured** |
 | M9 Qualcomm (QUALCOMM.md) | merged | AI Hub hosted RB3 Gen 2 (QCS6490), bucket Q: YOLO11n INT8 12.8 ms, 100% NPU |
 | M10 ask (ASK.md) | merged | 0 invented numbers in 60 questions; held-out accuracy 13/20; **Pi latency not measured** |
-| M11 docs | PR (my part) | Ram's slots marked "Ram fills in" in DEMO_RUNBOOK §2, §3, §7 and TEAM_GUIDE §3, §4 |
+| M11 docs | merged (my part) | Ram's slots marked "Ram fills in" in DEMO_RUNBOOK §2, §3, §7 and TEAM_GUIDE §3, §4 |
+| Promotions (PROMO.md) | PR | simulated held-out: noisy stoppers 1.6% err (v1 2.8%), passers-by +6%, stop rate 1.4 pp low; **real display not measured** |
 
 ## For Ram (M11, his part)
 - Fill the marked slots: DEMO_RUNBOOK §2 (primary demo commands on the Pi), §3 (fake-CCTV backup), §7 (STM32 and
@@ -33,17 +30,16 @@ Overwritten every session. Read `CLAUDE.md` first, then this.
 - Wire `/api/ask` and `/api/summary` (docs/ASK.md §6); start `IngestManager` from `run.py` when ready
   (ARCHITECTURE §5 lists it as built but not connected).
 
-## Follow-ups found in M11: all fixed, in two stacked PRs (merge after #22)
-1. `a/track-ids`: session-random track IDs (`SessionIdTracker`); no measured number changed.
-2. `a/fix-contract` (contract PR, needs Ram):
-   - `cameras[].infer_size` works (per-size detector; fixed-shape models refuse a mismatch);
-   - `forecast.horizon_min` retired (old configs load with a warning);
-   - `shelf.method` detector / hybrid wired, `hybrid` implemented, and both refuse to start without
-     `shelf.detector_model`. **No product detector is trained**: this is plumbing, not a result;
-   - `run.py --backend` takes its choices from the config schema.
+## Promotions: next steps
+- Ram: dashboard panel for the latest PROMO_STATE per promo (PROMO.md §7).
+- Vinith: PROMO_STATE aggregate in the Ask query set ("How is the Diwali offer doing?"); a promo-vs-normal-days
+  comparison (research/03 idea, not built).
+- docs/TECHNICAL_DOCUMENT.md (+ PDF) predates promotions: add a short section when it is next rebuilt.
+- Bucket B: record a real display (passers-by, stoppers, dwell hand-labelled) before quoting any promo accuracy.
 
 ## Blocked / needs the team
-- Ram's approval of the M11 PR, and his half of M11.
+- Ram's review of #39 (contract) and the promotion PR.
+- Ram's half of M11 (slots above).
 - Our own recordings (bucket B): shelf photos across a day, a canteen queue clip, 30 walked door crossings with the
   IR beam, and the M6 shelf test on Ram's board (docs/HARDWARE_TODO.md).
 - Pi 5 runs: `tools/bench_pi.py` (HARDWARE_TODO "M8") and one Ask question (HARDWARE_TODO "M10").

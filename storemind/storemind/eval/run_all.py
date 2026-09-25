@@ -407,6 +407,39 @@ def shelf_fusion() -> Section | None:
     return section
 
 
+def promo() -> Section | None:
+    """Bucket C: promotion analytics (passers-by, stoppers, dwell, picks) on simulated shoppers."""
+    path = RESULTS_DIR / "promo.json"
+    if not path.is_file():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    first, last = data["seeds"]
+    section = Section(
+        "Promotion display: passers-by, stoppers, stop rate, dwell - simulated shoppers", "C",
+        "`eval/promo_sim.py` walks simulated shoppers past a promo end-cap. The simulator's own "
+        "definition of \"walked past\" is a 0.08 frame-height band, and the engine's default band is "
+        "0.08, so the clean rows only check the logic against that definition. \"Noisy\" adds foot-point "
+        "jitter, 3% missed detections and track-number switches. Picks are simulated PICKUP events, "
+        "not the load cell. Nothing here is linked to sales. Stitching was chosen on seeds 1-10; "
+        f"this table is seeds {first}-{last}. \"v1\" = the zone engine's ZONE_VISIT count, which has "
+        "no passers-by and so no stop rate. Real footage: not measured yet.")
+    for name, s in data["report"].items():
+        truth, ours = s["truth"], s["counted"]
+        section.row(f"{name}: passers-by counted (truth), mean error per run",
+                    f"{ours['passers_by']} ({truth['passers_by']}), {pct(s['passers_err'])}", "-")
+        section.row(f"{name}: stoppers counted (truth), mean error per run; v1 error",
+                    f"{ours['stoppers']} ({truth['stoppers']}), {pct(s['stoppers_err'])}; "
+                    f"v1 {pct(s['v1_stoppers_err'])}", "-")
+        section.row(f"{name}: stop rate ours vs truth (mean abs. error)",
+                    f"{pct(s['stop_rate_ours'])} vs {pct(s['stop_rate_true'])} ({fmt(s['stop_rate_err_pp'])} pp)", "-")
+        section.row(f"{name}: mean dwell error", pct(s["dwell_mean_err"]), "-")
+        section.row(f"{name}: picks / units counted (truth)",
+                    f"{ours['picks']} / {ours['units']} ({truth['picks']} / {truth['units']})", "-")
+    section.commands.append("python -m storemind.eval.eval_promo --grid   # tuning seeds only")
+    section.commands.append("python -m storemind.eval.eval_promo")
+    return section
+
+
 def ask_store() -> Section | None:
     """Bucket C: "Ask your store" on a simulated two-day event database (M10)."""
     path = RESULTS_DIR / "ask.json"
@@ -599,11 +632,12 @@ BUILDERS = {
     "shelf_lighting": shelf_lighting,
     "queue_v2": queue_v2,
     "shelf_fusion": shelf_fusion,
+    "promo": promo,
     "ask": ask_store,
     "benchmark": benchmark,
 }
 
-ORDER = ["caviar", "bakeoff", "counting", "queue", "queue_v2", "shelf", "shelf_lighting", "shelf_fusion", "ask", "forecast",
+ORDER = ["caviar", "bakeoff", "counting", "queue", "queue_v2", "shelf", "shelf_lighting", "shelf_fusion", "promo", "ask", "forecast",
          "before_after", "before_after_full", "benchmark"]
 
 

@@ -1,6 +1,6 @@
 # StoreMind - measured results
 
-Generated 2026-09-25 06:49 by `python -m storemind.eval.run_all`.
+Generated 2026-09-25 10:07 by `python -m storemind.eval.run_all`.
 
 Every number on this page came from a command printed beside it. Nothing here was typed by hand. If a measurement could not be made, the row says so.
 
@@ -28,7 +28,7 @@ This follows `research/09b_TEST_DATA_VALIDITY.md`. A simulation can only ever sh
 | cpu_threads | 16 |
 | ram_gb | 16.9 |
 | opencv | 5.0.0 |
-| git_commit | 22e266f |
+| git_commit | 7813b20 |
 
 ## Results
 
@@ -263,6 +263,34 @@ python -m storemind.eval.eval_fusion
 
 </details>
 
+### Promotion display: passers-by, stoppers, stop rate, dwell - simulated shoppers
+
+**Data bucket C** - simulation - logic validation only, NOT an accuracy measurement
+
+`eval/promo_sim.py` walks simulated shoppers past a promo end-cap. The simulator's own definition of "walked past" is a 0.08 frame-height band, and the engine's default band is 0.08, so the clean rows only check the logic against that definition. "Noisy" adds foot-point jitter, 3% missed detections and track-number switches. Picks are simulated PICKUP events, not the load cell. Nothing here is linked to sales. Stitching was chosen on seeds 1-10; this table is seeds 11-40. "v1" = the zone engine's ZONE_VISIT count, which has no passers-by and so no stop rate. Real footage: not measured yet.
+
+| metric | result | target |
+|---|---|---|
+| clean: passers-by counted (truth), mean error per run | 1848 (1849), 0.1% | - |
+| clean: stoppers counted (truth), mean error per run; v1 error | 1206 (1205), 0.1%; v1 0.1% | - |
+| clean: stop rate ours vs truth (mean abs. error) | 39.6% vs 39.6% (0.04 pp) | - |
+| clean: mean dwell error | 0.1% | - |
+| clean: picks / units counted (truth) | 439 / 866 (439 / 866) | - |
+| noisy: passers-by counted (truth), mean error per run | 1959 (1849), 6.0% | - |
+| noisy: stoppers counted (truth), mean error per run; v1 error | 1207 (1205), 1.6%; v1 2.8% | - |
+| noisy: stop rate ours vs truth (mean abs. error) | 38.3% vs 39.6% (1.44 pp) | - |
+| noisy: mean dwell error | 0.1% | - |
+| noisy: picks / units counted (truth) | 439 / 866 (439 / 866) | - |
+
+<details><summary>commands</summary>
+
+```bash
+python -m storemind.eval.eval_promo --grid   # tuning seeds only
+python -m storemind.eval.eval_promo
+```
+
+</details>
+
 ### Ask your store - questions answered from the event database (simulated store)
 
 **Data bucket C** - simulation - logic validation only, NOT an accuracy measurement
@@ -385,11 +413,11 @@ These are laptop numbers and the Pi 5 must be measured on the Pi. They also move
 
 | metric | result | target |
 |---|---|---|
-| ultralytics yolo11n.pt @320 (CPU) | 33.38 ms/frame &middot; 29.56 FPS &middot; 4.34 detections/frame | - |
-| ultralytics yolo11n.pt @416 (CPU) | 50.29 ms/frame &middot; 19.72 FPS &middot; 4.44 detections/frame | - |
-| ultralytics yolo11n.pt @640 (CPU) | 116.08 ms/frame &middot; 8.58 FPS &middot; 4.73 detections/frame | - |
-| ultralytics yolo26n.pt @640 (CPU) | 106.28 ms/frame &middot; 9.37 FPS &middot; 4.73 detections/frame | - |
-| litert efficientdet_lite0_coco_legacy.tflite @320 (CPU) | 21.38 ms/frame &middot; 45.83 FPS &middot; 4.2 detections/frame | - |
+| ultralytics yolo11n.pt @320 (CPU) | 28.59 ms/frame &middot; 34.48 FPS &middot; 4.34 detections/frame | - |
+| ultralytics yolo11n.pt @416 (CPU) | 44.62 ms/frame &middot; 22.21 FPS &middot; 4.44 detections/frame | - |
+| ultralytics yolo11n.pt @640 (CPU) | 100.84 ms/frame &middot; 9.87 FPS &middot; 4.73 detections/frame | - |
+| ultralytics yolo26n.pt @640 (CPU) | 93.87 ms/frame &middot; 10.61 FPS &middot; 4.73 detections/frame | - |
+| litert efficientdet_lite0_coco_legacy.tflite @320 (CPU) | 19.14 ms/frame &middot; 51.12 FPS &middot; 4.2 detections/frame | - |
 
 <details><summary>commands</summary>
 
@@ -474,6 +502,126 @@ Compiled to TFLite and profiled by Qualcomm AI Hub on devices it hosts (Dragonwi
 
 ```bash
 python tools/aihub_profile.py --models ../models/yolo11n.onnx ../models/yolo26n.onnx ../models/yolo11s.onnx --devices Dragonwing RB3 Gen 2 Vision Kit QCS8550 (Proxy) --calib C:/Users/VANJAN~1/AppData/Local/Temp/claude/C--Users-VANJANGI-VINITH/ae698255-07c8-4a12-afc5-065bc75017dc/scratchpad/calib/images/val
+```
+
+</details>
+
+### Chaos test - laptop with fake CCTV + STM32 simulator
+
+**Data bucket C** - simulation - logic validation only, NOT an accuracy measurement
+
+Device: **ASUS Vivobook 15 (Ram's laptop)**. PASS. 40 s outages; pipeline + bridge + API in one process (scripts/harness.py).
+
+*Source: `eval/results/platform/chaos_20260925_laptop.json` (Person B).*
+
+| metric | result | target |
+|---|---|---|
+| camera: streams running before the fault | yes | yes |
+| camera: other cameras kept decoding during a 40 s outage | yes | yes |
+| camera: killed camera reported not-ok | yes | yes |
+| camera: frames again after the stream came back | yes, 5.0 s | yes |
+| camera: pipeline alive | yes | yes |
+| serial: link reported down (no $H for 30 s) | yes | yes |
+| serial: NODE_HEALTH link=down published | 1 | >= 1 |
+| serial: SENSOR_LINK alert raised | yes | yes |
+| serial: bridge reconnected by itself | yes (2 reconnects) | yes |
+| serial: pipeline alive | yes | yes |
+| disk: writes during a 40 s 'disk full' | 0 | 0 (dropped, not crashing) |
+| disk: pipeline alive while the disk was full | yes | yes |
+| disk: writing resumed afterwards | yes | yes |
+| mqtt: broker restart | not run (no broker on the laptop) | run on the Pi |
+| lens: camera covered | not run (needs a real camera) | run on the Pi |
+
+<details><summary>commands</summary>
+
+```bash
+python scripts/chaos.py --label 20260925_laptop
+```
+
+</details>
+
+### HIL test - STM32 simulator (storemind.sensors.simulator)
+
+**Data bucket C** - simulation - logic validation only, NOT an accuracy measurement
+
+Device: **STM32 simulator (storemind.sensors.simulator)**. PASS. Started 2026-09-25T02:26:59+05:30 on simulator; 60 min framing soak (simulator at 60x, so 3600 MCU minutes).
+
+*Source: `eval/results/platform/hil_20260925_sim.json` (Person B).*
+
+| metric | result | target |
+|---|---|---|
+| heartbeat ($H) within 15 s | yes | yes |
+| reset cause at start | POR |  |
+| free heap (bytes) | 6116 |  |
+| smallest stack high-water mark (words) | 38 | > 16 |
+| $K for time sync | OK 0 (1 attempt(s)) | OK 0 |
+| $K for LED ON | OK 0 (1 attempt(s)) | OK 0 |
+| $K for LED SLOW | OK 0 (1 attempt(s)) | OK 0 |
+| $K for LED ALERT | OK 0 (1 attempt(s)) | OK 0 |
+| $K for LED OFF | OK 0 (1 attempt(s)) | OK 0 |
+| $K for buzzer FAST | OK 0 (1 attempt(s)) | OK 0 |
+| $K for buzzer OFF | OK 0 (1 attempt(s)) | OK 0 |
+| $K for text mode | OK 0 (1 attempt(s)) | OK 0 |
+| $K for binary mode refused (PROTOCOL.md 6 not final) | ERR 3 (1 attempt(s)) | ERR 3 |
+| $K for unknown sensor | ERR 3 (1 attempt(s)) | ERR 3 |
+| $K for servo (off by default) | ERR 4 (1 attempt(s)) | ERR 4 |
+| corrupted command answered with ERR 1 | yes | yes |
+| command round trip p50 (ms) | 41.5 |  |
+| command round trip p95 (ms) | 43.6 | < 200 |
+| commands answered first time | 50/50 | all |
+| WEIGHT events during phase 3 | 571 |  |
+| ENVIRONMENT events during phase 3 | 240 |  |
+| PRESENCE events during phase 3 | 14 |  |
+| BEAM_CROSS events during phase 3 | 42 |  |
+| SENSOR events during phase 3 | 7 |  |
+| SHELF_MOTION events during phase 3 | 158 |  |
+| CAMERA_MOUNT events during phase 3 | 6 |  |
+| soak lines received | 238525 |  |
+| soak checksum errors | 0 | 0 |
+| soak framing/field errors | 0 | 0 |
+| soak lost lines (seq gaps) | 0 | 0 |
+| reconnects during the run | 0 | 0 |
+| MCU-side uart_err at the end | 1 |  |
+| MCU-side i2c_err at the end | 0 |  |
+
+<details><summary>commands</summary>
+
+```bash
+python tools/hil_test.py --simulate --minutes 60 --speed 60 --rtt-rounds 50 --sensor-seconds 20 --label 20260925_sim
+```
+
+</details>
+
+### Soak test 1.0 h - ASUS Vivobook 15 (Ram's laptop)
+
+**Data bucket S** - no ground truth - speed measurement only, never an accuracy claim
+
+Device: **ASUS Vivobook 15 (Ram's laptop)**. PASS. Started 2026-09-25T08:19:30+05:30. Pipeline live on 3 RTSP cameras from fake CCTV (MediaMTX + ffmpeg looping the synthetic clips) + STM32 simulator + bridge + API in one process; detector `stub` (no inference: a platform soak, not a vision soak). Per-sample CSV: eval/results/platform/soak_laptop_1h_20260925.csv.
+
+*Source: `eval/results/platform/soak_laptop_1h_20260925.json` (Person B).*
+
+| metric | result | target |
+|---|---|---|
+| duration | 1.00 h | 1 h |
+| RSS start / end | 280.0 / 157.6 MB |  |
+| RSS growth after warm-up | -62.9 MB/h | < 20 MB/h |
+| threads (min / max after warm-up) | 117 / 119 | stable |
+| OS handles start / end | 576 / 587 |  |
+| DB + WAL growth | +2.60 MB/h | report |
+| events stored | 5249 |  |
+| serial link crc / framing / lost / reconnects | 0 / 0 / 0 / 0 | 0 / 0 / 0 |
+| pipeline alive all run | PASS | PASS |
+| API answered every sample | PASS | PASS |
+| bridge connected every sample | PASS | PASS |
+| RSS growth after warm-up < 20 MB/h | PASS | PASS |
+| thread count stable (max - min <= 3) | PASS | PASS |
+| serial link: 0 crc / 0 framing / 0 lost | PASS | PASS |
+| events every sample | PASS | PASS |
+
+<details><summary>commands</summary>
+
+```bash
+python scripts/soak.py --hours 1 --every 60 --label laptop_1h_20260925
 ```
 
 </details>

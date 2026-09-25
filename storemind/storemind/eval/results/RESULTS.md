@@ -1,6 +1,6 @@
 # StoreMind - measured results
 
-Generated 2026-09-25 00:31 by `python -m storemind.eval.run_all`.
+Generated 2026-09-25 02:26 by `python -m storemind.eval.run_all`.
 
 Every number on this page came from a command printed beside it. Nothing here was typed by hand. If a measurement could not be made, the row says so.
 
@@ -28,7 +28,7 @@ This follows `research/09b_TEST_DATA_VALIDITY.md`. A simulation can only ever sh
 | cpu_threads | 16 |
 | ram_gb | 16.9 |
 | opencv | 5.0.0 |
-| git_commit | 36cbd7b |
+| git_commit | 9351340 |
 
 ## Results
 
@@ -92,7 +92,8 @@ python -m storemind.eval.eval_caviar
 | **counting v2 procedure, held-out (CV)**: entry / exit event F1 | 0.82 / 0.76 | - |
 | fold: tune corridor -> test front | yolo26n@640 c0.15 + bytetrack, test F1 0.61 | - |
 | fold: tune front -> test corridor | yolo11n@960 c0.25 + bytetrack, test F1 0.85 | - |
-| shipped configuration (tuned on all clips) | yolo11s@640 c0.25 + bytetrack, `mode=gate, gate_px=8.0, min_track_age_s=0.0, direction_mode=off, confirm_s=0.5` | - |
+| configuration tuned on all 16 clips (graded on the answers; not an accuracy claim) | yolo11s@640 c0.25 + bytetrack, `mode=gate, gate_px=8.0, min_track_age_s=0.0, direction_mode=off, confirm_s=0.5` | - |
+| detector that ships on the Pi 5 | YOLO11n@640 (YOLO11s: 3.75 FPS on the laptop CPU, below the 8 FPS budget; its place is the Qualcomm NPU, docs/QUALCOMM.md) | - |
 
 <details><summary>commands</summary>
 
@@ -384,11 +385,11 @@ These are laptop numbers and the Pi 5 must be measured on the Pi. They also move
 
 | metric | result | target |
 |---|---|---|
-| ultralytics yolo11n.pt @320 (CPU) | 28.45 ms/frame &middot; 34.67 FPS &middot; 4.34 detections/frame | - |
-| ultralytics yolo11n.pt @416 (CPU) | 43.91 ms/frame &middot; 22.58 FPS &middot; 4.44 detections/frame | - |
-| ultralytics yolo11n.pt @640 (CPU) | 99.39 ms/frame &middot; 10.02 FPS &middot; 4.73 detections/frame | - |
-| ultralytics yolo26n.pt @640 (CPU) | 99.55 ms/frame &middot; 10.0 FPS &middot; 4.73 detections/frame | - |
-| litert efficientdet_lite0_coco_legacy.tflite @320 (CPU) | 19.86 ms/frame &middot; 49.4 FPS &middot; 4.2 detections/frame | - |
+| ultralytics yolo11n.pt @320 (CPU) | 28.36 ms/frame &middot; 34.79 FPS &middot; 4.34 detections/frame | - |
+| ultralytics yolo11n.pt @416 (CPU) | 44.2 ms/frame &middot; 22.43 FPS &middot; 4.44 detections/frame | - |
+| ultralytics yolo11n.pt @640 (CPU) | 100.35 ms/frame &middot; 9.93 FPS &middot; 4.73 detections/frame | - |
+| ultralytics yolo26n.pt @640 (CPU) | 98.55 ms/frame &middot; 10.11 FPS &middot; 4.73 detections/frame | - |
+| litert efficientdet_lite0_coco_legacy.tflite @320 (CPU) | 20.52 ms/frame &middot; 47.83 FPS &middot; 4.2 detections/frame | - |
 
 <details><summary>commands</summary>
 

@@ -17,7 +17,9 @@ How to read it:
 - Points are `[x, y]`. Values ≤ 1 are fractions of the frame width/height; larger values are pixels
   (`core/geometry.py` resolves them once the frame size is known).
 - **Not read yet** marks a key that exists in the schema but that no code on master reads. Setting it changes
-  nothing today.
+  nothing today. (All such keys are Ram's serial-bridge settings, which arrive with the bridge.)
+- Retired keys: `forecast.horizon_min` (never read; the forecast's look-ahead is the learned door-to-counter lag).
+  Old configs that still contain it load with a warning.
 
 Secrets never go in these files.
 - Camera and MQTT passwords come from `configs/secrets.yaml` (git-ignored; shape in
@@ -41,7 +43,7 @@ Secrets never go in these files.
 | `cameras[].source` | str | **required** | file path, RTSP URL or camera index (ingest/sources.py) |
 | `cameras[].role` | entrance · counter · shelf · zone · generic | `generic` | what the camera is for: `shelf` cameras take one frame every `shelf_period_s`; `entrance` cameras get the floor heatmap |
 | `cameras[].fps` | float | `8.0` | frames per second to process (not the camera's own FPS); also the tracker's frame rate |
-| `cameras[].infer_size` | int | `640` | **not read yet**: every camera uses `detector.imgsz` |
+| `cameras[].infer_size` | int or null | `null` | detector input size for this camera; `null` = `detector.imgsz`. A different size gives the camera its own detector (one per size, shared). A fixed-shape exported model (ONNX static, TFLite) must have been exported at that size, or the pipeline refuses to start. An injected detector (tests, cached evaluation) is never replaced |
 | `cameras[].rotate` | 0 · 90 · 180 · 270 | `0` | rotate frames first (camera mounted sideways) |
 | `cameras[].reference_frame` | str or null | `null` | image of the normal view; when set, tamper detection is on (camera moved or blocked → counting pauses and a CRITICAL alert fires) |
 | `cameras[].shelf_period_s` | float | `30.0` | shelf cameras: one frame every N seconds |
@@ -177,7 +179,7 @@ Secrets never go in these files.
 | key | type | default | meaning |
 |---|---|---|---|
 | `detector` | block | | person detector |
-| `detector.backend` | ultralytics · litert · onnx · litert_qnn · ort_qnn · scripted · stub | `ultralytics` | runtime; `litert_qnn` / `ort_qnn` = Qualcomm NPU (M9); `scripted` replays saved detections. `run.py --backend` does not list the two QNN backends yet: set them in the config |
+| `detector.backend` | ultralytics · litert · onnx · litert_qnn · ort_qnn · scripted · stub | `ultralytics` | runtime; `litert_qnn` / `ort_qnn` = Qualcomm NPU (M9); `scripted` replays saved detections. `run.py --backend` offers the same list |
 | `detector.model` | str | `yolo11n.pt` | weights file (.pt, .onnx, .tflite or an NCNN folder) |
 | `detector.conf` | float | `0.35` | detection confidence threshold |
 | `detector.iou` | float | `0.5` | NMS IoU threshold |
@@ -203,7 +205,6 @@ Secrets never go in these files.
 | `forecast.target_wait_min` | float | `3.0` | wait the store wants to stay under |
 | `forecast.max_prob_over_target` | float | `0.2` | recommend enough counters that P(wait > target) stays below this |
 | `forecast.max_counters` | int | `8` | never recommend more than this |
-| `forecast.horizon_min` | int | `10` | **not read yet** |
 | `forecast.min_lag_min` | int | `1` | shortest door → counter delay searched for (cross-correlation) |
 | `forecast.max_lag_min` | int | `40` | longest delay searched for |
 | `forecast.conversion` | float | `0.6` | share of people entering who reach a billing counter |
@@ -211,8 +212,8 @@ Secrets never go in these files.
 | `forecast.period_s` | float | `60.0` | how often a FORECAST event is published |
 | `forecast.warmup_min` | int | `3` | minutes of data before the first forecast |
 | `shelf` | block | | shelf engine choice |
-| `shelf.method` | reference · detector · hybrid | `reference` | only `reference` works today: the pipeline gives the shelf engine no detector, so the other two behave like `reference` |
-| `shelf.detector_model` | str or null | `null` | **not read yet** |
+| `shelf.method` | reference · detector · hybrid | `reference` | `reference` = compare with the restocked reference (the evaluated method); `detector` = count product boxes (fill = boxes / `reference_facings`); `hybrid` = the mean of both, confidence capped by their agreement. `detector` and `hybrid` need `detector_model`; **no product detector has been trained or evaluated yet** |
+| `shelf.detector_model` | str or null | `null` | product detector (class 0 = product) for `detector` / `hybrid`; runs on the `detector.backend`; required for those methods |
 | `shelf.embed_threshold` | float | `0.75` | wrong-item check: embedding similarity below this = WRONG_ITEM |
 | `alerts` | block | | alert manager (alerts/manager.py, Ram) |
 | `alerts.cooldown_s` | float | `120.0` | the same alert does not fire twice within this time |

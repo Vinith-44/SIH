@@ -46,10 +46,11 @@ the two):
 *   **weight fusion** with the load cell under the slot (weight wins on deep
     shelves; disagreement asks for a "check shelf" with both numbers).
 
-`method="detector"` swaps the fill estimate for a class-agnostic product/gap
-detector (SKU-110K + gap datasets, trained by
-`storemind/train/shelf_detector_kaggle.ipynb`) counting facings per slot.  The
-state machine, gating and voting are identical either way.
+`method="detector"` swaps the fill estimate for a class-agnostic product
+detector (class 0 = product, e.g. one trained on SKU-110K) counting facings per
+slot; `method="hybrid"` averages it with the reference fill.  The state machine,
+gating and voting are identical either way.  **No product detector has been
+trained or evaluated yet**: every shelf number in RESULTS.md is `reference`.
 """
 
 from __future__ import annotations
@@ -341,6 +342,14 @@ def _overlap_fraction(box_a: tuple[float, float, float, float],
     return inter / area_b
 
 
+def combine_fills(ref_fill: float, ref_conf: float, det_fill: float, det_conf: float) -> tuple[float, float]:
+    """`hybrid`: the mean of the two fills.  Confidence is capped by how much they
+    agree, the same idea as the agreement between estimators in the reference method."""
+    fill = (ref_fill + det_fill) / 2.0
+    agreement = 1.0 - abs(ref_fill - det_fill)
+    return fill, float(np.clip(min(ref_conf, det_conf, agreement), 0.0, 1.0))
+
+
 class ShelfEngine:
     def __init__(self, shelves, *, store: str = "demo-store", node: str = "pi5-01",
                  cam: str = "shelf", method: str = "reference",
@@ -348,6 +357,11 @@ class ShelfEngine:
                  reference_dir: str | Path | None = None, embed_threshold: float = 0.75) -> None:
         """`shelves` is a list of `(shelf_name, [SlotSpec, ...], shelf_config)`."""
         self.store, self.node, self.cam = store, node, cam
+        if method not in ("reference", "detector", "hybrid"):
+            raise ValueError(f"unknown shelf method {method!r}")
+        if method != "reference" and detector is None:
+            # Silently falling back to `reference` is how this setting once did nothing.
+            raise ValueError(f"shelf method {method!r} needs a product detector")
         self.method = method
         self.embedder = embedder or Embedder()
         self.detector = detector
@@ -670,10 +684,13 @@ class ShelfEngine:
                 crop, mask = self._process(raw, config)
                 reference = self._nearest(runtime.bank, level)
 
-                if self.method == "detector" and self.detector is not None:
+                if self.method == "detector":
                     fill, confidence = self._fill_from_detector(crop, runtime)
                 else:
                     fill, confidence = self._fill_from_reference(crop, mask, reference, runtime, config)
+                    if self.method == "hybrid":
+                        fill, confidence = combine_fills(fill, confidence,
+                                                         *self._fill_from_detector(crop, runtime))
                 fill, weight_note = self._fuse_weight(fill, runtime, config)
                 appearance = self.embedder(raw)       # colour histogram before CLAHE
                 similarity = cosine(appearance, reference.embedding)

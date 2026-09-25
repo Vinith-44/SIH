@@ -2,8 +2,8 @@
 
 ByteTrack via `supervision` (MIT).  Motion only, no appearance features - that is
 both the cheap choice and the privacy choice (N7: no re-identification, ever).
-Track IDs are session-random and never leave the process except as integers in
-events.
+Track IDs are session-random (`SessionIdTracker`: a secret random offset per
+run) and never leave the process except as integers in events.
 
 The legacy greedy centroid tracker (audit S2) is deliberately not ported: a fixed
 100 px matching radius means one thing at 480p and another at 1080p, it has no
@@ -18,7 +18,8 @@ synthetic clips, not for real footage.
 from __future__ import annotations
 
 import inspect
-from dataclasses import dataclass, field
+import secrets
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 
@@ -229,13 +230,52 @@ class SimpleTracker(Tracker):
         self._next_id = 1
 
 
-def build_tracker(config, fallback: bool = False) -> Tracker:
-    """`config` is a `storemind.core.config.TrackerConfig`."""
+ID_OFFSET_MIN = 1_000_000
+ID_OFFSET_MAX = 1_000_000_000
+
+
+class SessionIdTracker(Tracker):
+    """Adds a secret random offset, drawn once per session, to every track id.
+
+    The trackers number tracks 1, 2, 3, ... from the start of each run, so
+    "track 17" would mean the 17th person of *every* day.  With the offset,
+    numbers from one run cannot be lined up with another's (CLAUDE.md
+    privacy rules: session-random track ids).  Within a run the ids stay unique
+    and stable, which is all counting, queues and zones need.  Always positive
+    and far above the beam fallback's `track = -1`.
+    """
+
+    def __init__(self, inner: Tracker, offset: int | None = None) -> None:
+        self.inner = inner
+        self.offset = (offset if offset is not None
+                       else ID_OFFSET_MIN + secrets.randbelow(ID_OFFSET_MAX - ID_OFFSET_MIN))
+
+    def update(self, detections: list[Detection]) -> list[Track]:
+        tracks = self.inner.update(detections)
+        return [replace(t, track_id=t.track_id + self.offset) for t in tracks]
+
+    def reset(self) -> None:
+        reset = getattr(self.inner, "reset", None)
+        if reset is not None:
+            reset()
+
+    def __getattr__(self, name: str):
+        # `impl`, `kind` and anything else the evaluation reads come from the real tracker.
+        if name == "inner":
+            raise AttributeError(name)
+        return getattr(self.inner, name)
+
+
+def build_tracker(config, fallback: bool = False, id_offset: int | None = None) -> Tracker:
+    """`config` is a `storemind.core.config.TrackerConfig`.
+
+    The tracker is wrapped in `SessionIdTracker`: `id_offset=None` draws a random
+    offset (the normal case); tests may pass a fixed one."""
     kind = getattr(config, "type", "bytetrack")
     if fallback or kind == "simple":
-        return SimpleTracker()
+        return SessionIdTracker(SimpleTracker(), id_offset)
     try:
-        return TRACKER_CLASSES[kind](
+        inner: Tracker = TRACKER_CLASSES[kind](
             track_activation_threshold=config.track_activation_threshold,
             lost_track_buffer=config.lost_track_buffer,
             minimum_matching_threshold=config.minimum_matching_threshold,
@@ -244,4 +284,5 @@ def build_tracker(config, fallback: bool = False) -> Tracker:
             minimum_consecutive_frames=getattr(config, "minimum_consecutive_frames", 1),
         )
     except ImportError:
-        return SimpleTracker()
+        inner = SimpleTracker()
+    return SessionIdTracker(inner, id_offset)

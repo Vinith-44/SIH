@@ -15,11 +15,16 @@ import json
 import logging
 import sys
 import threading
+import typing
 from datetime import datetime
 from pathlib import Path
 
-from .core.config import CameraConfig, load_config
+from .core.config import CameraConfig, DetectorConfig, load_config
 from .pipeline import Pipeline
+
+
+# Taken from the config schema, so the CLI can never offer fewer backends than a config file can use.
+DETECTOR_BACKENDS = list(typing.get_args(DetectorConfig.model_fields["backend"].annotation))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -35,7 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
                         help="treat sources as live cameras (wall clock) instead of replay")
     parser.add_argument("--realtime", action="store_true",
                         help="replay a file at its real speed instead of as fast as possible")
-    parser.add_argument("--backend", default=None, choices=["ultralytics", "litert", "onnx", "scripted", "stub"])
+    parser.add_argument("--backend", default=None, choices=DETECTOR_BACKENDS)
     parser.add_argument("--model", default=None, help="detector weights path")
     parser.add_argument("--imgsz", type=int, default=None, help="detector input size")
     parser.add_argument("--conf", type=float, default=None, help="detection confidence threshold")

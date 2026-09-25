@@ -27,7 +27,7 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from ..core.events import Event
+from ..core.events import Event, EventType, make_event
 
 log = logging.getLogger(__name__)
 STATIC = Path(__file__).resolve().parent / "static"
@@ -85,7 +85,7 @@ class Hub:
                 self.unregister(socket)
 
 
-def snapshot(pipeline) -> dict[str, Any]:
+def snapshot(pipeline, panels=None) -> dict[str, Any]:
     """Everything the dashboard needs in one object."""
     config = pipeline.config
     entries = exits = 0
@@ -165,6 +165,8 @@ def snapshot(pipeline) -> dict[str, Any]:
         # opens a VideoWriter, not because it is reset.
         "video_bytes_stored": pipeline.health.video_bytes_stored,
         "events_emitted": pipeline.events_emitted,
+        # M7 platform panels: camera health, sensor node, hardware, privacy, reorder list.
+        "platform": panels.snapshot(pipeline) if panels is not None else None,
     }
 
 
@@ -175,6 +177,10 @@ def create_app(pipeline, hub: Hub | None = None) -> FastAPI:
     app.state.hub = hub
 
     pipeline.bus.subscribe_all(hub.publish)
+    from .panels import PlatformPanels
+
+    panels = PlatformPanels().attach(pipeline.bus)
+    app.state.panels = panels
 
     @app.on_event("startup")
     async def _bind() -> None:
@@ -186,7 +192,7 @@ def create_app(pipeline, hub: Hub | None = None) -> FastAPI:
 
     @app.get("/api/state")
     def state() -> JSONResponse:
-        return JSONResponse(snapshot(pipeline))
+        return JSONResponse(snapshot(pipeline, panels))
 
     @app.get("/api/events")
     def events(limit: int = 50, type: str | None = None) -> JSONResponse:
@@ -217,6 +223,14 @@ def create_app(pipeline, hub: Hub | None = None) -> FastAPI:
             pipeline.store.ack_alert(alert_id)
         except Exception:
             pass
+        # Tell other processes too (the sensor bridge service turns the tower LED
+        # off): the same alert, re-published with ack=true.
+        for entry in pipeline.alerts.log:
+            if entry.alert_id == alert_id:
+                pipeline.bus.publish(make_event(ts=pipeline.clock.now(), store=pipeline.config.store,
+                                                node=pipeline.config.node, type=EventType.ALERT,
+                                                data=entry.model_copy(update={"ack": True})))
+                break
         return JSONResponse({"ok": ok, "alert_id": alert_id})
 
     @app.post("/api/restock")
@@ -236,6 +250,66 @@ def create_app(pipeline, hub: Hub | None = None) -> FastAPI:
             return FileResponse(out, media_type="image/png")
         raise HTTPException(404, "no heatmap for that camera")
 
+    # --- M10: Ask your store + daily summary (docs/ASK.md section 6) ------- #
+    from datetime import date as _date
+
+    from .ask_api import AskService
+
+    asker = AskService(pipeline.config.storage.db_path)
+    app.state.asker = asker
+
+    @app.get("/api/ask")
+    def ask_store(q: str, today: str | None = None) -> JSONResponse:
+        """Plain `def`: FastAPI runs it in a worker thread, so a slow model never
+        blocks the event loop.  The answer always carries its SQL and rows."""
+        if not q.strip():
+            raise HTTPException(400, "empty question")
+        try:
+            day = _date.fromisoformat(today) if today else None
+            return JSONResponse(asker.ask(q, day))
+        except FileNotFoundError as error:
+            raise HTTPException(503, "no events stored yet") from error
+        except ValueError as error:
+            raise HTTPException(400, str(error)) from error
+
+    @app.get("/api/summary")
+    def summary(day: str | None = None, lang: str = "en") -> JSONResponse:
+        try:
+            return JSONResponse(asker.summary(day or _date.today().isoformat(), lang))
+        except FileNotFoundError as error:
+            raise HTTPException(503, "no events stored yet") from error
+        except ValueError as error:
+            raise HTTPException(400, str(error)) from error
+
+    @app.get("/api/platform")
+    def platform() -> JSONResponse:
+        """Camera health, sensor node, hardware, privacy and reorder panels (M7)."""
+        return JSONResponse(panels.snapshot(pipeline))
+
+    @app.get("/api/reorder")
+    def reorder() -> JSONResponse:
+        data = panels.snapshot(pipeline)["reorder"]
+        return JSONResponse(data)
+
+    @app.post("/api/node/{command}")
+    def node_command(command: str, pattern: str | None = None, angle: int | None = None,
+                     slot: str | None = None, grams: int | None = None) -> JSONResponse:
+        """Test the sensor node from the dashboard: LED / BUZZER / SERVO / TARE / CAL.
+        Needs the bridge in this process (`run.py --sensors`); on the Pi use MQTT cmd/*."""
+        bridge = getattr(pipeline, "sensor_bridge", None)
+        if bridge is None:
+            raise HTTPException(409, "no sensor bridge in this process")
+        from ..sensors.bridge import command_line_fields
+
+        payload = {k: v for k, v in {"pattern": pattern, "angle": angle, "slot": slot,
+                                     "grams": grams}.items() if v is not None}
+        try:
+            msg_type, fields = command_line_fields(command.upper(), payload)
+        except (KeyError, ValueError, TypeError) as error:
+            raise HTTPException(400, f"bad command: {error}") from error
+        queued = bridge.submit(msg_type, fields)
+        return JSONResponse({"queued": queued, "line_type": msg_type, "fields": fields})
+
     @app.get("/api/health")
     def health() -> JSONResponse:
         data = pipeline.health.last
@@ -245,7 +319,7 @@ def create_app(pipeline, hub: Hub | None = None) -> FastAPI:
     async def websocket(socket: WebSocket) -> None:
         await hub.register(socket)
         try:
-            await socket.send_text(json.dumps({"type": "STATE", "data": snapshot(pipeline)}))
+            await socket.send_text(json.dumps({"type": "STATE", "data": snapshot(pipeline, panels)}))
             while True:
                 await socket.receive_text()   # keepalive / ignore client chatter
         except WebSocketDisconnect:

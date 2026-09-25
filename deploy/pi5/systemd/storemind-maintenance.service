@@ -1,0 +1,17 @@
+# Nightly: delete raw events past storage.retention_days, checkpoint the WAL,
+# optimize, VACUUM when a quarter of the file is free (storemind/store/maintenance.py).
+[Unit]
+Description=StoreMind database maintenance
+
+[Service]
+Type=oneshot
+User=storemind
+Group=storemind
+WorkingDirectory=/opt/storemind/storemind
+ExecStart=/opt/storemind/storemind/.venv/bin/python -m storemind.store.maintenance --config /etc/storemind/store.yaml
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/storemind

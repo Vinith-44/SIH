@@ -1,0 +1,30 @@
+# StoreMind STM32 serial bridge: /dev/storemind-mcu <-> MQTT (docs/SENSOR_BRIDGE.md).
+# Also drives the node's LED / buzzer from ALERT events (alerts/tower.py).
+[Unit]
+Description=StoreMind sensor bridge (STM32 over UART)
+Wants=mosquitto.service
+After=mosquitto.service dev-storemind\x2dmcu.device
+# Restart when the USB-UART / header UART device reappears.
+BindsTo=dev-storemind\x2dmcu.device
+
+[Service]
+Type=notify
+NotifyAccess=main
+User=storemind
+Group=storemind
+SupplementaryGroups=dialout
+WorkingDirectory=/opt/storemind/storemind
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-/etc/storemind/storemind.env
+ExecStart=/opt/storemind/storemind/.venv/bin/python -m storemind.sensors.bridge --config /etc/storemind/store.yaml --port /dev/storemind-mcu --stats-every 300
+Restart=always
+RestartSec=3
+WatchdogSec=30
+MemoryMax=300M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

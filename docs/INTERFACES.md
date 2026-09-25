@@ -65,6 +65,7 @@ camera by `sensors.mems_nodes`). Wire integers are scaled back to real units by 
 | `WEIGHT` | `node, slot, grams, stable` | `$W` | B bridge → A fusion (weight gated by SHELF_MOTION) |
 | `NODE_HEALTH` | `node, uptime_s, free_heap, min_stack_words, i2c_err, uart_err, crc_err, reset_cause, link: up\|down` | `$H` + bridge counters | B bridge → health panel |
 | `CAMERA_HEALTH` | `cam, state: ok\|stale\|reconnecting\|tampered\|dark, fps, lag_ms?, reconnects` | — | B ingest → health panel + A (skip analytics on bad frames) |
+| `PROMO_STATE` | `promo, zone, active, window_s, passers_by?, stoppers?, stop_rate?, dwell_mean_s?, dwell_median_s?, dwell_total_s?, picks?, put_backs?, units_picked?` | — | A promo (analytics/promo.py, one per promo zone per window; counts null while `active: false`, picks null with no load cell on the linked slot) → dashboard + ask |
 
 Direction on the bus is lower-case (`in`/`out`, like `ENTRY`/`EXIT`); on the wire it is `IN`/`OUT`.
 
@@ -118,6 +119,12 @@ Topic: `storemind/bvrit-demo/pi5-01/entrance/CAMERA_HEALTH`
 {"v": 2, "id": "3f2a9c0e5b7d4e1f8a6b2c9d0e1f2a3b", "ts": "2026-09-24T18:04:11.250000+05:30", "store": "bvrit-demo", "node": "pi5-01", "cam": "entrance", "type": "CAMERA_HEALTH", "data": {"cam": "entrance", "state": "ok", "fps": 9.8, "lag_ms": 120.0, "reconnects": 0}}
 ```
 
+Topic: `storemind/bvrit-demo/pi5-01/aisle/PROMO_STATE` (illustrative values, not a measurement)
+
+```json
+{"v": 2, "id": "3f2a9c0e5b7d4e1f8a6b2c9d0e1f2a3b", "ts": "2026-09-24T18:05:00+05:30", "store": "bvrit-demo", "node": "pi5-01", "cam": "aisle", "type": "PROMO_STATE", "data": {"promo": "Diwali offer", "zone": "promo-endcap", "active": true, "window_s": 300.0, "passers_by": 20, "stoppers": 6, "stop_rate": 0.231, "dwell_mean_s": 11.2, "dwell_median_s": 9.5, "dwell_total_s": 67.2, "picks": 2, "put_backs": 0, "units_picked": 3}}
+```
+
 Topic: `storemind/bvrit-demo/pi5-01/_/HEALTH` (illustrative values, not a measurement)
 
 ```json
@@ -141,10 +148,12 @@ Client: **paho-mqtt 2.x** (`paho-mqtt>=2,<3`), always built as
 
 ### 3.2 QoS and retain per event type (`core/bus.py`: `QOS1_TYPES`, `RETAINED_TYPES`)
 
-- **QoS 1** (must not be lost): `ENTRY, EXIT, SERVICE_DONE, SLOT_STATE, ALERT, BEAM_CROSS, SHELF_MOTION`.
+- **QoS 1** (must not be lost): `ENTRY, EXIT, SERVICE_DONE, SLOT_STATE, ALERT, BEAM_CROSS, SHELF_MOTION, PROMO_STATE` (a window's counts are not repeated by the next one).
 - **QoS 0** (states, the next message replaces them): everything else.
 - **Retained** (a dashboard that connects late still gets the current value):
-  `QUEUE_STATE, SLOT_STATE, HEALTH, NODE_HEALTH, CAMERA_HEALTH, ENVIRONMENT`.
+  `QUEUE_STATE, SLOT_STATE, HEALTH, NODE_HEALTH, CAMERA_HEALTH, ENVIRONMENT, PROMO_STATE`.
+  The topic is per camera, so with several counters, slots or promo zones on one camera only
+  the last message of that type is retained.
 
 ### 3.3 Liveness (Last Will)
 

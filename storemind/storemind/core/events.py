@@ -57,6 +57,8 @@ class EventType(str, Enum):
     NODE_HEALTH = "NODE_HEALTH"
     # --- schema v2: camera ingest ------------------------------------------ #
     CAMERA_HEALTH = "CAMERA_HEALTH"
+    # --- promotions (additive; docs/PROMO.md) ------------------------------- #
+    PROMO_STATE = "PROMO_STATE"
 
 
 class SlotState(str, Enum):
@@ -285,6 +287,30 @@ class CameraHealthData(_Payload):
     reconnects: int = 0
 
 
+class PromoStateData(_Payload):
+    """One promotion zone over one time window (published at the window's end;
+    the window is [ts - window_s, ts)).
+
+    Counts are for people who *finished* their pass or stop in the window, so
+    summing windows never double-counts.  All counts are None while the promo is
+    outside its dates (`active: false`).  This measures attention and pick-ups,
+    not sales: nothing here is linked to billing."""
+
+    promo: str                          # promo_name from the config (zone name if unset)
+    zone: str
+    active: bool
+    window_s: float
+    passers_by: int | None = None       # came within the approach band, stayed < min_dwell_s
+    stoppers: int | None = None         # stayed >= min_dwell_s inside the zone
+    stop_rate: float | None = None      # stoppers / (passers_by + stoppers); None if nobody came near
+    dwell_mean_s: float | None = None   # over stoppers in this window
+    dwell_median_s: float | None = None
+    dwell_total_s: float | None = None  # sum over stoppers: a day's mean = sum(dwell_total_s) / sum(stoppers)
+    picks: int | None = None            # PICKUP pick at the linked slot; None = no load cell linked
+    put_backs: int | None = None
+    units_picked: int | None = None
+
+
 PAYLOADS: dict[EventType, type[_Payload]] = {
     EventType.ENTRY: EntryExitData,
     EventType.EXIT: EntryExitData,
@@ -307,6 +333,7 @@ PAYLOADS: dict[EventType, type[_Payload]] = {
     EventType.WEIGHT: WeightData,
     EventType.NODE_HEALTH: NodeHealthData,
     EventType.CAMERA_HEALTH: CameraHealthData,
+    EventType.PROMO_STATE: PromoStateData,
 }
 
 

@@ -20,7 +20,7 @@ EXAMPLES = re.findall(r"Topic: `([^`]+)`[^\n]*\n\n```json\n(.*?)\n```", TEXT, fl
 def test_every_v2_type_has_an_example():
     types = {json.loads(body)["type"] for _, body in EXAMPLES}
     v2 = {"SHELF_MOTION", "CAMERA_MOUNT", "BEAM_CROSS", "PRESENCE", "ENVIRONMENT", "WEIGHT",
-          "NODE_HEALTH", "CAMERA_HEALTH"}
+          "NODE_HEALTH", "CAMERA_HEALTH", "PROMO_STATE"}
     assert v2 <= types
 
 

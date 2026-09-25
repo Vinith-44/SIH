@@ -275,3 +275,12 @@ Commands and results:
   - Config keys no code reads: `cameras[].infer_size`, `forecast.horizon_min`, `shelf.detector_model`.
   - `shelf.method: detector|hybrid` do nothing: the pipeline passes no detector to the shelf engine.
   - `run.py --backend` choices lack `litert_qnn` / `ort_qnn` (config works).
+## 2026-09-25 - Session-random track IDs (branch `a/track-ids`, stacked on `a/m11-docs`)
+
+- `tracking/tracker.py`: `build_tracker()` wraps every tracker in `SessionIdTracker`, which adds a secret random
+  offset (Python `secrets`, 1e6..1e9) drawn once per run. IDs used to be 1, 2, 3, ... every run, so "track 17"
+  meant the 17th person of every day; CLAUDE.md requires session-random IDs. Within a run IDs stay unique and
+  stable, and are always positive (the beam fallback uses -1).
+- `tests/test_track_ids.py` (3 tests). Full suite: 477 passed.
+- RESULTS.md regenerated: no measured number changed (only timestamp, commit id and ~1% laptop-speed noise).
+- docs/PRIVACY_DPDP.md updated to describe the new behaviour.

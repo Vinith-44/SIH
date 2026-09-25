@@ -27,7 +27,7 @@ what is stored, change this page in the same PR.
 |---|---|---|---|
 | events (ENTRY/EXIT, ZONE_VISIT, QUEUE_STATE, SLOT_STATE, PICKUP, ALERT, ...) | SQLite `events` table | `storage.retention_days` (default 30), then deleted | no: counts, times, zone names and track numbers |
 | per-minute totals | SQLite `agg_minute` | kept (no individual rows) | no |
-| track numbers | inside events | as the event | no. A track number is ByteTrack's counter: it restarts every run and is linked to nothing. (CLAUDE.md asks for *random* per-session ids; today they are sequential. Randomising them is a small follow-up, see the handoff.) |
+| track numbers | inside events | as the event | no. Each run adds a secret random offset (drawn with Python's `secrets`) to the tracker's numbers, so a number from one day cannot be matched to another day's (`SessionIdTracker` in `tracking/tracker.py`, tested in `tests/test_track_ids.py`) |
 | one calibration snapshot per camera | path in `cameras[].reference_frame` (`tools/calibrate.py`) | until recalibration | **possibly**: take it when nobody is in view |
 | shelf reference crops | `cameras[].shelves[].reference_dir` | until the next restock | shelf slots only; taken only when no person box overlaps the shelf |
 | floor heatmap image | written on request | overwritten | no: an aggregate colour map |
@@ -68,7 +68,7 @@ Ram fills in the concrete steps for these in docs/SETUP_PI5.md and docs/CCTV_ONB
 
 - *"Do you store video?"* No. Frames are processed in memory and dropped. The dashboard shows a live counter of
   video bytes stored, and it is 0.
-- *"Can you track a person across days?"* No. There is no appearance model and track numbers restart every run.
+- *"Can you track a person across days?"* No. There is no appearance model, and every run numbers its tracks from a new secret random offset.
 - *"What about staff?"* They are excluded from customer counts by zone or by a printed badge, never identified.
 - *"Does the AI send data anywhere?"* No. The language model runs on the box, and it only writes a database query.
 - *"How long do you keep data?"* 30 days of events by default (configurable); after that only per-minute totals.

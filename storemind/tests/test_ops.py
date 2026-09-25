@@ -99,3 +99,21 @@ def test_soak_slope_maths():
     assert slope([0, 1800, 3600], [100, 105, 110]) == pytest.approx(10.0)
     assert slope([0], [1]) == 0.0
     assert spec is not None
+
+
+def test_bridge_reports_its_threads_for_the_watchdog():
+    from storemind.core.bus import EventBus
+    from storemind.core.config import StoreMindConfig
+    from storemind.sensors.bridge import SensorBridge
+    from storemind.sensors.simulator import LoopbackTransport, VirtualNode
+
+    config = StoreMindConfig()
+    config.sensors.enabled = True
+    bridge = SensorBridge(config, EventBus(), LoopbackTransport(VirtualNode()))
+    assert not bridge.threads_alive()            # not started: no pings
+    bridge.start()
+    try:
+        assert bridge.threads_alive()
+    finally:
+        bridge.stop()
+    assert not bridge.threads_alive()

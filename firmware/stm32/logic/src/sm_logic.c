@@ -222,3 +222,41 @@ bool sm_deb_update(sm_deb_t *d, bool level, uint32_t now_ms)
     }
     return false;
 }
+
+/* ------------------------------------------------------------------------- */
+/* I2C bus recovery                                                           */
+/* ------------------------------------------------------------------------- */
+
+sm_i2c_recover_t sm_i2c_recover(const sm_i2c_pins_t *p, uint8_t *clocks_used)
+{
+    uint8_t clocks = 0;
+    p->sda(p->ctx, true);                    /* release SDA (open drain) */
+    p->scl(p->ctx, true);
+    p->delay_half_bit(p->ctx);
+    if (!p->read_scl(p->ctx)) {
+        *clocks_used = 0;
+        return SM_I2C_SCL_STUCK;
+    }
+    bool was_free = p->read_sda(p->ctx);
+    while (!p->read_sda(p->ctx) && clocks < 9u) {
+        p->scl(p->ctx, false);
+        p->delay_half_bit(p->ctx);
+        p->scl(p->ctx, true);
+        p->delay_half_bit(p->ctx);
+        clocks++;
+    }
+    *clocks_used = clocks;
+    if (!p->read_sda(p->ctx)) {
+        return SM_I2C_SDA_STUCK;
+    }
+    /* STOP: SDA low -> high while SCL is high. */
+    p->scl(p->ctx, false);
+    p->delay_half_bit(p->ctx);
+    p->sda(p->ctx, false);
+    p->delay_half_bit(p->ctx);
+    p->scl(p->ctx, true);
+    p->delay_half_bit(p->ctx);
+    p->sda(p->ctx, true);
+    p->delay_half_bit(p->ctx);
+    return was_free ? SM_I2C_ALREADY_FREE : SM_I2C_RECOVERED;
+}

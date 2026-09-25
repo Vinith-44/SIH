@@ -33,6 +33,7 @@ import argparse
 import json
 import logging
 import queue
+from collections import deque
 import socket
 import threading
 import time
@@ -307,6 +308,7 @@ class SensorBridge:
         self.latest: dict[str, dict[str, Any]] = {}     # "WEIGHT:A1" -> payload + ts
         self.patterns = {"LED": "OFF", "BUZZER": "OFF"}
         self.on_command_result: Callable[[CommandResult], None] | None = None
+        self.acks: deque[tuple[int, str, int]] = deque(maxlen=64)   # every $K seen (HIL test)
 
     # ------------------------------------------------------------------ #
     # Lifecycle
@@ -563,6 +565,7 @@ class SensorBridge:
             return seq
 
     def _resolve(self, cmd_seq: int, status: str, code: int) -> None:
+        self.acks.append((cmd_seq, status, code))
         with self._pending_lock:
             pending = self._pending.get(cmd_seq)
         if pending is None:

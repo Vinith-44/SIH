@@ -164,5 +164,34 @@ Every `$H` reports the free heap and the smallest stack high-water mark, so the 
 the STM32F411 "Black Pill" (128 KB RAM, same toolchain; change the device package, startup file and
 linker script).
 
+## 5. I2C1: one bus, one mutex, and recovery (M5d)
+
+The MEMS task and the Environment task share I2C1 (MPU6050 0x68, BH1750 0x23, BME280 0x76).
+`App/Src/i2c_bus.c` puts every transfer behind one FreeRTOS mutex (50 ms wait, then the attempt is
+counted as an error instead of blocking a task).
+
+The STM32F1 I2C peripheral can lock with BUSY stuck after a glitch, typically a slave left holding
+SDA low in the middle of a byte (the F103 errata sheet ES096 has an I2C section on BUSY lock-ups;
+research/26 §4.6 lists it as a Blue Pill gotcha). After any failed transfer, or when BUSY is already set before one starts:
+
+1. de-init I2C1 and take PB6/PB7 as open-drain GPIO;
+2. `sm_i2c_recover()` (portable, host-tested with a fake bus): clock SCL up to 9 times until the
+   slave lets go of SDA, then send a STOP (NXP UM10204 §3.1.16);
+3. pulse `SWRST` in `I2C1->CR1` (clears the BUSY flag the pins alone cannot) and re-init;
+4. retry the transfer once.
+
+`$H.i2c_err` counts failed transfers **and** recoveries, so a loose I2C cable shows on the dashboard
+before it becomes a dead sensor. SCL shorted low or SDA still low after 9 clocks are reported as
+failures (hardware faults) and the sensor stays "not measured" (empty `$E` fields) instead of hanging.
+
+## 6. HIL test (M5d)
+
+`storemind/tools/hil_test.py` talks to the board through the same `SensorBridge` the pipeline uses:
+heartbeat, every command's `$K` code (including a deliberately corrupted line → `ERR 1`), command
+round-trip time, which sensor lines arrive while you exercise them, and an N-minute framing soak.
+It writes `storemind/storemind/eval/results/platform/hil_<label>.json` for RESULTS.md. `--simulate`
+runs the same checks against the simulator (bucket C); `--port` runs them on the board (bucket B).
+Steps: HARDWARE_TODO.md "M5".
+
 ## Still to come in this file
-I2C mutex + bus recovery (M5d), MEMS state machine (M6).
+MEMS state machine (M6).

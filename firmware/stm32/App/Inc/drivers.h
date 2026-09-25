@@ -16,7 +16,8 @@ extern TIM_HandleTypeDef htim3;
 extern IWDG_HandleTypeDef hiwdg;
 
 /* ---- I2C1 bus ---------------------------------------------------------- */
-void i2c_bus_init(void);
+void i2c_bus_init(void);                                     /* creates the bus mutex */
+extern volatile uint32_t g_i2c_recoveries;
 bool i2c_bus_read(uint8_t addr7, uint8_t reg, uint8_t *buf, uint16_t len);
 bool i2c_bus_write(uint8_t addr7, uint8_t reg, uint8_t value);
 bool i2c_bus_cmd(uint8_t addr7, uint8_t cmd);                 /* one command byte, no register */

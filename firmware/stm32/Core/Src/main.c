@@ -177,7 +177,6 @@ static void MX_I2C1_Init(void)
     if (HAL_I2C_Init(&hi2c1) != HAL_OK) {
         Error_Handler();
     }
-    i2c_bus_init();
 }
 
 /* Servo: TIM3 CH1 (PA6), 1 MHz tick, 20 ms period. */

@@ -105,3 +105,29 @@ Needs: the Pi set up per `docs/SETUP_PI5.md`, and a database with a day of event
    (docs/ASK.md section 3).
 4. If a question takes more than about 20 s, the dashboard should offer the daily summary and the keyword rules
    only (`--model ''`), and say so.
+
+## M5 - sensor node bring-up and HIL test (Ram's board; not run yet)
+
+Needs: the Blue Pill, an ST-Link (or a USB-UART for the serial bootloader), a USB-UART adapter for
+the laptop (3.3 V), the sensors from `docs/WIRING.md`. The code is built and tested on the PC and in
+CI; **nothing below has been run on hardware yet**, so every number from here is the first real one.
+
+1. Build and flash (docs/FIRMWARE.md §4): `cmake --build build/fw`, then `st-flash write
+   build/fw/storemind_node.bin 0x8000000` (clone chip: the OpenOCD `CPUTAPID` line). The PC13 LED
+   must blink once a second (health task alive, watchdog fed).
+2. Wire only USART1 first: PA9 -> adapter RX, PA10 -> adapter TX, GND -> GND. Open any serial
+   monitor at 115200: a `$H,...` line every 10 s, `$E` every 5 s.
+3. `python tools/hil_test.py --port COM5 --minutes 10` (from `storemind/`). Expect all PASS; it
+   writes `storemind/storemind/eval/results/platform/hil_<date>_board.json` (bucket B). Paste the
+   summary into `logs/WORK_LOG_B.md`.
+4. Add the sensors one by one and re-run phase 3 (`--minutes 0 --sensor-seconds 60`) while
+   exercising each: HX711 (`$W`, then `cmd/TARE` and `cmd/CAL` with a 500 g weight), PIR (`$P`),
+   beams (walk both ways: `$D IN` / `$D OUT`), restock button (`$R`), BH1750 (cover it: lux drops),
+   BME280 (breathe on it: RH rises).
+5. I2C recovery check: while the node runs, short SDA to GND for 1 s with a jumper, release. The
+   next `$H` must show `i2c_err` increased and `$E` must come back by itself within 10 s (no reset).
+6. Watchdog check: `reset_cause` is `POR` after power-up. Hold the reset button: `PIN`. (A stuck
+   task shows up as `IWDG`.)
+7. Full HIL: `python tools/hil_test.py --port COM5 --minutes 60` - acceptance for M5 is **0 framing
+   errors in 1 h** and every command answered first time.
+8. On the Pi (after M8): the same with `--port /dev/storemind-mcu`.

@@ -4,6 +4,7 @@ If you want to … read …
 
 | I want to… | Read |
 |---|---|
+| read about the whole system in one place (software, hardware, results, open problems) | [TECHNICAL_DOCUMENT.md](TECHNICAL_DOCUMENT.md) · [PDF](StoreMind_Technical_Document.pdf) |
 | understand the whole system | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | know what events/topics exist, or change one | [INTERFACES.md](INTERFACES.md) (contract) |
 | talk to the STM32 over serial | [PROTOCOL.md](PROTOCOL.md) (contract) |

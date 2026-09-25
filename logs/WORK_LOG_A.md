@@ -301,3 +301,29 @@ Commands and results:
 - `run.py`: `--backend` choices come from `DetectorConfig`, so the QNN backends are offered.
 - `tests/test_config_semantics.py` (10 tests). Full suite: 487 passed. The demo replay summary is identical to
   before (defaults unchanged), so RESULTS.md is not regenerated. docs/CONFIG_REFERENCE.md updated.
+## 2026-09-25 - Technical document + PDF (branch `a/tech-doc`)
+
+- **Found:** #23 and #24 were stacked PRs that merged into their base branches (`a/m11-docs`, `a/track-ids`) after
+  #22 had merged into master, so neither reached master. Opened #25 (`a/track-ids` → master; merges cleanly, no new
+  code). Lesson: retarget a stacked PR to master before merging it once its base has merged.
+- docs/TECHNICAL_DOCUMENT.md (13 chapters, as requested):
+  - every software module and every hardware part, each with a status label ("working and tested", "built, not yet
+    connected", "in progress", "designed, not yet built");
+  - details checked against the code on this branch, docs/INTERFACES.md, docs/PROTOCOL.md, research/23, 24, 26 and
+    the unmerged hardware branch `origin/b/m6-mems` (Ram's firmware, bridge, wiring; described as in progress);
+  - every measured number is taken from RESULTS.md, with its data label;
+  - corrections found while checking: dashboard behaviour (3 s refresh plus WebSocket push); DB queue drops are not
+    counted (listed as open); the Hindi/Telugu voice clips do not exist yet; the ESP32 camera and the motion gate are
+    designed only.
+- tools/build_docs_pdf.py:
+  - markdown-it → HTML → Mermaid (jsDelivr) → Edge via Playwright (`channel="msedge"`) → A4 PDF with footer page
+    numbers;
+  - the table of contents gets its page numbers by reading the PDF bookmarks with pypdf and printing again;
+  - the build fails if any Mermaid diagram fails to parse.
+- Checked every page: pages rendered to PNG with pypdfium2 (the Read tool needs poppler, which is not installed).
+  - Fixed tiny left-to-right diagrams (now top-down, natural size, shrink-only).
+  - Fixed a table cell broken by `|` inside code.
+  - Turned the reliability diagram into Table 4.1.
+  - Final: 53 pages, all diagrams and tables readable.
+- Dev dependencies added to the venv only (not requirements.txt): playwright, pypdf, pypdfium2.
+- Tests: 487 passed; ruff clean on the new script.

@@ -3,9 +3,13 @@
 Overwritten every session. Read `CLAUDE.md` first, then this.
 
 ## Open PRs (Ram approves)
+- **Carry #23/#24 to master** (#25, `a/track-ids` → master): the stacked PRs #23 and #24 merged into their base
+  branches, not master. Master lacks random track IDs and the contract fixes until #25 merges.
+- **Technical document** (`a/tech-doc`, based on `a/track-ids`, PR against master): docs/TECHNICAL_DOCUMENT.md +
+  docs/StoreMind_Technical_Document.pdf (53 pages) + tools/build_docs_pdf.py.
 - **#22 M11 docs, Person A part** (`a/m11-docs`): ARCHITECTURE, CONFIG_REFERENCE (+ test), EVALUATION,
   PRIVACY_DPDP, DEMO_RUNBOOK, TEAM_GUIDE §2, HARDWARE_TODO "M10", a RESULTS label fix.
-- **Track IDs** (`a/track-ids`, on #22) and **contract fixes** (`a/fix-contract`, on track-ids): see below.
+- #22, #23, #24 merged, but #23/#24 only into their base branches: see #25.
 - Merged: PR-0, M1, M3, M4, M6, M8, M9, M10 and their contracts (#1-#5, #7, #9-#16, #19, #21), plus Ram's M2 and CI
   (#6, #8, #17, #18, #20).
 

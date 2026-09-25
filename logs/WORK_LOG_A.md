@@ -284,3 +284,20 @@ Commands and results:
 - `tests/test_track_ids.py` (3 tests). Full suite: 477 passed.
 - RESULTS.md regenerated: no measured number changed (only timestamp, commit id and ~1% laptop-speed noise).
 - docs/PRIVACY_DPDP.md updated to describe the new behaviour.
+## 2026-09-25 - Contract fixes for the M11 findings (branch `a/fix-contract`, stacked on `a/track-ids`)
+
+- `core/config.py`:
+  - `cameras[].infer_size` is now `int | None = None` (null = `detector.imgsz`);
+  - `forecast.horizon_min` removed; a `before` validator drops it from old configs with a warning;
+  - `shelf.method` detector/hybrid require `shelf.detector_model`.
+- `pipeline.py`:
+  - one detector per distinct `infer_size`, shared; a fixed-shape model with another input size → SystemExit;
+  - an injected detector is never replaced;
+  - builds the product detector for `shelf.method != reference` and passes it to every ShelfEngine.
+- `analytics/shelf.py`:
+  - `hybrid` implemented (`combine_fills`: mean fill, confidence capped by agreement);
+  - detector/hybrid without a detector → ValueError;
+  - the docstring no longer cites a training notebook that does not exist.
+- `run.py`: `--backend` choices come from `DetectorConfig`, so the QNN backends are offered.
+- `tests/test_config_semantics.py` (10 tests). Full suite: 487 passed. The demo replay summary is identical to
+  before (defaults unchanged), so RESULTS.md is not regenerated. docs/CONFIG_REFERENCE.md updated.

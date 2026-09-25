@@ -74,6 +74,7 @@ class CameraPipeline:
 
     shelf_method: str = "reference"
     shelf_embed_threshold: float = 0.75
+    shelf_detector: Detector | None = None  # product detector for shelf.method detector / hybrid
     check_now: bool = False               # M6: a shelf was just touched - look now
     # Per-camera detector override.  Normally every camera shares one model (one
     # model in memory is the whole point on a Pi), but the scripted backend
@@ -137,6 +138,7 @@ class CameraPipeline:
                 ],
                 store=self.store, node=self.node, cam=cfg.name,
                 method=self.shelf_method, embed_threshold=self.shelf_embed_threshold,
+                detector=self.shelf_detector,
                 reference_dir=next((s.reference_dir for s in cfg.shelves if s.reference_dir), None),
             )
 
@@ -191,6 +193,11 @@ class Pipeline:
         self.bus.subscribe_all(self.store.handle)
 
         self.detector = detector or build_detector(config.detector)
+        # An injected detector (tests, cached evaluation replays) is used for every
+        # camera: a per-camera `infer_size` must not silently swap it for a real model.
+        self._detector_injected = detector is not None
+        self._sized_detectors: dict[int, Detector] = {}
+        self.shelf_detector = self._build_shelf_detector()
         self.sensor_bridge = sensor_bridge
         self.alerts: AlertManager = build_alert_manager(
             config.alerts, config.store, config.node, bridge=sensor_bridge)
@@ -353,15 +360,29 @@ class Pipeline:
                 scheduler=FpsScheduler(fps), store=self.config.store, node=self.config.node,
                 shelf_method=self.config.shelf.method,
                 shelf_embed_threshold=self.config.shelf.embed_threshold,
+                shelf_detector=self.shelf_detector,
                 detector=self._per_camera_detector(cam)))
             self.health.camera_ok[cam.name] = True
 
     # ------------------------------------------------------------------ #
-    def _per_camera_detector(self, cam: CameraConfig) -> Detector | None:
-        """Give each camera its own scripted detector when replaying synthetic
-        clips, so a multi-camera config can be exercised without any model."""
-        if self.config.detector.backend != "scripted":
+    def _build_shelf_detector(self) -> Detector | None:
+        """The product detector behind `shelf.method: detector | hybrid`: the
+        `detector` settings with `shelf.detector_model`, class 0 = product."""
+        shelf = self.config.shelf
+        if shelf.method == "reference" or self.config.detector.backend in ("scripted", "stub"):
             return None
+        return build_detector(self.config.detector.model_copy(
+            update={"model": shelf.detector_model, "person_class": 0}))
+
+    def _per_camera_detector(self, cam: CameraConfig) -> Detector | None:
+        """A camera's own detector, or None to share the pipeline's.
+
+        * scripted replays: each camera replays the detections file beside its clip,
+          so a multi-camera config can be exercised without any model;
+        * `infer_size` different from `detector.imgsz`: one detector per size,
+          shared by the cameras that ask for it."""
+        if self.config.detector.backend != "scripted":
+            return self._sized_detector(cam)
         if self.config.detector.model:
             return None                      # one explicit file for every camera
         candidate = Path(str(cam.source))
@@ -373,6 +394,21 @@ class Pipeline:
         from .inference.scripted import ScriptedDetector
 
         return ScriptedDetector(detections)
+
+    def _sized_detector(self, cam: CameraConfig) -> Detector | None:
+        size = cam.infer_size
+        if (size is None or size == self.config.detector.imgsz or self._detector_injected
+                or self.config.detector.backend == "stub"):
+            return None
+        if size not in self._sized_detectors:
+            detector = build_detector(self.config.detector.model_copy(update={"imgsz": size}))
+            actual = getattr(detector, "input_size", size)
+            if actual != size:
+                raise SystemExit(
+                    f"camera {cam.name}: infer_size {size}, but {self.config.detector.model} has a fixed "
+                    f"{actual} px input.  Export the model at {size} or remove infer_size.")
+            self._sized_detectors[size] = detector
+        return self._sized_detectors[size]
 
     def _emit(self, event: Event) -> None:
         self.events_emitted += 1

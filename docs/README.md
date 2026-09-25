@@ -9,6 +9,7 @@ If you want to … read …
 | talk to the STM32 over serial | [PROTOCOL.md](PROTOCOL.md) (contract) |
 | edit a config file | [CONFIG_REFERENCE.md](CONFIG_REFERENCE.md) |
 | connect a shop's DVR/NVR | [CCTV_ONBOARDING.md](CCTV_ONBOARDING.md) |
+| run the serial bridge or the STM32 simulator | [SENSOR_BRIDGE.md](SENSOR_BRIDGE.md) |
 | wire the sensor node | [WIRING.md](WIRING.md) |
 | build and flash the firmware | [FIRMWARE.md](FIRMWARE.md) |
 | set up a fresh Raspberry Pi 5 | [SETUP_PI5.md](SETUP_PI5.md) |

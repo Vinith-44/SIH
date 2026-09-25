@@ -26,3 +26,29 @@ Measured (commands run from the repo root):
   sm_proto.o text 4088 B, sm_cobs_crc.o text 724 B, data/bss 0.
 - `ruff check .` clean; `pytest -q` (from storemind/) → 479 passed, 6 skipped.
 - Not measured: the CMake/ctest path locally (no gcc on this laptop); CI runs it.
+
+## 2026-09-25 — M5b: serial bridge + STM32 simulator (`b/m5b-bridge`)
+
+Roadmap step 4. Docs: `docs/SENSOR_BRIDGE.md`.
+
+- `sensors/bridge.py`: reader thread (pyserial or TCP), LineAssembler + protocol.py validation,
+  $-line -> v2 events (WEIGHT, SHELF_MOTION, CAMERA_MOUNT, BEAM_CROSS, PRESENCE, ENVIRONMENT,
+  NODE_HEALTH, `$R` -> SENSOR restock), crc/uart/lost counters, link-down watchdog (30 s) + ALERT,
+  command worker with $K wait and 3 retries, $S time sync, ClockMapper (min-latency offset),
+  reconnect with backoff, MQTT command listener (cmd/* -> ack), CLI.
+- `sensors/simulator.py`: VirtualNode (periodic $H/$E/$W, 16 scenarios, command handling with
+  PROTOCOL.md $K codes, noise injection), LoopbackTransport, TCP SimulatorServer, CLI.
+- `health/systemd.py`: dependency-free sd_notify (READY / WATCHDOG), no-op off systemd.
+- `tools/e2e_sensors.py` + CI step; `configs/sensors_sim.yaml`.
+- Found and fixed while testing: bad-checksum lines were counted twice (crc_err and lost);
+  a restarted node inflated `lost` by its seq restart (seq tracking now resets on reconnect/reboot).
+
+Measured (bucket C, simulator):
+- `pytest -q tests/test_bridge.py tests/test_simulator.py` → 42 passed. Includes 1 simulated hour
+  over a clean link: 0 crc_err, 0 uart errors, 0 lost, 360 NODE_HEALTH; and a simulated 2-pack pick
+  that Vinith's `ShelfInteractionEngine` turns into exactly one `PICKUP action=pick units=2`.
+- `python tools/e2e_sensors.py` → 6/6 checks (every sensor event type in SQLite, LED command OK in
+  1 attempt, reconnect after the simulator was killed, crc_err=0 rx_err=0 lost=0).
+- CLI run: simulator `--speed 10` + `bridge --config configs/sensors_sim.yaml --no-mqtt --print --seconds 6`
+  → 83 lines, 58 events, 0 errors, $S acked.
+- `ruff check .` clean; `pytest -q` → 521 passed, 6 skipped.

@@ -1,0 +1,86 @@
+{
+  "title": "Chaos test - laptop with fake CCTV + STM32 simulator",
+  "bucket": "C",
+  "device": "ASUS Vivobook 15 (Ram's laptop)",
+  "note": "PASS. 40 s outages; pipeline + bridge + API in one process (scripts/harness.py).",
+  "rows": [
+    {
+      "metric": "camera: streams running before the fault",
+      "value": "yes",
+      "target": "yes"
+    },
+    {
+      "metric": "camera: other cameras kept decoding during a 40 s outage",
+      "value": "yes",
+      "target": "yes"
+    },
+    {
+      "metric": "camera: killed camera reported not-ok",
+      "value": "yes",
+      "target": "yes"
+    },
+    {
+      "metric": "camera: frames again after the stream came back",
+      "value": "yes, 5.0 s",
+      "target": "yes"
+    },
+    {
+      "metric": "camera: pipeline alive",
+      "value": "yes",
+      "target": "yes"
+    },
+    {
+      "metric": "serial: link reported down (no $H for 30 s)",
+      "value": "yes",
+      "target": "yes"
+    },
+    {
+      "metric": "serial: NODE_HEALTH link=down published",
+      "value": "1",
+      "target": ">= 1"
+    },
+    {
+      "metric": "serial: SENSOR_LINK alert raised",
+      "value": "yes",
+      "target": "yes"
+    },
+    {
+      "metric": "serial: bridge reconnected by itself",
+      "value": "yes (2 reconnects)",
+      "target": "yes"
+    },
+    {
+      "metric": "serial: pipeline alive",
+      "value": "yes",
+      "target": "yes"
+    },
+    {
+      "metric": "disk: writes during a 40 s 'disk full'",
+      "value": "0",
+      "target": "0 (dropped, not crashing)"
+    },
+    {
+      "metric": "disk: pipeline alive while the disk was full",
+      "value": "yes",
+      "target": "yes"
+    },
+    {
+      "metric": "disk: writing resumed afterwards",
+      "value": "yes",
+      "target": "yes"
+    },
+    {
+      "metric": "mqtt: broker restart",
+      "value": "not run (no broker on the laptop)",
+      "target": "run on the Pi"
+    },
+    {
+      "metric": "lens: camera covered",
+      "value": "not run (needs a real camera)",
+      "target": "run on the Pi"
+    }
+  ],
+  "commands": [
+    "python scripts/chaos.py --label 20260925_laptop"
+  ]
+}

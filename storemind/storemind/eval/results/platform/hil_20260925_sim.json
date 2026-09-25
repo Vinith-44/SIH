@@ -1,0 +1,176 @@
+{
+  "title": "HIL test - STM32 simulator (storemind.sensors.simulator)",
+  "bucket": "C",
+  "device": "STM32 simulator (storemind.sensors.simulator)",
+  "note": "PASS. Started 2026-09-25T02:26:59+05:30 on simulator; 60 min framing soak (simulator at 60x, so 3600 MCU minutes).",
+  "rows": [
+    {
+      "metric": "heartbeat ($H) within 15 s",
+      "value": "yes",
+      "target": "yes"
+    },
+    {
+      "metric": "reset cause at start",
+      "value": "POR",
+      "target": ""
+    },
+    {
+      "metric": "free heap (bytes)",
+      "value": "6116",
+      "target": ""
+    },
+    {
+      "metric": "smallest stack high-water mark (words)",
+      "value": "38",
+      "target": "> 16"
+    },
+    {
+      "metric": "$K for time sync",
+      "value": "OK 0 (1 attempt(s))",
+      "target": "OK 0"
+    },
+    {
+      "metric": "$K for LED ON",
+      "value": "OK 0 (1 attempt(s))",
+      "target": "OK 0"
+    },
+    {
+      "metric": "$K for LED SLOW",
+      "value": "OK 0 (1 attempt(s))",
+      "target": "OK 0"
+    },
+    {
+      "metric": "$K for LED ALERT",
+      "value": "OK 0 (1 attempt(s))",
+      "target": "OK 0"
+    },
+    {
+      "metric": "$K for LED OFF",
+      "value": "OK 0 (1 attempt(s))",
+      "target": "OK 0"
+    },
+    {
+      "metric": "$K for buzzer FAST",
+      "value": "OK 0 (1 attempt(s))",
+      "target": "OK 0"
+    },
+    {
+      "metric": "$K for buzzer OFF",
+      "value": "OK 0 (1 attempt(s))",
+      "target": "OK 0"
+    },
+    {
+      "metric": "$K for text mode",
+      "value": "OK 0 (1 attempt(s))",
+      "target": "OK 0"
+    },
+    {
+      "metric": "$K for binary mode refused (PROTOCOL.md 6 not final)",
+      "value": "ERR 3 (1 attempt(s))",
+      "target": "ERR 3"
+    },
+    {
+      "metric": "$K for unknown sensor",
+      "value": "ERR 3 (1 attempt(s))",
+      "target": "ERR 3"
+    },
+    {
+      "metric": "$K for servo (off by default)",
+      "value": "ERR 4 (1 attempt(s))",
+      "target": "ERR 4"
+    },
+    {
+      "metric": "corrupted command answered with ERR 1",
+      "value": "yes",
+      "target": "yes"
+    },
+    {
+      "metric": "command round trip p50 (ms)",
+      "value": "41.5",
+      "target": ""
+    },
+    {
+      "metric": "command round trip p95 (ms)",
+      "value": "43.6",
+      "target": "< 200"
+    },
+    {
+      "metric": "commands answered first time",
+      "value": "50/50",
+      "target": "all"
+    },
+    {
+      "metric": "WEIGHT events during phase 3",
+      "value": "571",
+      "target": ""
+    },
+    {
+      "metric": "ENVIRONMENT events during phase 3",
+      "value": "240",
+      "target": ""
+    },
+    {
+      "metric": "PRESENCE events during phase 3",
+      "value": "14",
+      "target": ""
+    },
+    {
+      "metric": "BEAM_CROSS events during phase 3",
+      "value": "42",
+      "target": ""
+    },
+    {
+      "metric": "SENSOR events during phase 3",
+      "value": "7",
+      "target": ""
+    },
+    {
+      "metric": "SHELF_MOTION events during phase 3",
+      "value": "158",
+      "target": ""
+    },
+    {
+      "metric": "CAMERA_MOUNT events during phase 3",
+      "value": "6",
+      "target": ""
+    },
+    {
+      "metric": "soak lines received",
+      "value": "238525",
+      "target": ""
+    },
+    {
+      "metric": "soak checksum errors",
+      "value": "0",
+      "target": "0"
+    },
+    {
+      "metric": "soak framing/field errors",
+      "value": "0",
+      "target": "0"
+    },
+    {
+      "metric": "soak lost lines (seq gaps)",
+      "value": "0",
+      "target": "0"
+    },
+    {
+      "metric": "reconnects during the run",
+      "value": "0",
+      "target": "0"
+    },
+    {
+      "metric": "MCU-side uart_err at the end",
+      "value": "1",
+      "target": ""
+    },
+    {
+      "metric": "MCU-side i2c_err at the end",
+      "value": "0",
+      "target": ""
+    }
+  ],
+  "commands": [
+    "python tools/hil_test.py --simulate --minutes 60 --speed 60 --rtt-rounds 50 --sensor-seconds 20 --label 20260925_sim"
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "title": "Soak test 1.0 h - ASUS Vivobook 15 (Ram's laptop)",
+  "bucket": "S",
+  "device": "ASUS Vivobook 15 (Ram's laptop)",
+  "note": "PASS. Started 2026-09-25T08:19:30+05:30. Pipeline live on 3 RTSP cameras from fake CCTV (MediaMTX + ffmpeg looping the synthetic clips) + STM32 simulator + bridge + API in one process; detector `stub` (no inference: a platform soak, not a vision soak). Per-sample CSV: eval/results/platform/soak_laptop_1h_20260925.csv.",
+  "rows": [
+    {
+      "metric": "duration",
+      "value": "1.00 h",
+      "target": "1 h"
+    },
+    {
+      "metric": "RSS start / end",
+      "value": "280.0 / 157.6 MB",
+      "target": ""
+    },
+    {
+      "metric": "RSS growth after warm-up",
+      "value": "-62.9 MB/h",
+      "target": "< 20 MB/h"
+    },
+    {
+      "metric": "threads (min / max after warm-up)",
+      "value": "117 / 119",
+      "target": "stable"
+    },
+    {
+      "metric": "OS handles start / end",
+      "value": "576 / 587",
+      "target": ""
+    },
+    {
+      "metric": "DB + WAL growth",
+      "value": "+2.60 MB/h",
+      "target": "report"
+    },
+    {
+      "metric": "events stored",
+      "value": "5249",
+      "target": ""
+    },
+    {
+      "metric": "serial link crc / framing / lost / reconnects",
+      "value": "0 / 0 / 0 / 0",
+      "target": "0 / 0 / 0"
+    },
+    {
+      "metric": "pipeline alive all run",
+      "value": "PASS",
+      "target": "PASS"
+    },
+    {
+      "metric": "API answered every sample",
+      "value": "PASS",
+      "target": "PASS"
+    },
+    {
+      "metric": "bridge connected every sample",
+      "value": "PASS",
+      "target": "PASS"
+    },
+    {
+      "metric": "RSS growth after warm-up < 20 MB/h",
+      "value": "PASS",
+      "target": "PASS"
+    },
+    {
+      "metric": "thread count stable (max - min <= 3)",
+      "value": "PASS",
+      "target": "PASS"
+    },
+    {
+      "metric": "serial link: 0 crc / 0 framing / 0 lost",
+      "value": "PASS",
+      "target": "PASS"
+    },
+    {
+      "metric": "events every sample",
+      "value": "PASS",
+      "target": "PASS"
+    }
+  ],
+  "commands": [
+    "python scripts/soak.py --hours 1 --every 60 --label laptop_1h_20260925"
+  ]
+}

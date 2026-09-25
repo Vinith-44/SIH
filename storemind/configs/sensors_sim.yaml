@@ -1,0 +1,34 @@
+# Sensor node only: the serial bridge talking to the STM32 simulator (M5).
+#
+#   python -m storemind.sensors.simulator --port 7777 --scenario demo
+#   python -m storemind.sensors.bridge --config configs/sensors_sim.yaml --print
+#
+# On the Pi, copy the `sensors:` block into the store config and set
+# `port: /dev/storemind-mcu`, `tcp: null` (docs/SETUP_PI5.md).
+
+store: bvrit-demo
+node: pi5-01
+
+sensors:
+  enabled: true
+  port: COM5                  # ignored while tcp is set
+  baud: 115200
+  tcp: 127.0.0.1:7777         # the simulator; null = real serial port
+  cell_map:
+    shelf-a/A1: "1"           # load-cell channel 1 sits under slot A1
+    shelf-a/A2: "2"
+  node:
+    id: stm32-01
+    enabled_sensors: [hx711, mems, ir_beam, pir, bh1750, bme280, buzzer, led, restock_button]
+    protocol_mode: txt
+    time_sync_s: 60
+    cmd_timeout_ms: 200
+    cmd_retries: 3
+  mems_nodes:
+    - {id: m1, role: shelf, shelf: shelf-a, slot: A1}
+    - {id: m2, role: camera_mount, cam: entrance}
+
+mqtt:
+  enabled: false              # true on the Pi: the bridge runs as its own service
+  host: 127.0.0.1
+  port: 1883

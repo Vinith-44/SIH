@@ -1,0 +1,15 @@
+# /etc/udev/rules.d/99-storemind-mcu.rules - a stable name for the STM32 sensor node.
+# The bridge opens /dev/storemind-mcu; TAG+="systemd" gives storemind-bridge.service a
+# device unit to bind to, so the bridge starts when the node appears and stops when it goes.
+#
+# Default: Pi 5 header UART (GPIO14 TXD pin 8, GPIO15 RXD pin 10) = UART0 = /dev/ttyAMA0,
+# enabled by dtoverlay=uart0-pi5 (scripts/pi5_boot_config.py).  NOT /dev/serial0, which on a
+# Pi 5 is the separate 3-pin debug header (UART10).
+KERNEL=="ttyAMA0", SYMLINK+="storemind-mcu", GROUP="dialout", MODE="0660", TAG+="systemd"
+
+# Using a USB-UART adapter instead?  Delete the line above and uncomment the one for your chip
+# (check with: udevadm info -a -n /dev/ttyUSB0 | grep -m2 -E 'idVendor|idProduct').
+#SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", SYMLINK+="storemind-mcu", GROUP="dialout", MODE="0660", TAG+="systemd"
+#SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", SYMLINK+="storemind-mcu", GROUP="dialout", MODE="0660", TAG+="systemd"
+#SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", SYMLINK+="storemind-mcu", GROUP="dialout", MODE="0660", TAG+="systemd"
+# (10c4:ea60 = CP2102, 1a86:7523 = CH340, 0403:6001 = FT232R)

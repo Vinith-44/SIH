@@ -1,6 +1,6 @@
 # StoreMind - measured results
 
-Generated 2026-09-25 02:26 by `python -m storemind.eval.run_all`.
+Generated 2026-09-25 06:49 by `python -m storemind.eval.run_all`.
 
 Every number on this page came from a command printed beside it. Nothing here was typed by hand. If a measurement could not be made, the row says so.
 
@@ -28,7 +28,7 @@ This follows `research/09b_TEST_DATA_VALIDITY.md`. A simulation can only ever sh
 | cpu_threads | 16 |
 | ram_gb | 16.9 |
 | opencv | 5.0.0 |
-| git_commit | 9351340 |
+| git_commit | 22e266f |
 
 ## Results
 
@@ -385,11 +385,11 @@ These are laptop numbers and the Pi 5 must be measured on the Pi. They also move
 
 | metric | result | target |
 |---|---|---|
-| ultralytics yolo11n.pt @320 (CPU) | 28.36 ms/frame &middot; 34.79 FPS &middot; 4.34 detections/frame | - |
-| ultralytics yolo11n.pt @416 (CPU) | 44.2 ms/frame &middot; 22.43 FPS &middot; 4.44 detections/frame | - |
-| ultralytics yolo11n.pt @640 (CPU) | 100.35 ms/frame &middot; 9.93 FPS &middot; 4.73 detections/frame | - |
-| ultralytics yolo26n.pt @640 (CPU) | 98.55 ms/frame &middot; 10.11 FPS &middot; 4.73 detections/frame | - |
-| litert efficientdet_lite0_coco_legacy.tflite @320 (CPU) | 20.52 ms/frame &middot; 47.83 FPS &middot; 4.2 detections/frame | - |
+| ultralytics yolo11n.pt @320 (CPU) | 33.38 ms/frame &middot; 29.56 FPS &middot; 4.34 detections/frame | - |
+| ultralytics yolo11n.pt @416 (CPU) | 50.29 ms/frame &middot; 19.72 FPS &middot; 4.44 detections/frame | - |
+| ultralytics yolo11n.pt @640 (CPU) | 116.08 ms/frame &middot; 8.58 FPS &middot; 4.73 detections/frame | - |
+| ultralytics yolo26n.pt @640 (CPU) | 106.28 ms/frame &middot; 9.37 FPS &middot; 4.73 detections/frame | - |
+| litert efficientdet_lite0_coco_legacy.tflite @320 (CPU) | 21.38 ms/frame &middot; 45.83 FPS &middot; 4.2 detections/frame | - |
 
 <details><summary>commands</summary>
 

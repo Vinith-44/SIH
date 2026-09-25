@@ -115,6 +115,32 @@
     </div>
   </section>
 
+  <section class="grid2">
+    <div class="panel" id="panel-ask">
+      <h2>Ask your store</h2>
+      <form id="ask-form" class="askform">
+        <input id="ask-q" type="text" maxlength="300" autocomplete="off"
+               placeholder="How many people came in today?">
+        <button type="submit">Ask</button>
+      </form>
+      <p class="muted small">Answers come only from this shop's own data; the query and its rows are always shown.</p>
+      <div id="ask-answer"></div>
+    </div>
+    <div class="panel" id="panel-summary">
+      <h2>Daily summary</h2>
+      <form id="summary-form" class="askform">
+        <input id="summary-day" type="date">
+        <select id="summary-lang">
+          <option value="en">English</option>
+          <option value="te">తెలుగు</option>
+          <option value="hi">हिन्दी</option>
+        </select>
+        <button type="submit">Show</button>
+      </form>
+      <pre id="summary-text" class="summary muted">-</pre>
+    </div>
+  </section>
+
   <section class="panel" id="panel-reorder">
     <h2>Reorder list</h2>
     <ul class="reorder" id="reorder"><li class="empty">Nothing to reorder</li></ul>

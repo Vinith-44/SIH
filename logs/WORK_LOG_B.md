@@ -179,3 +179,17 @@ Roadmap step 10. Docs: `docs/SETUP_PI5.md`, HARDWARE_TODO.md "M8-deploy".
   `deploy/pi5/chrony-storemind.conf` (serve the LAN, `local stratum 10 orphan`, makestep, rtcsync).
 - Checks: `bash -n` on all three scripts; `bash scripts/pi5_hardware.sh --dry-run`; `pytest tests/test_pi5_setup.py`
   → 6 passed. **Not run on a Pi** (none here): HARDWARE_TODO.md "M8-deploy".
+
+## 2026-09-25 — Ram's part of M9 + M10 (`b/m9-m10-platform`)
+
+What HANDOFF_A / docs/ASK.md §6 / deploy/qualcomm asked of Ram:
+- M10: `api/ask_api.py` + `GET /api/ask`, `GET /api/summary` (read-only connection per worker thread, plain
+  `def` endpoints = off the event loop, backends probed every 5 min); dashboard panel "Ask your store"
+  (query + rows always shown, model-written warning, notes) and "Daily summary" (en/te/hi);
+  `STOREMIND_LLM_MODEL` / `STOREMIND_LLM_HOST` env (no contract change; the optional `llm:` config section
+  is left for a contract PR if Vinith wants it); `install_pi5.sh --with-llm` (Ollama + model);
+  `scripts/ask_latency.py` (per-question time through the API, bucket S).
+- M9: hardware panel shows the detector's `accelerator`; OPERATIONS.md §8 maps the Pi deploy files to the
+  QCS6490 (what applies, what is Pi-only, UART device name, power not via vcgencmd).
+- Checks: `pytest tests/test_ask_api.py` → 7 passed (rules backend, 3 languages, 400/503 cases, the latency
+  script against a live uvicorn). Pi latency: not measured (HARDWARE_TODO "M10", step 5 added to Vinith's section).

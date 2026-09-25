@@ -15,6 +15,7 @@
 #   6. Mosquitto: local-only listener with a generated password
 #   7. journald size cap, systemd units, nightly maintenance timer; enable + (re)start
 #   8. the Pi hardware steps (header UART, udev symlink, chrony, RTC): --pi-hardware (M8)
+#   9. "Ask your store" local model (Ollama + qwen2.5-coder:1.5b): --with-llm (M10, optional)
 # Secrets are generated on the box and never printed or committed.
 set -euo pipefail
 
@@ -27,10 +28,12 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DRY_RUN=0
 SKIP_APT=0
 PI_HARDWARE=0
+WITH_LLM=0
+LLM_MODEL="qwen2.5-coder:1.5b"
 
 usage() {
   sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
-  echo "Options: --dry-run  --skip-apt  --pi-hardware  --prefix DIR"
+  echo "Options: --dry-run  --skip-apt  --pi-hardware  --with-llm  --prefix DIR"
 }
 
 while [ $# -gt 0 ]; do
@@ -38,6 +41,7 @@ while [ $# -gt 0 ]; do
     --dry-run) DRY_RUN=1 ;;
     --skip-apt) SKIP_APT=1 ;;
     --pi-hardware) PI_HARDWARE=1 ;;
+    --with-llm) WITH_LLM=1 ;;
     --prefix) PREFIX="$2"; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown option: $1" >&2; usage; exit 2 ;;
@@ -219,6 +223,24 @@ elif [ "$PI_HARDWARE" = 1 ]; then
   echo "    scripts/pi5_hardware.sh not in this checkout yet (M8)"
 else
   echo "    skipped: run again with --pi-hardware on the Pi (docs/SETUP_PI5.md)"
+fi
+
+# --------------------------------------------------------------------------- #
+say "9 (optional) Ask your store: local model"
+if [ "$WITH_LLM" = 1 ]; then
+  if ! command -v ollama >/dev/null 2>&1; then
+    # Ollama's official Linux installer (https://ollama.com/download/linux); it sets up its own service.
+    if [ "$DRY_RUN" = 1 ]; then
+      echo "    [dry-run] curl -fsSL https://ollama.com/install.sh | sh"
+    else
+      curl -fsSL https://ollama.com/install.sh | sh
+    fi
+  fi
+  run ollama pull "$LLM_MODEL"
+  echo "    then time it: python scripts/ask_latency.py --label pi5_${LLM_MODEL//[:.]/_}"
+else
+  echo "    skipped: the dashboard answers with the keyword rules; add --with-llm for the local model"
+  echo "    (or set STOREMIND_LLM_MODEL=off in $ETC/storemind.env to stop probing for it)"
 fi
 
 say "done"

@@ -105,6 +105,11 @@ Needs: the Pi set up per `docs/SETUP_PI5.md`, and a database with a day of event
    (docs/ASK.md section 3).
 4. If a question takes more than about 20 s, the dashboard should offer the daily summary and the keyword rules
    only (`--model ''`), and say so.
+5. (Ram, platform side) The same through the dashboard, for every question in the set:
+   `sudo ./scripts/install_pi5.sh --with-llm` installs Ollama + the model, then with the dashboard running
+   `python scripts/ask_latency.py --url http://127.0.0.1:8000 --label pi5_qwen1.5b` writes p50 / p95 per
+   question to `eval/results/platform/ask_latency_pi5_qwen1.5b.json`. To switch the dashboard to rules only
+   (step 4), set `STOREMIND_LLM_MODEL=off` in `/etc/storemind/storemind.env` and restart the pipeline.
 
 ## M5 - sensor node bring-up and HIL test (Ram's board; not run yet)
 
